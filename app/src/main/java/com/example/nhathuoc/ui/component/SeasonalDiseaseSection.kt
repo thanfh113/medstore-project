@@ -44,38 +44,39 @@ data class DiseaseProduct(
 
 val defaultDiseases = listOf(
     DiseaseSample(
-        tabLabel = "Cúm",
-        description = "Cúm khiến cơ thể mệt mỏi, dễ đuối sức, đặc biệt ở người lớn tuổi và trẻ nhỏ. Tiêm vắc xin cúm hàng năm và tăng cường đề kháng có thể giúp giảm nguy cơ mắc bệnh.",
+        tabLabel = "Phẫu thuật",
+        description = "Vật tư phẫu thuật chính hãng, đảm bảo tiêu chuẩn vô trùng tuyệt đối. Từ kim chỉ khâu đến dụng cụ vi phẫu — đáp ứng mọi nhu cầu phòng mổ hiện đại.",
         products = listOf(
-            DiseaseProduct(id=201, Icons.Outlined.Vaccines, Color(0xFF00838F), Color(0xFFE0F7FA), "Trà thảo mộc Good Night Datino", "45.000đ", null, null, "Mua 2 tặng 1"),
-            DiseaseProduct(id=202, Icons.Outlined.LocalFlorist, Color(0xFF2E7D32), Color(0xFFE8F5E9), "Bột Tía Tô Nguyên Chất Datino (15 gói)", "86.250đ", "115.000đ", 25, null),
-            DiseaseProduct(id=203, Icons.Outlined.MedicalServices, Color(0xFF1565C0), Color(0xFFE3F2FD), "Thuốc cúm Tamiflu 75mg", "320.000đ", "380.000đ", 16, null),
+            DiseaseProduct(id=201, Icons.Outlined.MedicalServices, Color(0xFF1565C0), Color(0xFFE3F2FD), "Kim chỉ khâu Vicryl 2-0 (hộp 12 sợi)", "320.000đ", "380.000đ", 16, null),
+            DiseaseProduct(id=202, Icons.Outlined.CleanHands, Color(0xFF00838F), Color(0xFFE0F7FA), "Găng tay phẫu thuật vô trùng (hộp 50 đôi)", "185.000đ", "220.000đ", 16, null),
+            DiseaseProduct(id=203, Icons.Outlined.HealthAndSafety, Color(0xFF2E7D32), Color(0xFFE8F5E9), "Dao mổ dùng một lần No.22 (hộp 100)", "145.000đ", null, null, "Bán chạy"),
         )
     ),
     DiseaseSample(
-        tabLabel = "Sốt xuất huyết",
-        description = "Sốt xuất huyết lây qua muỗi Aedes, gây sốt cao đột ngột và có thể dẫn đến biến chứng nguy hiểm. Diệt muỗi và bảo vệ cơ thể là cách phòng bệnh hiệu quả nhất.",
+        tabLabel = "Chẩn đoán",
+        description = "Thiết bị chẩn đoán chính xác, chuẩn WHO. Máy đo huyết áp, SpO2, đường huyết — hỗ trợ theo dõi sức khỏe tại bệnh viện và tại nhà.",
         products = listOf(
-            DiseaseProduct(id=204, Icons.Outlined.Opacity, Color(0xFFB71C1C), Color(0xFFFFEBEE), "Oresol bù điện giải", "25.000đ", null, null, null),
-            DiseaseProduct(id=205, Icons.Outlined.MedicalServices, Color(0xFF1565C0), Color(0xFFE3F2FD), "Paracetamol 500mg", "15.000đ", null, null, null),
+            DiseaseProduct(id=204, Icons.Outlined.MonitorHeart, Color(0xFFB71C1C), Color(0xFFFFEBEE), "Máy đo huyết áp điện tử Omron HEM-7156T", "1.250.000đ", "1.500.000đ", 17, null),
+            DiseaseProduct(id=205, Icons.Outlined.Fingerprint, Color(0xFF00838F), Color(0xFFE0F7FA), "Máy đo SpO2 ngón tay CMS50D", "320.000đ", "400.000đ", 20, null),
         )
     ),
     DiseaseSample(
-        tabLabel = "Viêm phổi",
-        description = "Viêm phổi do vi khuẩn hoặc virus gây ra, cần điều trị sớm để tránh biến chứng nặng. Tăng cường miễn dịch và tiêm phòng là biện pháp phòng ngừa tốt nhất.",
+        tabLabel = "Băng bó",
+        description = "Băng gạc y tế vô trùng tiêu chuẩn TCVN, phù hợp cho vết thương hở, phẫu thuật và chăm sóc tại nhà. Đa dạng kích cỡ và chất liệu.",
         products = listOf(
-            DiseaseProduct(id=206, Icons.Outlined.Air, Color(0xFF0277BD), Color(0xFFE1F5FE), "Vitamin C 1000mg tăng đề kháng", "89.000đ", "120.000đ", 26, null),
-            DiseaseProduct(id=207, Icons.Outlined.Shield, Color(0xFF6A1B9A), Color(0xFFF3E5F5), "Kẽm hữu cơ tăng miễn dịch", "145.000đ", "180.000đ", 19, null),
+            DiseaseProduct(id=206, Icons.Outlined.HealthAndSafety, Color(0xFF0277BD), Color(0xFFE1F5FE), "Gạc vô trùng 10x10cm (hộp 100 gói)", "89.000đ", "120.000đ", 26, null),
+            DiseaseProduct(id=207, Icons.Outlined.Shield, Color(0xFF6A1B9A), Color(0xFFF3E5F5), "Băng dính y tế micropore 2.5cm (cuộn)", "45.000đ", "55.000đ", 18, null),
         )
     ),
     DiseaseSample(
-        tabLabel = "Viêm amidan trẻ",
-        description = "Viêm amidan thường gặp ở trẻ em, gây đau họng và khó nuốt. Giữ vệ sinh răng miệng và tránh tiếp xúc nguồn lây là cách phòng bệnh hiệu quả.",
+        tabLabel = "Bảo hộ",
+        description = "Trang bị bảo hộ cá nhân (PPE) đạt chuẩn CE & ISO: khẩu trang N95, quần áo phòng dịch, kính bảo hộ — bảo vệ nhân viên y tế và bệnh nhân.",
         products = listOf(
-            DiseaseProduct(id=208, Icons.Outlined.ChildCare, Color(0xFF00838F), Color(0xFFE0F7FA), "Siro ho trẻ em Prospan", "185.000đ", "220.000đ", 16, null),
+            DiseaseProduct(id=208, Icons.Outlined.Masks, Color(0xFF00838F), Color(0xFFE0F7FA), "Khẩu trang N95 3M 1860 (hộp 20 cái)", "450.000đ", "520.000đ", 13, null),
         )
     ),
 )
+
 
 @Composable
 fun SeasonalDiseaseSection(
@@ -90,7 +91,7 @@ fun SeasonalDiseaseSection(
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "Bệnh phổ biến mùa này",
+            text = "Vật tư theo chuyên khoa",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF1A1A1A),

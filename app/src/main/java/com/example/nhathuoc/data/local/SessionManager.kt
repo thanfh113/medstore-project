@@ -34,7 +34,7 @@ class SessionManager(private val context: Context) {
     suspend fun saveAuthData(
         accessToken: String,
         refreshToken: String,
-        userId: Int,
+        userId: String, // Changed to String for UUID
         fullName: String,
         phone: String,
         email: String,
@@ -43,7 +43,7 @@ class SessionManager(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[ACCESS_TOKEN_KEY] = accessToken
             preferences[REFRESH_TOKEN_KEY] = refreshToken
-            preferences[USER_ID_KEY] = userId.toString()
+            preferences[USER_ID_KEY] = userId // Store UUID directly as String
             preferences[USER_FULL_NAME_KEY] = fullName
             preferences[USER_PHONE_KEY] = phone
             preferences[USER_EMAIL_KEY] = email
@@ -62,8 +62,8 @@ class SessionManager(private val context: Context) {
     }
 
     // Get user ID
-    suspend fun getUserId(): Int? {
-        return context.dataStore.data.first()[USER_ID_KEY]?.toIntOrNull()
+    suspend fun getUserId(): String? {
+        return context.dataStore.data.first()[USER_ID_KEY]
     }
 
     // Get user info flows for reactive UI
@@ -119,7 +119,7 @@ class SessionManager(private val context: Context) {
         val preferences = context.dataStore.data.first()
         val accessToken = preferences[ACCESS_TOKEN_KEY]
         val refreshToken = preferences[REFRESH_TOKEN_KEY]
-        val userId = preferences[USER_ID_KEY]?.toIntOrNull()
+        val userId = preferences[USER_ID_KEY]
 
         return if (accessToken != null && refreshToken != null && userId != null) {
             SessionData(
@@ -139,7 +139,7 @@ class SessionManager(private val context: Context) {
 data class SessionData(
     val accessToken: String,
     val refreshToken: String,
-    val userId: Int,
+    val userId: String, // Changed to String for UUID
     val fullName: String,
     val phone: String,
     val email: String,

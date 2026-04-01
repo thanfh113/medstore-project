@@ -49,11 +49,8 @@ fun AppnavHost(navController: NavHostController) {
                 productContext  = ctx
             )
         }
-        composable("BuyMedicineScreen") {
-            BuyMedicineScreen(onBack = { navController.popBackStack() })
-        }
-        composable("VaccineScreen") {
-            VaccineScreen(onBack = { navController.popBackStack() })
+        composable("MedicalSuppliesQuoteScreen") {
+            MedicalSuppliesQuoteScreen(onBack = { navController.popBackStack() })
         }
         composable("MyOrdersScreen") {
             MyOrdersScreen(onBack = { navController.popBackStack() })
@@ -164,6 +161,12 @@ fun AppnavHost(navController: NavHostController) {
                 },
                 onReorder = { navController.popBackStack() }
             )
+        }
+        composable("CheckoutScreen") {
+            CheckoutScreen(navController = navController)
+        }
+        composable("PaymentScreen") {
+            PaymentScreen(navController = navController)
         }
         composable(
             route = "CategoryProductScreen/{categoryName}",

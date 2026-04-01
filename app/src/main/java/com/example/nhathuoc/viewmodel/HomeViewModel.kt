@@ -5,23 +5,21 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.nhathuoc.data.model.*
 import com.example.nhathuoc.data.repository.ProductRepository
-import com.example.nhathuoc.data.remote.ApiService
-import com.example.nhathuoc.data.remote.RetrofitClient
+import com.example.nhathuoc.data.repository.BannerRepository
+import com.example.nhathuoc.data.repository.CategoryRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 
 /**
  * ViewModel for Home screen operations
- * Handles banners, flash sales, best sellers, categories
+ * Handles banners, flash sales, best sellers, categories using repository pattern
  */
 class HomeViewModel(
-    private val productRepository: ProductRepository
+    private val productRepository: ProductRepository,
+    private val bannerRepository: BannerRepository,
+    private val categoryRepository: CategoryRepository
 ) : ViewModel() {
-
-    // API service for banner operations (not in repository yet)
-    private val apiService: ApiService by lazy {
-        RetrofitClient.createService<ApiService>()
-    }
 
     // UI State for banners
     private val _bannersState = MutableStateFlow<UiState<List<BannerDto>>>(UiState.Idle)
@@ -64,11 +62,13 @@ class HomeViewModel(
         loadHomeData()
     }
 
-    // Load all home screen data
+    // Load all home screen data in parallel
     fun loadHomeData() {
+        // Launch all loading operations concurrently
         loadBanners()
         loadFlashSale()
         loadBestSellers()
+        loadCategories()
         loadFeaturedProducts()
     }
 
@@ -77,18 +77,18 @@ class HomeViewModel(
         viewModelScope.launch {
             _bannersState.value = UiState.Loading
 
-            try {
-                val response = apiService.getBanners(position = "home_hero")
-
-                if (response.isSuccessful) {
-                    _bannersState.value = UiState.Success(response.body() ?: emptyList())
-                } else {
-                    _bannersState.value = UiState.Error("Không thể tải banner")
+            when (val result = bannerRepository.getActiveBanners(position = "home_hero")) {
+                is NetworkResult.Success -> {
+                    _bannersState.value = UiState.Success(result.data)
                 }
-            } catch (e: Exception) {
-                _bannersState.value = UiState.Error(
-                    e.message ?: "Có lỗi xảy ra khi tải banner"
-                )
+                is NetworkResult.Error -> {
+                    _bannersState.value = UiState.Error(result.message)
+                }
+                is NetworkResult.Exception -> {
+                    _bannersState.value = UiState.Error(
+                        result.e.message ?: "Có lỗi xảy ra khi tải banner"
+                    )
+                }
             }
         }
     }
@@ -159,54 +159,23 @@ class HomeViewModel(
         }
     }
 
-    // Load categories - simulated for now (would need category endpoint)
+    // Load categories from API
     fun loadCategories() {
         viewModelScope.launch {
             _categoriesState.value = UiState.Loading
 
-            try {
-                // Simulate category data since we don't have a dedicated endpoint
-                val mockCategories = listOf(
-                    CategoryDto(
-                        id = 1,
-                        name = "Thuốc không kê đơn",
-                        slug = "thuoc-khong-ke-don",
-                        description = "Thuốc bán tự do",
-                        icon = "medical_services",
-                        iconTint = "#2E7D32",
-                        iconBg = "#E8F5E8",
-                        createdAt = "",
-                        updatedAt = ""
-                    ),
-                    CategoryDto(
-                        id = 2,
-                        name = "TPCN",
-                        slug = "thuc-pham-chuc-nang",
-                        description = "Thực phẩm chức năng",
-                        icon = "spa",
-                        iconTint = "#2E7D32",
-                        iconBg = "#E8F5E8",
-                        createdAt = "",
-                        updatedAt = ""
-                    ),
-                    CategoryDto(
-                        id = 3,
-                        name = "Chăm sóc cá nhân",
-                        slug = "cham-soc-ca-nhan",
-                        description = "Đồ dùng chăm sóc cá nhân",
-                        icon = "face",
-                        iconTint = "#2E7D32",
-                        iconBg = "#E8F5E8",
-                        createdAt = "",
-                        updatedAt = ""
+            when (val result = categoryRepository.getTopLevelCategories()) {
+                is NetworkResult.Success -> {
+                    _categoriesState.value = UiState.Success(result.data)
+                }
+                is NetworkResult.Error -> {
+                    _categoriesState.value = UiState.Error(result.message)
+                }
+                is NetworkResult.Exception -> {
+                    _categoriesState.value = UiState.Error(
+                        result.e.message ?: "Có lỗi xảy ra khi tải danh mục"
                     )
-                )
-
-                _categoriesState.value = UiState.Success(mockCategories)
-            } catch (e: Exception) {
-                _categoriesState.value = UiState.Error(
-                    e.message ?: "Có lỗi xảy ra khi tải danh mục"
-                )
+                }
             }
         }
     }
@@ -238,13 +207,15 @@ class HomeViewModel(
  * ViewModelFactory for HomeViewModel
  */
 class HomeViewModelFactory(
-    private val productRepository: ProductRepository
+    private val productRepository: ProductRepository,
+    private val bannerRepository: BannerRepository,
+    private val categoryRepository: CategoryRepository
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
-            return HomeViewModel(productRepository) as T
+            return HomeViewModel(productRepository, bannerRepository, categoryRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

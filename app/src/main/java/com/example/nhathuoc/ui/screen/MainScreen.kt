@@ -206,7 +206,7 @@ private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Text(
-                "Tư vấn với Dược sĩ",
+                "Tư vấn Chuyên viên kỹ thuật",
                 modifier = Modifier.align(Alignment.Center),
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
@@ -237,7 +237,7 @@ private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {
                         CircleShape
                     )
             )
-            // Pharmacist icon composition
+            // Tech specialist icon composition
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     modifier = Modifier
@@ -257,14 +257,14 @@ private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left: medicine shelves icon
+                    // Left: medical device icon
                     Box(
                         modifier = Modifier
                             .size(52.dp)
                             .background(Color(0xFFE3F2FD), RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Outlined.LocalPharmacy, null, tint = ActiveGreen, modifier = Modifier.size(30.dp))
+                        Icon(Icons.Outlined.MedicalServices, null, tint = ActiveGreen, modifier = Modifier.size(30.dp))
                     }
                     // Center: headset
                     Box(
@@ -275,7 +275,7 @@ private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {
                     ) {
                         Icon(Icons.Outlined.HeadsetMic, null, tint = ActiveGreen, modifier = Modifier.size(28.dp))
                     }
-                    // Right: clipboard
+                    // Right: clipboard/report
                     Box(
                         modifier = Modifier
                             .size(52.dp)
@@ -295,7 +295,7 @@ private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {
             color = Color(0xFF444444)
         )
         Row {
-            Text("(Hoàn toàn miễn phí)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+            Text("(Miễn phí — Phản hồi trong 30 phút)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
         }
 
         Spacer(Modifier.height(20.dp))
@@ -317,7 +317,7 @@ private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {
             ) {
                 Icon(Icons.Filled.ChatBubble, null, tint = ActiveGreen, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Nhắn tin", color = ActiveGreen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Chat với ChatbotAI", color = ActiveGreen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.width(8.dp))
                 Badge(containerColor = Color(0xFFFFAB00)) {
                     Text("1", color = Color.White, fontSize = 10.sp)
@@ -327,7 +327,7 @@ private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {
 
         Spacer(Modifier.height(10.dp))
 
-        // Gọi tổng đài button
+        // Gọi hỗ trợ kỹ thuật button
         Surface(
             onClick = {},
             shape = RoundedCornerShape(50),
@@ -344,11 +344,12 @@ private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {
             ) {
                 Icon(Icons.Filled.Phone, null, tint = ActiveGreen, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Gọi tổng đài (1800 6928)", color = ActiveGreen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Gọi hỗ trợ kỹ thuật (1800 1234)", color = ActiveGreen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
+
 
 // ── Bottom bar (unchanged) ────────────────────────────────────────
 @Composable

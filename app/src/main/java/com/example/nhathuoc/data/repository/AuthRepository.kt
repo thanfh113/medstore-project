@@ -24,14 +24,18 @@ class AuthRepository(
         fullName: String,
         phone: String,
         email: String,
-        password: String
+        password: String,
+        gender: Int? = null, // Added gender parameter
+        dateOfBirth: String? = null // Added dateOfBirth parameter
     ): NetworkResult<AuthResponse> {
         return try {
             val request = RegisterRequest(
                 fullName = fullName,
                 phone = phone,
                 email = email,
-                password = password
+                password = password,
+                gender = gender,
+                dateOfBirth = dateOfBirth
             )
 
             val response = apiService.register(request)
@@ -194,7 +198,7 @@ class AuthRepository(
     fun getUserRole(): Flow<String?> = sessionManager.userRole
 
     // Get user ID synchronously (for repository operations)
-    suspend fun getUserId(): Int? = sessionManager.getUserId()
+    suspend fun getUserId(): String? = sessionManager.getUserId()
 
     // Helper function to parse error messages
     private fun parseErrorMessage(errorBody: String?): String {

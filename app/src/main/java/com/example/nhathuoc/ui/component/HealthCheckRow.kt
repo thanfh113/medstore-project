@@ -27,10 +27,10 @@ data class HealthCheckItem(
 )
 
 val defaultHealthChecks = listOf(
-    HealthCheckItem(Icons.Outlined.MonitorHeart,  "Bài kiểm tra sàng lọc\nnguy cơ tiền đái tháo đường"),
-    HealthCheckItem(Icons.Outlined.Psychology,    "Bài kiểm tra khả năng\nsuy giáp"),
-    HealthCheckItem(Icons.Outlined.Favorite,      "Đánh giá nguy cơ\ntim mạch"),
-    HealthCheckItem(Icons.Outlined.Visibility,    "Kiểm tra thị lực\ncơ bản"),
+    HealthCheckItem(Icons.Outlined.MonitorHeart,  "Hướng dẫn dùng\nmáy đo huyết áp"),
+    HealthCheckItem(Icons.Outlined.MedicalServices, "Sử dụng dụng cụ\ny tế đúng quy trình"),
+    HealthCheckItem(Icons.Outlined.HealthAndSafety, "Cách băng bó\nvết thương cơ bản"),
+    HealthCheckItem(Icons.Outlined.Masks,         "Đeo khẩu trang\nN95 đúng chuẩn"),
 )
 
 @Composable
@@ -56,14 +56,14 @@ fun HealthCheckRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Kiểm tra sức khỏe",
+                    text = "Hướng dẫn sử dụng",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Kết quả đánh giá sẽ cho bạn lời\nkhuyên xử trí phù hợp!",
+                    text = "Sử dụng đúng cách để\nđảm bảo hiệu quả và an toàn!",
                     fontSize = 12.sp,
                     color = Color.White.copy(alpha = 0.85f),
                     lineHeight = 17.sp
@@ -128,7 +128,7 @@ private fun HealthCheckCard(
             )
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "Bắt đầu",
+                text = "Xem ngay",
                 color = GreenTop,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold

@@ -143,19 +143,6 @@ val categoryScreenDataMap: Map<String, CategoryScreenData> = mapOf(
             CategoryProduct(352, "Mầm đậu nành hỗ trợ nội tiết nữ Blackmores (60 viên)", "310.000đ", "380.000đ", 18, Icons.Outlined.Woman, Color(0xFFC2185B), Color(0xFFFCE4EC)),
         )
     ),
-    "Vắc xin" to CategoryScreenData(
-        categoryName  = "Vắc xin",
-        parentTabs    = parentTabs,
-        subCategories = listOf(
-            SubCategory("Cúm mùa",  Icons.Outlined.Vaccines),
-            SubCategory("Viêm gan", Icons.Outlined.HealthAndSafety),
-            SubCategory("HPV",      Icons.Outlined.Shield),
-        ),
-        products = listOf(
-            CategoryProduct(361, "Vắc xin cúm Vaxigrip Tetra phòng cúm 4 chủng (1 liều)", "350.000đ", "420.000đ", 17, Icons.Outlined.Vaccines, Color(0xFF00838F), Color(0xFFE0F7FA)),
-            CategoryProduct(362, "Vắc xin viêm gan B Engerix-B (1 liều)", "180.000đ", "220.000đ", 18, Icons.Outlined.HealthAndSafety, Color(0xFF1565C0), Color(0xFFE3F2FD)),
-        )
-    ),
     "Chăm sóc mắt" to CategoryScreenData(
         categoryName  = "Chăm sóc mắt",
         parentTabs    = parentTabs,

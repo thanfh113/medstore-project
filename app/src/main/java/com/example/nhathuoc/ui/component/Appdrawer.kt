@@ -49,16 +49,17 @@ data class DrawerMenuItem(
 
 val defaultDrawerMenuItems = listOf(
     DrawerMenuItem("Thông báo",             badge = 3),
-    DrawerMenuItem("Thực phẩm chức năng",   children = listOf("Vitamin & Khoáng chất", "Hỗ trợ tiêu hóa", "Tăng đề kháng")),
-    DrawerMenuItem("Dược mỹ phẩm",          children = listOf("Chăm sóc da", "Chăm sóc tóc", "Nước hoa")),
-    DrawerMenuItem("Thuốc",                 children = listOf("Thuốc kê đơn", "Thuốc không kê đơn", "Thuốc đông y")),
-    DrawerMenuItem("Chăm sóc cá nhân",      children = listOf("Vệ sinh răng miệng", "Vệ sinh cơ thể")),
-    DrawerMenuItem("Thiết bị y tế",         children = listOf("Máy đo huyết áp", "Nhiệt kế", "Máy đo đường huyết")),
-    DrawerMenuItem("Tiêm chủng"),
-    DrawerMenuItem("Bệnh"),
-    DrawerMenuItem("Bệnh & Góc sức khỏe",   children = listOf("Tin tức sức khỏe", "Bệnh theo mùa", "Kiểm tra sức khỏe")),
-    DrawerMenuItem("Hệ thống nhà thuốc"),
+    DrawerMenuItem("Dụng cụ tiêm truyền",   children = listOf("Kim tiêm", "Ống xi lanh", "Dây truyền dịch", "Bướm tiêm")),
+    DrawerMenuItem("Băng gạc - Cầm máu",    children = listOf("Băng dính y tế", "Gạc vô trùng", "Băng cuộn", "Băng keo thông tấm kháng sinh")),
+    DrawerMenuItem("Thiết bị chẩn đoán",    children = listOf("Máy đo huyết áp", "Nhiệt kế y tế", "Máy đo SpO2", "Máy đo đường huyết")),
+    DrawerMenuItem("Khẩu trang - PPE",      children = listOf("Khẩu trang y tế", "Khẩu trang N95", "Quần áo bảo hộ", "Kính bảo hộ")),
+    DrawerMenuItem("Thiết bị phẫu thuật",   children = listOf("Dụng cụ vi phẫu", "Kẹp phẫu thuật", "Dây khâu", "Van cầm máu")),
+    DrawerMenuItem("Chống nhiễm khuẩn"),
+    DrawerMenuItem("Phục hồi chức năng",    children = listOf("Nạng - Xe lăn", "Dụng cụ vật lý trị liệu", "Nẹp chỉnh hình")),
+    DrawerMenuItem("Tin tức - Kiến thức",   children = listOf("Tin tức ngành", "Hướng dẫn sử dụng", "Tiêu chuẩn chất lượng")),
+    DrawerMenuItem("Hệ thống cửa hàng"),
 )
+
 
 // ── Drawer State ─────────────────────────────────────────────────
 class DrawerState {
@@ -202,9 +203,9 @@ private fun DrawerContent(
         ) {
             // Logo
             Column {
-                Text("NHÀ THUỐC", fontSize = 10.sp, color = GreenTop,
+                Text("VẬT TƯ Y TẾ", fontSize = 10.sp, color = GreenTop,
                     fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
-                Text("HELLO", fontSize = 18.sp, color = GreenTop,
+                Text("MedStore", fontSize = 18.sp, color = GreenTop,
                     fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp)
             }
             IconButton(onClick = onClose) {
@@ -288,7 +289,7 @@ private fun DrawerContent(
                 ) {
                     Icon(Icons.Outlined.Phone, null, tint = GreenTop, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Hotline tư vấn: 1800 6928", color = GreenTop,
+                    Text("Hotline hỗ trợ: 1800 1234", color = GreenTop,
                         fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 }
             }

@@ -53,7 +53,7 @@ private val accountMenuItems = listOf(
     MenuItem(Icons.Outlined.AccountCircle,    "Thông tin cá nhân"),
     MenuItem(Icons.Outlined.LocationOn,       "Quản lý sổ địa chỉ"),
     MenuItem(Icons.Outlined.CreditCard,       "Quản lý phương thức thanh toán"),
-    MenuItem(Icons.Outlined.MedicalServices,  "Đơn thuốc của tôi"),
+    MenuItem(Icons.Outlined.MedicalServices,  "Thiết bị y tế của tôi"),
 )
 
 private val aboutMenuItems = listOf(
@@ -63,7 +63,7 @@ private val aboutMenuItems = listOf(
     MenuItem(Icons.Outlined.LocalShipping,         "Chính sách đặt cọc"),
     MenuItem(Icons.Outlined.Edit,                  "Chính sách nội dung"),
     MenuItem(Icons.Outlined.Autorenew,             "Chính sách đổi trả thuốc"),
-    MenuItem(Icons.Outlined.Vaccines,              "Chính sách hoàn hủy đổi trả Vắc xin"),
+    MenuItem(Icons.Outlined.MedicalServices,      "Chính sách hoàn hủy đổi trả vật tư y tế"),
     MenuItem(Icons.Outlined.DeliveryDining,        "Chính sách giao hàng"),
     MenuItem(Icons.Outlined.Shield,                "Chính sách bảo mật"),
     MenuItem(Icons.Outlined.AccountBalanceWallet,  "Chính sách thanh toán"),

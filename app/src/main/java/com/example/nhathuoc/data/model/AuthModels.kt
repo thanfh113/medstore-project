@@ -13,7 +13,9 @@ data class RegisterRequest(
     val phone: String,
     val email: String,
     val password: String,
-    val role: String = "user"
+    val gender: Int? = null, // 1:Male, 2:Female, 3:Other
+    val dateOfBirth: String? = null,
+    val role: String = "USER"
 )
 
 @Serializable
@@ -37,13 +39,18 @@ data class AuthResponse(
 
 @Serializable
 data class UserResponse(
-    val id: Int,
+    val id: String, // UUID from backend
     val fullName: String,
     val phone: String,
     val email: String,
+    val avatarUrl: String? = null,
+    val gender: Int? = null, // 1:Male, 2:Female, 3:Other
+    val dateOfBirth: String? = null,
     val role: String,
+    val isActive: Boolean = true,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val deletedAt: String? = null
 )
 
 @Serializable
@@ -61,7 +68,10 @@ data class LogoutResponse(
 @Serializable
 data class UpdateUserRequest(
     val fullName: String?,
-    val email: String?
+    val email: String?,
+    val avatarUrl: String? = null,
+    val gender: Int? = null, // 1:Male, 2:Female, 3:Other
+    val dateOfBirth: String? = null
 )
 
 @Serializable
@@ -73,12 +83,12 @@ data class UpdateUserResponse(
 // Address related
 @Serializable
 data class UserAddress(
-    val id: Int,
-    val userId: Int,
+    val id: String, // UUID from backend
+    val userId: String, // UUID from backend
     val type: String, // "home", "work", "other"
     val recipientName: String,
-    val phone: String,
-    val address: String,
+    val recipientPhone: String, // Updated to match schema
+    val fullAddress: String, // Updated to match schema
     val ward: String,
     val district: String,
     val province: String,
@@ -91,8 +101,8 @@ data class UserAddress(
 data class AddAddressRequest(
     val type: String,
     val recipientName: String,
-    val phone: String,
-    val address: String,
+    val recipientPhone: String, // Updated to match schema
+    val fullAddress: String, // Updated to match schema
     val ward: String,
     val district: String,
     val province: String,

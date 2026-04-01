@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -28,19 +29,52 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.nhathuoc.data.model.UiState
+import com.example.nhathuoc.data.repository.AuthRepository
 import com.example.nhathuoc.ui.theme.NhathuocTheme
 import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.ui.theme.GreenLight
 import com.example.nhathuoc.ui.theme.BgColor
+import com.example.nhathuoc.util.ValidationUtils
+import com.example.nhathuoc.viewmodel.AuthViewModel
+import com.example.nhathuoc.viewmodel.AuthViewModelFactory
 
 @Composable
-fun LoginScreen(modifier: Modifier = Modifier, navController: NavController? = null) {
-    var email by remember { mutableStateOf("") }
+fun LoginScreen(
+    modifier: Modifier = Modifier,
+    navController: NavController? = null,
+    viewModel: AuthViewModel = viewModel(
+        factory = AuthViewModelFactory(AuthRepository(null))
+    )
+) {
+    var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
     var rememberMe by remember { mutableStateOf(false) }
+    var phoneError by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
     val focusManager = LocalFocusManager.current
+
+    val loginState by viewModel.loginState.collectAsState()
+
+    // Handle login state changes
+    LaunchedEffect(loginState) {
+        when (loginState) {
+            is UiState.Success -> {
+                // Clear state and navigate
+                navController?.navigate("MainScreen") {
+                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                }
+                viewModel.clearLoginState()
+            }
+            is UiState.Error -> {
+                // Error already displayed in UI
+            }
+            else -> {}
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         // Background
@@ -143,27 +177,64 @@ fun LoginScreen(modifier: Modifier = Modifier, navController: NavController? = n
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // Email field
+                    // Error message display
+                    if (loginState is UiState.Error) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp)),
+                            color = Color(0xFFffebee)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Filled.Error,
+                                    contentDescription = null,
+                                    tint = Color(0xFFc62828),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    (loginState as UiState.Error).message,
+                                    color = Color(0xFFc62828),
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+
+                    // Phone field
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            "Email hoặc số điện thoại",
+                            "Số điện thoại",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color.Black
                         )
                         OutlinedTextField(
-                            value = email,
-                            onValueChange = { email = it },
-                            placeholder = { Text("Nhập email hoặc số điện thoại") },
+                            value = phone,
+                            onValueChange = {
+                                phone = it
+                                phoneError = null // Clear error on edit
+                            },
+                            placeholder = { Text("0xxx-xxx-xxx hoặc 0xxxxxxxxx") },
                             leadingIcon = {
                                 Icon(
-                                    Icons.Outlined.Email,
+                                    Icons.Outlined.Phone,
                                     contentDescription = null,
                                     tint = GreenTop
                                 )
                             },
+                            isError = phoneError != null,
+                            supportingText = if (phoneError != null) {
+                                { Text(phoneError!!, fontSize = 12.sp) }
+                            } else null,
                             keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Email,
+                                keyboardType = KeyboardType.Phone,
                                 imeAction = ImeAction.Next
                             ),
                             keyboardActions = KeyboardActions(
@@ -185,7 +256,10 @@ fun LoginScreen(modifier: Modifier = Modifier, navController: NavController? = n
                         )
                         OutlinedTextField(
                             value = password,
-                            onValueChange = { password = it },
+                            onValueChange = {
+                                password = it
+                                passwordError = null // Clear error on edit
+                            },
                             placeholder = { Text("Nhập mật khẩu") },
                             leadingIcon = {
                                 Icon(
@@ -203,6 +277,10 @@ fun LoginScreen(modifier: Modifier = Modifier, navController: NavController? = n
                                     )
                                 }
                             },
+                            isError = passwordError != null,
+                            supportingText = if (passwordError != null) {
+                                { Text(passwordError!!, fontSize = 12.sp) }
+                            } else null,
                             visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Password,
@@ -251,25 +329,40 @@ fun LoginScreen(modifier: Modifier = Modifier, navController: NavController? = n
                     }
 
                     // Login button
-                    Surface(
+                    val isLoading = loginState is UiState.Loading
+                    val isFormValid = phone.isNotEmpty() && password.isNotEmpty()
+
+                    Button(
                         onClick = {
-                            // TODO: Handle login
-                            navController?.navigate("MainScreen") {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    inclusive = true
-                                }
+                            // Validate phone
+                            val (phoneValid, phoneErr) = ValidationUtils.isValidVietnamesePhone(phone)
+                            phoneError = phoneErr
+
+                            // Validate password
+                            val (pwdValid, pwdErr) = ValidationUtils.isValidPassword(password)
+                            passwordError = pwdErr
+
+                            if (phoneValid && pwdValid) {
+                                viewModel.login(phone, password)
                             }
                         },
                         shape = RoundedCornerShape(50.dp),
-                        color = GreenTop,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .height(48.dp),
+                        enabled = isFormValid && !isLoading,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = GreenTop,
+                            disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
+                        )
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
                             Text(
                                 "Đăng nhập",
                                 color = Color.White,

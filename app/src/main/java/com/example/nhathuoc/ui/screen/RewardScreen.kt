@@ -68,7 +68,7 @@ private val rewardProducts = listOf(
     RewardProduct(6,  Icons.Outlined.ChildCare,      Color(0xFF00838F), Color(0xFFE0F7FA), "Siro bổ sung Canxi & Vitamin D3 cho bé từ 1 tuổi 100ml",     "3.000đ / Chai",  4500),
     RewardProduct(7,  Icons.Outlined.Science,        Color(0xFF1565C0), Color(0xFFE3F2FD), "Kẽm hữu cơ Zinc Gluconate tăng miễn dịch 60 viên",           "4.000đ / Hộp",   6000),
     RewardProduct(8,  Icons.Outlined.CleanHands,     Color(0xFF0277BD), Color(0xFFE1F5FE), "Kem dưỡng tay Neutrogena Norwegian Formula 50g",             "4.000đ / Tuýp",  6000),
-    RewardProduct(9,  Icons.Outlined.Vaccines,       Color(0xFF2E7D32), Color(0xFFE8F5E9), "Men vi sinh Probiotic hỗ trợ hệ tiêu hóa 30 gói",           "4.000đ / Hộp",   6000),
+    RewardProduct(9,  Icons.Outlined.Restaurant,     Color(0xFF2E7D32), Color(0xFFE8F5E9), "Men vi sinh Probiotic hỗ trợ hệ tiêu hóa 30 gói",           "4.000đ / Hộp",   6000),
     RewardProduct(10, Icons.Outlined.MonitorHeart,   Color(0xFFE53935), Color(0xFFFFEBEE), "Omega-3 hỗ trợ tim mạch DHA EPA 1000mg 100 viên",           "5.000đ / Hộp",   7500),
     RewardProduct(11, Icons.Outlined.RemoveRedEye,   Color(0xFF0277BD), Color(0xFFE1F5FE), "Nhỏ mắt Rohto Dry Aid dưỡng ẩm mắt khô 10ml",              "5.000đ / Chai",  7500),
     RewardProduct(12, Icons.Outlined.Psychology,     Color(0xFF5C6BC0), Color(0xFFE8EAF6), "Ginkgo Biloba hỗ trợ tuần hoàn não 120mg 60 viên",          "5.000đ / Hộp",   7500),

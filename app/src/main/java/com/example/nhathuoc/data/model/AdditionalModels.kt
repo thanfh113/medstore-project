@@ -4,114 +4,99 @@ import kotlinx.serialization.Serializable
 
 /**
  * Additional models for completing the API service
+ * Updated to match MySQL schema
  */
 
+// Shops model based on shops table
+@Serializable
+data class ShopDto(
+    val id: String, // UUID from backend
+    val ownerId: String, // UUID from backend
+    val name: String,
+    val description: String? = null,
+    val logoUrl: String? = null,
+    val licenseNumber: String? = null,
+    val isApproved: Boolean = false,
+    val expiryAlertDays: Int = 30,
+    val createdAt: String,
+    val deletedAt: String? = null
+)
+
+// Pharmacy/Branch model based on pharmacy_branches table
 @Serializable
 data class PharmacyDto(
-    val id: Int,
+    val id: String, // UUID from backend
+    val shopId: String, // UUID from backend - Added for shop relationship
     val name: String,
     val address: String,
     val ward: String,
     val district: String,
     val province: String,
     val phone: String,
-    val email: String?,
-    val latitude: Double,
-    val longitude: Double,
-    val distance: Double? = null, // km from user location
-    val rating: Double,
-    val totalReviews: Int,
-    val isOpen: Boolean,
-    val openingHours: String,
-    val services: List<String>,
-    val imageUrl: String?,
+    val email: String? = null,
+    val latitude: Double? = null, // Made optional as schema may not have
+    val longitude: Double? = null, // Made optional as schema may not have
+    val distance: Double? = null, // km from user location - calculated field
+    val rating: Double? = null, // May be calculated field
+    val totalReviews: Int? = null, // May be calculated field
+    val isOpen: Boolean = true, // May be calculated field based on hours
+    val openingHours: String? = null,
+    val services: List<String> = emptyList(), // May be parsed from text field
+    val imageUrl: String? = null,
     val isVerified: Boolean = false,
     val isActive: Boolean = true,
+    val managerName: String? = null, // Added from schema
+    val managerPhone: String? = null, // Added from schema
     val createdAt: String,
     val updatedAt: String
 )
 
 @Serializable
 data class NotificationDto(
-    val id: Int,
-    val userId: Int?,
+    val id: String, // UUID from backend
+    val userId: String? = null, // UUID from backend - Match schema (can be null for broadcast)
     val title: String,
-    val message: String,
-    val type: String, // "order", "promotion", "system", "reminder"
-    val data: Map<String, String> = emptyMap(), // Additional data like orderId, etc.
+    val body: String, // Match schema field name (was message)
+    val message: String? = null, // Keep for backward compatibility
+    val type: String, // "ORDER", "PROMOTION", "SYSTEM", "REMINDER"
+    val refId: String? = null, // Match schema field name (was data map)
+    val data: Map<String, String> = emptyMap(), // Keep for additional data
     val imageUrl: String? = null,
     val actionUrl: String? = null,
     val isRead: Boolean = false,
     val readAt: String? = null,
-    val scheduledAt: String? = null,
-    val expiryDate: String? = null,
-    val isActive: Boolean = true,
+    val scheduledAt: String? = null, // Keep for future scheduling
+    val expiryDate: String? = null, // Keep for expiring notifications
+    val isActive: Boolean = true, // Keep for filtering
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String? = null // Keep for updates
 )
 
 @Serializable
 data class BannerDto(
-    val id: Int,
-    val title: String,
-    val description: String?,
-    val imageUrl: String,
-    val actionType: String, // "url", "product", "category", "none"
-    val actionValue: String?, // URL, productId, categoryId based on actionType
-    val position: String, // "home_hero", "home_middle", "category_top"
-    val priority: Int, // Display order
-    val startDate: String?,
-    val endDate: String?,
+    val id: String, // UUID from backend
+    val imageUrl: String, // Match schema field name
+    val linkUrl: String? = null, // Match schema field name
+    val title: String? = null, // Match schema field name
+    val description: String? = null, // Keep for additional info
+    val actionType: String? = null, // Keep for client logic
+    val actionValue: String? = null, // Keep for client logic
+    val position: String? = null, // Keep for positioning logic
+    val priority: Int? = null, // Keep for ordering logic
+    val sortOrder: Int = 0, // Match schema field name
+    val startDt: String? = null, // Match schema field name (start_dt)
+    val endDt: String? = null, // Match schema field name (end_dt)
     val isActive: Boolean = true,
-    val createdAt: String,
-    val updatedAt: String
+    val createdAt: String? = null, // Keep for compatibility
+    val updatedAt: String? = null // Keep for compatibility
 )
 
-@Serializable
-data class VaccineDto(
-    val id: Int,
-    val name: String,
-    val description: String,
-    val manufacturer: String,
-    val diseasesPrevented: List<String>,
-    val ageGroup: String, // "infant", "child", "adult", "elderly", "all"
-    val doses: Int,
-    val interval: String, // Between doses
-    val price: String,
-    val imageUrl: String?,
-    val sideEffects: String?,
-    val contraindications: String?,
-    val isActive: Boolean = true,
-    val createdAt: String,
-    val updatedAt: String
-)
-
-@Serializable
-data class VaccineBookingDto(
-    val id: Int,
-    val userId: Int,
-    val vaccineId: Int,
-    val vaccine: VaccineDto,
-    val pharmacyId: Int,
-    val pharmacy: PharmacyDto,
-    val appointmentDate: String,
-    val appointmentTime: String,
-    val patientName: String,
-    val patientAge: Int,
-    val patientGender: String,
-    val notes: String?,
-    val status: String, // "scheduled", "completed", "cancelled", "missed"
-    val completedAt: String?,
-    val cancelledAt: String?,
-    val createdAt: String,
-    val updatedAt: String
-)
 
 @Serializable
 data class ChatSessionDto(
-    val id: Int,
-    val userId: Int,
-    val pharmacistId: Int?,
+    val id: String, // UUID from backend
+    val userId: String, // UUID from backend
+    val pharmacistId: String?, // UUID from backend
     val pharmacist: PharmacistDto?,
     val type: String, // "general", "product", "order", "prescription"
     val subject: String?,
@@ -124,9 +109,9 @@ data class ChatSessionDto(
 
 @Serializable
 data class ChatMessageDto(
-    val id: Int,
-    val sessionId: Int,
-    val senderId: Int,
+    val id: String, // UUID from backend
+    val sessionId: String, // UUID from backend
+    val senderId: String, // UUID from backend
     val senderType: String, // "user", "pharmacist", "system"
     val message: String,
     val messageType: String, // "text", "image", "file", "product"
@@ -139,7 +124,7 @@ data class ChatMessageDto(
 
 @Serializable
 data class PharmacistDto(
-    val id: Int,
+    val id: String, // UUID from backend
     val fullName: String,
     val phone: String,
     val email: String,
@@ -149,4 +134,110 @@ data class PharmacistDto(
     val rating: Double,
     val isOnline: Boolean,
     val avatarUrl: String?
+)
+
+// Inventory management models (for future shop/admin integration)
+@Serializable
+data class CreateBatchRequest(
+    val productId: String, // UUID from backend
+    val lotNumber: String? = null,
+    val mfgDate: String? = null, // Manufacturing date
+    val expDate: String? = null, // Expiry date
+    val quantity: Int,
+    val importPrice: Double? = null,
+    val note: String? = null
+)
+
+@Serializable
+data class BatchDto(
+    val id: String, // UUID from backend
+    val productId: String, // UUID from backend
+    val product: ProductDto,
+    val lotNumber: String?,
+    val mfgDate: String?,
+    val expDate: String?,
+    val quantity: Int,
+    val remainingQuantity: Int,
+    val importPrice: Double?,
+    val note: String?,
+    val createdAt: String,
+    val updatedAt: String
+)
+
+@Serializable
+data class ExpiringAlert(
+    val id: String, // UUID from backend
+    val batch: BatchDto,
+    val daysUntilExpiry: Int,
+    val alertLevel: String // "warning", "critical"
+)
+
+@Serializable
+data class ExpiringAlertsResponse(
+    val alerts: List<ExpiringAlert>,
+    val totalExpiring: Int
+)
+
+// Prescription model based on prescriptions table
+@Serializable
+data class PrescriptionDto(
+    val id: String, // UUID from backend
+    val userId: String, // UUID from backend
+    val doctorName: String,
+    val hospitalName: String,
+    val prescriptionDate: String,
+    val notes: String? = null,
+    val imageUrls: List<String> = emptyList(), // Multiple prescription images
+    val status: String = "PENDING", // "PENDING", "APPROVED", "REJECTED"
+    val pharmacistNotes: String? = null,
+    val createdAt: String,
+    val updatedAt: String
+)
+
+// Payment model based on payments table
+@Serializable
+data class PaymentDto(
+    val id: String, // UUID from backend
+    val orderId: String, // UUID from backend
+    val method: String, // "COD", "VNPAY", "MOMO"
+    val status: String, // "PENDING", "SUCCESS", "FAILED", "REFUNDED"
+    val amount: Double,
+    val transactionId: String? = null, // External transaction ID
+    val gatewayResponse: String? = null, // JSON response from payment gateway
+    val paidAt: String? = null,
+    val refundedAt: String? = null,
+    val createdAt: String,
+    val updatedAt: String
+)
+
+// Health Article model based on health_articles table
+@Serializable
+data class HealthArticleDto(
+    val id: String, // UUID from backend
+    val title: String,
+    val slug: String,
+    val content: String,
+    val excerpt: String? = null,
+    val imageUrl: String? = null,
+    val author: String,
+    val category: String,
+    val tags: List<String> = emptyList(),
+    val viewCount: Int = 0,
+    val isPublished: Boolean = true,
+    val publishedAt: String? = null,
+    val createdAt: String,
+    val updatedAt: String
+)
+
+// Disease Category model based on disease_categories table
+@Serializable
+data class DiseaseCategoryDto(
+    val id: String, // UUID from backend
+    val name: String,
+    val description: String? = null,
+    val iconUrl: String? = null,
+    val sortOrder: Int = 0,
+    val isActive: Boolean = true,
+    val createdAt: String,
+    val updatedAt: String
 )

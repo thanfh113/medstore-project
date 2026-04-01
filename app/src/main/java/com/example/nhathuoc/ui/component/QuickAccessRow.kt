@@ -28,13 +28,13 @@ data class QuickAccessItem(
 )
 
 val defaultQuickAccessItems = listOf(
-    QuickAccessItem(Icons.Outlined.MedicalServices, "Cần mua\nthuốc",  route = "BuyMedicineScreen"),
-    QuickAccessItem(Icons.Outlined.ChildCare,       "Mẹ và bé",        route = "VaccineScreen"),
-    QuickAccessItem(Icons.Outlined.Vaccines,        "Tiêm Vắc\nxin",   route = "VaccineScreen"),
-    QuickAccessItem(Icons.Outlined.Receipt,         "Đơn của\ntôi",    route = "MyOrdersScreen"),
-    QuickAccessItem(Icons.Outlined.LocalPharmacy,   "Tìm nhà\nthuốc",  route = "FindPharmacyScreen"),
-    QuickAccessItem(Icons.Outlined.CalendarMonth,   "Đặt lịch\nkhám",  route = ""),
-    QuickAccessItem(Icons.Outlined.Science,         "Xét\nnghiệm",     route = ""),
+    QuickAccessItem(Icons.Outlined.MedicalServices,  "Tìm\nthiết bị",       route = "MedicalSuppliesQuoteScreen"),
+    QuickAccessItem(Icons.Outlined.RequestQuote,     "Yêu cầu\nbáo giá",    route = "MedicalSuppliesQuoteScreen"),
+    QuickAccessItem(Icons.Outlined.Receipt,          "Đơn của\ntôi",        route = "MyOrdersScreen"),
+    QuickAccessItem(Icons.Outlined.LocalShipping,    "Theo dõi\ngiao hàng", route = ""),
+    QuickAccessItem(Icons.Outlined.Store,            "Cửa hàng\ngần nhất",  route = "FindPharmacyScreen"),
+    QuickAccessItem(Icons.Outlined.SupportAgent,     "Hỗ trợ\nkỹ thuật",   route = ""),
+    QuickAccessItem(Icons.Outlined.Assignment,       "Hướng dẫn\nsử dụng", route = ""),
 )
 
 @Composable

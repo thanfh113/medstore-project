@@ -38,13 +38,15 @@ class CartRepository {
 
     // Add product to cart
     suspend fun addToCart(
-        productId: Int,
-        quantity: Int = 1
+        productId: String, // Changed to String for UUID
+        quantity: Int = 1,
+        unit: String = "Hộp" // Added unit parameter
     ): NetworkResult<AddCartResponse> {
         return try {
             val request = AddCartRequest(
                 productId = productId,
-                quantity = quantity
+                quantity = quantity,
+                unit = unit
             )
             val response = apiService.addToCart(request)
 
@@ -65,11 +67,15 @@ class CartRepository {
 
     // Update cart item quantity
     suspend fun updateCartItem(
-        itemId: Int,
-        quantity: Int
+        itemId: String, // Changed to String for UUID
+        quantity: Int,
+        unit: String? = null // Added optional unit parameter
     ): NetworkResult<CartResponse> {
         return try {
-            val request = UpdateCartItemRequest(quantity = quantity)
+            val request = UpdateCartItemRequest(
+                quantity = quantity,
+                unit = unit
+            )
             val response = apiService.updateCartItem(itemId, request)
 
             if (response.isSuccessful) {
@@ -88,7 +94,7 @@ class CartRepository {
     }
 
     // Remove item from cart
-    suspend fun removeCartItem(itemId: Int): NetworkResult<CartResponse> {
+    suspend fun removeCartItem(itemId: String): NetworkResult<CartResponse> { // Changed to String for UUID
         return try {
             val response = apiService.removeCartItem(itemId)
 

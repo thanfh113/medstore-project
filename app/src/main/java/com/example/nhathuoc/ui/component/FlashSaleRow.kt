@@ -58,9 +58,9 @@ val defaultFlashSaleProducts = listOf(
     ),
     FlashSaleProduct(
         id = 3,
-        icon = Icons.Outlined.Vaccines,
+        icon = Icons.Outlined.MedicalServices,
         iconTint = Color(0xFF00838F), iconBg = Color(0xFFE0F7FA),
-        name = "Vắc xin cúm", brand = "Sanofi", origin = "Pháp",
+        name = "Máy đo huyết áp Omron", brand = "Omron", origin = "Nhật Bản",
         price = "350.000đ", originalPrice = "420.000đ", discountPercent = 17,
         rewardPoints = 350
     ),

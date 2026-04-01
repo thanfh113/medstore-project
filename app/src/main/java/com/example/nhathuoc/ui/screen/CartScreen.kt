@@ -350,9 +350,8 @@ fun CartScreen(
                         context = LocalContext.current,
                         navController = navController
                     ) {
-                        // Proceed to checkout - authenticated user only
-                        // TODO: Navigate to checkout screen
-                        // navController.navigate("CheckoutScreen")
+                        // Navigate to checkout screen with selected items
+                        navController.navigate("CheckoutScreen")
                     },
                     shape = RoundedCornerShape(50),
                     colors = ButtonDefaults.buttonColors(containerColor = GreenTop),

@@ -1,6 +1,9 @@
 package com.example.nhathuoc.data.model
 
 import kotlinx.serialization.Serializable
+import com.example.nhathuoc.data.model.OrderStatus
+import com.example.nhathuoc.data.model.PaymentMethod
+import com.example.nhathuoc.data.model.PickupType
 
 /**
  * Order related data transfer objects
@@ -8,21 +11,25 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class OrderDto(
-    val id: Int,
-    val userId: Int,
-    val orderNumber: String, // "ORD-2024-001"
-    val status: String, // "pending", "confirmed", "preparing", "shipping", "delivered", "cancelled"
+    val id: String, // UUID from backend
+    val orderCode: String, // Changed from orderNumber to match schema
+    val userId: String, // UUID from backend
+    val shopId: String, // UUID from backend - Added for shop relationship
+    val status: String, // "PENDING", "CONFIRMED", "PREPARING", "SHIPPING", "DELIVERED", "CANCELLED"
+    val pickupType: String = "DELIVERY", // Added: "DELIVERY" or "PICKUP"
+    val branchId: String? = null, // UUID from backend - Added for pickup orders
+    val addressId: String? = null, // UUID from backend - Added address reference
     val items: List<OrderItemDto>,
-    val subtotal: String, // "500.000đ"
-    val shippingFee: String, // "30.000đ"
-    val discount: String, // "0đ"
-    val total: String, // "530.000đ"
-    val paymentMethod: String, // "cod", "vnpay", "momo"
-    val paymentStatus: String, // "pending", "paid", "failed", "refunded"
-    val shippingAddress: UserAddress,
-    val notes: String?,
-    val rewardPointsEarned: Int,
-    val rewardPointsUsed: Int,
+    val subtotal: Double, // Changed from String to numeric
+    val shippingFee: Double, // Changed from String to numeric
+    val discount: Double, // Changed from String to numeric
+    val pointsUsed: Int = 0, // Renamed from rewardPointsUsed
+    val pointsEarned: Int = 0, // Renamed from rewardPointsEarned
+    val total: Double, // Changed from String to numeric
+    val paymentMethod: String, // "COD", "VNPAY", "MOMO"
+    val paymentStatus: String, // "UNPAID", "PAID", "FAILED", "REFUNDED"
+    val shippingAddress: UserAddress? = null, // Keep for backward compatibility
+    val note: String? = null, // Changed from notes to note (singular)
     val estimatedDelivery: String?,
     val deliveredAt: String?,
     val cancelledAt: String?,
@@ -33,28 +40,32 @@ data class OrderDto(
 
 @Serializable
 data class OrderItemDto(
-    val id: Int,
-    val orderId: Int,
-    val productId: Int,
-    val product: ProductDto,
+    val id: String, // UUID from backend
+    val orderId: String, // UUID from backend
+    val productId: String, // UUID from backend
+    val name: String, // Added: Product name at time of order
+    val product: ProductDto? = null, // Made optional for flexibility
     val quantity: Int,
-    val unitPrice: String,
-    val totalPrice: String,
-    val addedAt: String
+    val unit: String, // Added to match order_items schema
+    val price: Double, // Renamed from unitPrice to match schema
+    val totalPrice: Double? = null, // Keep for calculated field
+    val createdAt: String? = null // Keep for backward compatibility
 )
 
 @Serializable
 data class PlaceOrderRequest(
     val items: List<PlaceOrderItem>,
     val paymentMethod: String,
-    val shippingAddressId: Int,
-    val notes: String? = null,
-    val rewardPointsToUse: Int = 0
+    val pickupType: String = "DELIVERY", // Added: "DELIVERY" or "PICKUP"
+    val shippingAddressId: String?, // UUID from backend - Optional for pickup orders
+    val branchId: String? = null, // UUID from backend - Required for pickup orders
+    val note: String? = null, // Changed from notes to note
+    val pointsToUse: Int = 0 // Renamed from rewardPointsToUse
 )
 
 @Serializable
 data class PlaceOrderItem(
-    val productId: Int,
+    val productId: String, // UUID from backend
     val quantity: Int
 )
 
@@ -82,26 +93,3 @@ data class CancelOrderResponse(
     val order: OrderDto
 )
 
-// Order status tracking
-enum class OrderStatus(val value: String, val displayName: String) {
-    PENDING("pending", "Chờ xác nhận"),
-    CONFIRMED("confirmed", "Đã xác nhận"),
-    PREPARING("preparing", "Đang chuẩn bị"),
-    SHIPPING("shipping", "Đang giao"),
-    DELIVERED("delivered", "Đã giao"),
-    CANCELLED("cancelled", "Đã hủy");
-
-    companion object {
-        fun fromValue(value: String) = values().find { it.value == value } ?: PENDING
-    }
-}
-
-enum class PaymentMethod(val value: String, val displayName: String) {
-    COD("cod", "Thanh toán khi nhận hàng"),
-    VNPAY("vnpay", "VNPay"),
-    MOMO("momo", "Ví MoMo");
-
-    companion object {
-        fun fromValue(value: String) = values().find { it.value == value } ?: COD
-    }
-}

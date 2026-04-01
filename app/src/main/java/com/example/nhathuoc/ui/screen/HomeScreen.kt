@@ -114,7 +114,7 @@ private fun HomeScreenContent(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    GreetingCard(userName = "bào ngọc", rewardPoints = 246, navController)
+                    GreetingCard(userName = "Thành", rewardPoints = 246, navController)
                     ChatBanner(hasNewMessage = true, onChatClick = onChatClick)
                 }
             }
@@ -162,8 +162,8 @@ private fun HomeScreenContent(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("NHÀ THUỐC", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
-                    Text("HELLO", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp)
+                    Text("VẬT TƯ Y TẾ", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
+                    Text("MedStore", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp)
                 }
                 BadgedBox(
                     badge = { Badge(containerColor = Color(0xFFFF6D00)) { Text("3", color = Color.White, fontSize = 9.sp) } },
@@ -195,8 +195,8 @@ private fun HomeScreenContent(
             ) {
                 Icon(Icons.Outlined.Search, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("Trung tâm tiêm chủng ", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
-                Text("Tìm hiểu ngay", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)
+                Text("Thanh toán điện tử - Giao hàng toàn quốc ", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
+                Text("Đặt ngay", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)
             }
 
             // Collapsed
@@ -225,6 +225,7 @@ private fun HomeScreenContent(
     }
 }
 
+
 @Composable
 private fun HomeSearchBar() {
     Surface(
@@ -239,7 +240,7 @@ private fun HomeSearchBar() {
         ) {
             Icon(Icons.Outlined.Search, null, tint = Color.Gray, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Tìm tên thuốc, bệnh lý, TPCN...", color = Color.Gray, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            Text("Tìm thiết bị, vật tư, dụng cụ y tế...", color = Color.Gray, fontSize = 14.sp, modifier = Modifier.weight(1f))
             Icon(Icons.Outlined.Mic, "Voice", tint = GreenTop, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(10.dp))
             Icon(Icons.Outlined.CameraAlt, "Camera", tint = GreenTop, modifier = Modifier.size(20.dp))

@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -28,14 +29,26 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.nhathuoc.data.model.UiState
+import com.example.nhathuoc.data.repository.AuthRepository
 import com.example.nhathuoc.ui.theme.NhathuocTheme
 import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.ui.theme.GreenLight
 import com.example.nhathuoc.ui.theme.BgColor
+import com.example.nhathuoc.util.ValidationUtils
+import com.example.nhathuoc.viewmodel.AuthViewModel
+import com.example.nhathuoc.viewmodel.AuthViewModelFactory
 
 @Composable
-fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? = null) {
+fun RegisterScreen(
+    modifier: Modifier = Modifier,
+    navController: NavController? = null,
+    viewModel: AuthViewModel = viewModel(
+        factory = AuthViewModelFactory(AuthRepository(null))
+    )
+) {
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
@@ -44,7 +57,36 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
     var isPasswordVisible by remember { mutableStateOf(false) }
     var isConfirmPasswordVisible by remember { mutableStateOf(false) }
     var agreeToTerms by remember { mutableStateOf(false) }
+
+    var fullNameError by remember { mutableStateOf<String?>(null) }
+    var emailError by remember { mutableStateOf<String?>(null) }
+    var phoneError by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
+    var confirmPasswordError by remember { mutableStateOf<String?>(null) }
+
     val focusManager = LocalFocusManager.current
+    val registerState by viewModel.registerState.collectAsState()
+
+    val passwordStrength = remember(password) {
+        ValidationUtils.assessPasswordStrength(password)
+    }
+
+    // Handle registration state changes
+    LaunchedEffect(registerState) {
+        when (registerState) {
+            is UiState.Success -> {
+                // Auto-login after successful registration
+                navController?.navigate("MainScreen") {
+                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                }
+                viewModel.clearRegisterState()
+            }
+            is UiState.Error -> {
+                // Error already displayed in UI
+            }
+            else -> {}
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         // Background
@@ -147,6 +189,37 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                         modifier = Modifier.fillMaxWidth()
                     )
 
+                    // Error message display
+                    if (registerState is UiState.Error) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp)),
+                            color = Color(0xFFffebee)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Filled.Error,
+                                    contentDescription = null,
+                                    tint = Color(0xFFc62828),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    (registerState as UiState.Error).message,
+                                    color = Color(0xFFc62828),
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+
                     // Full name field
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
@@ -157,7 +230,10 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                         )
                         OutlinedTextField(
                             value = fullName,
-                            onValueChange = { fullName = it },
+                            onValueChange = {
+                                fullName = it
+                                fullNameError = null
+                            },
                             placeholder = { Text("Nhập họ và tên của bạn") },
                             leadingIcon = {
                                 Icon(
@@ -166,6 +242,10 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                                     tint = GreenTop
                                 )
                             },
+                            isError = fullNameError != null,
+                            supportingText = if (fullNameError != null) {
+                                { Text(fullNameError!!, fontSize = 12.sp) }
+                            } else null,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Text,
                                 imeAction = ImeAction.Next
@@ -189,7 +269,10 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                         )
                         OutlinedTextField(
                             value = email,
-                            onValueChange = { email = it },
+                            onValueChange = {
+                                email = it
+                                emailError = null
+                            },
                             placeholder = { Text("Nhập địa chỉ email") },
                             leadingIcon = {
                                 Icon(
@@ -198,6 +281,10 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                                     tint = GreenTop
                                 )
                             },
+                            isError = emailError != null,
+                            supportingText = if (emailError != null) {
+                                { Text(emailError!!, fontSize = 12.sp) }
+                            } else null,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Email,
                                 imeAction = ImeAction.Next
@@ -221,8 +308,11 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                         )
                         OutlinedTextField(
                             value = phone,
-                            onValueChange = { phone = it },
-                            placeholder = { Text("Nhập số điện thoại") },
+                            onValueChange = {
+                                phone = it
+                                phoneError = null
+                            },
+                            placeholder = { Text("0xxxxxxxxx") },
                             leadingIcon = {
                                 Icon(
                                     Icons.Outlined.Phone,
@@ -230,6 +320,10 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                                     tint = GreenTop
                                 )
                             },
+                            isError = phoneError != null,
+                            supportingText = if (phoneError != null) {
+                                { Text(phoneError!!, fontSize = 12.sp) }
+                            } else null,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Phone,
                                 imeAction = ImeAction.Next
@@ -245,15 +339,41 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
 
                     // Password field
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            "Mật khẩu",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.Black
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Mật khẩu",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.Black
+                            )
+                            if (password.isNotEmpty()) {
+                                Text(
+                                    when (passwordStrength.strength) {
+                                        ValidationUtils.PasswordStrength.WEAK -> "Yếu"
+                                        ValidationUtils.PasswordStrength.MEDIUM -> "Trung bình"
+                                        ValidationUtils.PasswordStrength.STRONG -> "Mạnh"
+                                    },
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = when (passwordStrength.strength) {
+                                        ValidationUtils.PasswordStrength.WEAK -> Color.Red
+                                        ValidationUtils.PasswordStrength.MEDIUM -> Color(0xFFFFA500)
+                                        ValidationUtils.PasswordStrength.STRONG -> Color.Green
+                                    }
+                                )
+                            }
+                        }
+
                         OutlinedTextField(
                             value = password,
-                            onValueChange = { password = it },
+                            onValueChange = {
+                                password = it
+                                passwordError = null
+                            },
                             placeholder = { Text("Nhập mật khẩu (tối thiểu 6 ký tự)") },
                             leadingIcon = {
                                 Icon(
@@ -271,6 +391,10 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                                     )
                                 }
                             },
+                            isError = passwordError != null,
+                            supportingText = if (passwordError != null) {
+                                { Text(passwordError!!, fontSize = 12.sp) }
+                            } else null,
                             visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Password,
@@ -283,6 +407,30 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                             shape = RoundedCornerShape(50.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        // Password strength indicator bar
+                        if (password.isNotEmpty()) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp)),
+                                color = Color.LightGray
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(fraction = (passwordStrength.score + 1) / 4f)
+                                        .background(
+                                            when (passwordStrength.strength) {
+                                                ValidationUtils.PasswordStrength.WEAK -> Color.Red
+                                                ValidationUtils.PasswordStrength.MEDIUM -> Color(0xFFFFA500)
+                                                ValidationUtils.PasswordStrength.STRONG -> Color.Green
+                                            }
+                                        )
+                                )
+                            }
+                        }
                     }
 
                     // Confirm password field
@@ -295,7 +443,10 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                         )
                         OutlinedTextField(
                             value = confirmPassword,
-                            onValueChange = { confirmPassword = it },
+                            onValueChange = {
+                                confirmPassword = it
+                                confirmPasswordError = null
+                            },
                             placeholder = { Text("Nhập lại mật khẩu") },
                             leadingIcon = {
                                 Icon(
@@ -313,6 +464,10 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                                     )
                                 }
                             },
+                            isError = confirmPasswordError != null,
+                            supportingText = if (confirmPasswordError != null) {
+                                { Text(confirmPasswordError!!, fontSize = 12.sp) }
+                            } else null,
                             visualTransformation = if (isConfirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Password,
@@ -323,17 +478,7 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                             ),
                             singleLine = true,
                             shape = RoundedCornerShape(50.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            isError = confirmPassword.isNotEmpty() && password != confirmPassword,
-                            supportingText = if (confirmPassword.isNotEmpty() && password != confirmPassword) {
-                                {
-                                    Text(
-                                        "Mật khẩu không khớp",
-                                        color = MaterialTheme.colorScheme.error,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            } else null
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
 
@@ -384,35 +529,50 @@ fun RegisterScreen(modifier: Modifier = Modifier, navController: NavController? 
                     }
 
                     // Register button
-                    Surface(
+                    val isLoading = registerState is UiState.Loading
+                    val isFormValid = fullName.isNotEmpty() && email.isNotEmpty() &&
+                            phone.isNotEmpty() && password.isNotEmpty() &&
+                            confirmPassword.isNotEmpty() && agreeToTerms
+
+                    Button(
                         onClick = {
-                            if (agreeToTerms && password == confirmPassword &&
-                                fullName.isNotBlank() && email.isNotBlank() &&
-                                phone.isNotBlank() && password.length >= 6) {
-                                // TODO: Handle registration
-                                navController?.navigate("MainScreen") {
-                                    popUpTo(navController.graph.startDestinationId) {
-                                        inclusive = true
-                                    }
-                                }
+                            // Validate all fields
+                            val (nameValid, nameErr) = ValidationUtils.isValidFullName(fullName)
+                            fullNameError = nameErr
+
+                            val (emailValid, emailErr) = ValidationUtils.isValidEmail(email)
+                            emailError = emailErr
+
+                            val (phoneValid, phoneErr) = ValidationUtils.isValidVietnamesePhone(phone)
+                            phoneError = phoneErr
+
+                            val (pwdValid, pwdErr) = ValidationUtils.isValidPassword(password)
+                            passwordError = pwdErr
+
+                            val (confirmValid, confirmErr) = ValidationUtils.passwordsMatch(password, confirmPassword)
+                            confirmPasswordError = confirmErr
+
+                            if (nameValid && emailValid && phoneValid && pwdValid && confirmValid) {
+                                viewModel.register(fullName, phone, email, password)
                             }
                         },
                         shape = RoundedCornerShape(50.dp),
-                        color = if (agreeToTerms && password == confirmPassword &&
-                                  fullName.isNotBlank() && email.isNotBlank() &&
-                                  phone.isNotBlank() && password.length >= 6) {
-                            GreenTop
-                        } else {
-                            Color.Gray.copy(alpha = 0.3f)
-                        },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .height(48.dp),
+                        enabled = isFormValid && !isLoading,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = GreenTop,
+                            disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
+                        )
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
                             Text(
                                 "Tạo tài khoản",
                                 color = Color.White,

@@ -90,9 +90,9 @@ Các triệu chứng mà nhiều người đang lầm tưởng là 'cảm nhẹ'
 
 Khác với cảm lạnh thông thường, vi rút cúm khởi phát đột ngột, có thể tấn công phổi, tim mạch chỉ trong thời gian ngắn. Theo CDC Hoa Kỳ, Cúm có thể gây các biến chứng nguy hiểm như viêm phổi, viêm cơ tim hoặc thậm chí đột quỵ – đặc biệt ở người lớn tuổi và người có bệnh nền.
 
-Chỉ với 1 mũi tiêm Vaccine Cúm Quý khách có thể giảm đến 90% nguy cơ nhập viện và được bảo vệ suốt cả năm khỏi những biến chứng nguy hiểm!
+Chỉ với bộ thiết bị y tế chuyên dụng, Quý khách có thể theo dõi và chăm sóc sức khỏe hiệu quả ngay tại nhà - tiết kiệm thời gian và chi phí khám bệnh!
 
-Chủ động phòng bệnh từ sớm – bảo vệ bản thân và gia đình tại Tiêm Chủng Long Châu ngay hôm nay!""",
+Khám phá ngay bộ sưu tập vật tư y tế chất lượng cao – mua sắm tiện lợi tại MedStore ngay hôm nay!""",
             primaryAction = "Gọi tổng đài miễn phí",
             secondaryAction = "Tìm trung tâm gần nhất"
         )
@@ -331,12 +331,12 @@ private fun MessageRow(message: ChatMessage) {
                                 }
                                 Spacer(Modifier.height(6.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.Vaccines, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                                    Icon(Icons.Filled.MedicalServices, null, tint = Color.White, modifier = Modifier.size(32.dp))
                                     Spacer(Modifier.width(8.dp))
                                     Column {
-                                        Text("PHÒNG CÚM MÙA", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                                        Text("THIẾT BỊ Y TẾ", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
                                         Surface(shape = RoundedCornerShape(4.dp), color = Color.White.copy(alpha = 0.2f)) {
-                                            Text("330.000đ/mũi", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                            Text("Từ 50.000đ", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                                         }
                                     }

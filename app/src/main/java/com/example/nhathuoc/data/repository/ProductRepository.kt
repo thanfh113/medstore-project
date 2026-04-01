@@ -93,7 +93,7 @@ class ProductRepository {
     }
 
     // Get product details by ID
-    suspend fun getProductById(productId: Int): NetworkResult<ProductDetailResponse> {
+    suspend fun getProductById(productId: String): NetworkResult<ProductDetailResponse> {
         return try {
             val response = apiService.getProductById(productId)
 
@@ -113,7 +113,7 @@ class ProductRepository {
     }
 
     // Get product certificates
-    suspend fun getProductCertificates(productId: Int): NetworkResult<List<ProductCertificateDto>> {
+    suspend fun getProductCertificates(productId: String): NetworkResult<List<ProductCertificateDto>> {
         return try {
             val response = apiService.getProductCertificates(productId)
 

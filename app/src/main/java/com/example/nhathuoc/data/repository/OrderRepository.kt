@@ -16,22 +16,9 @@ class OrderRepository {
         RetrofitClient.createService<ApiService>()
     }
 
-    // Place new order
-    suspend fun placeOrder(
-        items: List<PlaceOrderItem>,
-        paymentMethod: String,
-        shippingAddressId: Int,
-        notes: String? = null,
-        rewardPointsToUse: Int = 0
-    ): NetworkResult<PlaceOrderResponse> {
+    // Place new order using request object
+    suspend fun placeOrder(request: PlaceOrderRequest): NetworkResult<PlaceOrderResponse> {
         return try {
-            val request = PlaceOrderRequest(
-                items = items,
-                paymentMethod = paymentMethod,
-                shippingAddressId = shippingAddressId,
-                notes = notes,
-                rewardPointsToUse = rewardPointsToUse
-            )
             val response = apiService.placeOrder(request)
 
             if (response.isSuccessful) {
@@ -47,6 +34,28 @@ class OrderRepository {
         } catch (e: Exception) {
             NetworkResult.Exception(e)
         }
+    }
+
+    // Place new order with individual parameters
+    suspend fun placeOrder(
+        items: List<PlaceOrderItem>,
+        paymentMethod: String,
+        pickupType: String = "DELIVERY", // Added pickup type
+        shippingAddressId: String? = null, // Made optional for pickup orders
+        branchId: String? = null, // Added for pickup orders
+        note: String? = null, // Changed from notes to note to match schema
+        pointsToUse: Int = 0 // Renamed from rewardPointsToUse
+    ): NetworkResult<PlaceOrderResponse> {
+        val request = PlaceOrderRequest(
+            items = items,
+            paymentMethod = paymentMethod,
+            pickupType = pickupType,
+            shippingAddressId = shippingAddressId,
+            branchId = branchId,
+            note = note,
+            pointsToUse = pointsToUse
+        )
+        return placeOrder(request)
     }
 
     // Get user orders with filters
@@ -78,7 +87,7 @@ class OrderRepository {
     }
 
     // Get order by ID
-    suspend fun getOrderById(orderId: Int): NetworkResult<OrderDto> {
+    suspend fun getOrderById(orderId: String): NetworkResult<OrderDto> { // Changed to String for UUID
         return try {
             val response = apiService.getOrderById(orderId)
 
@@ -99,7 +108,7 @@ class OrderRepository {
 
     // Cancel order
     suspend fun cancelOrder(
-        orderId: Int,
+        orderId: String, // Changed to String for UUID
         reason: String
     ): NetworkResult<CancelOrderResponse> {
         return try {

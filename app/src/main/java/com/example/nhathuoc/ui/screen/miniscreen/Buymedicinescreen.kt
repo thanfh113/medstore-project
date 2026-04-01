@@ -27,15 +27,14 @@ private val GreenTop = Color(0xFF2E7D32)
 
 
 @Composable
-fun BuyMedicineScreen(
+fun MedicalSuppliesQuoteScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {}
 ) {
     var fullName   by remember { mutableStateOf("b bào ngọc") }
     var phone      by remember { mutableStateOf("0329 645 776") }
     var note       by remember { mutableStateOf("") }
-    var medicines  by remember { mutableStateOf(listOf<String>()) }
-    var newMed     by remember { mutableStateOf("") }
+    var products   by remember { mutableStateOf(listOf<String>()) }
 
     Column(modifier = modifier.fillMaxSize()) {
         // TopAppBar
@@ -50,7 +49,7 @@ fun BuyMedicineScreen(
             IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp)) {
                 Icon(Icons.Filled.ArrowBackIos, null, tint = Color.White, modifier = Modifier.size(20.dp))
             }
-            Text("Cần mua thuốc", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            Text("Yêu cầu báo giá", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             IconButton(onClick = {}, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp)) {
                 Surface(shape = RoundedCornerShape(50), color = Color.White.copy(alpha = 0.2f)) {
                     Icon(Icons.Outlined.HelpOutline, null, tint = Color.White,
@@ -81,7 +80,6 @@ fun BuyMedicineScreen(
                     Icon(Icons.Outlined.Add, null, tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
                 }
             }
-            // + decorators
             Text("+", color = Color.White.copy(alpha = 0.5f), fontSize = 22.sp,
                 modifier = Modifier.align(Alignment.TopStart).padding(start = 40.dp, top = 20.dp))
             Text("+", color = Color.White.copy(alpha = 0.5f), fontSize = 22.sp,
@@ -96,7 +94,7 @@ fun BuyMedicineScreen(
                 .verticalScroll(rememberScrollState())
                 .background(Color(0xFFF5F7FA))
         ) {
-            // Thêm ảnh đơn thuốc
+            // Đính kèm catalog / hồ sơ yêu cầu
             Surface(color = Color.White) {
                 Row(
                     modifier = Modifier
@@ -110,9 +108,9 @@ fun BuyMedicineScreen(
                     }
                     Spacer(Modifier.width(14.dp))
                     Column {
-                        Text("Thêm ảnh nếu có đơn thuốc (không bắt buộc)",
+                        Text("Đính kèm catalog / hồ sơ yêu cầu (không bắt buộc)",
                             color = GreenTop, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                        Text("Giúp dược sỹ tư vấn chính xác nhất",
+                        Text("Hỗ trợ PDF, ảnh — giúp tư vấn chính xác hơn",
                             color = Color.Gray, fontSize = 12.sp)
                     }
                 }
@@ -120,7 +118,7 @@ fun BuyMedicineScreen(
 
             HorizontalDivider(color = Color(0xFFEEEEEE))
 
-            // Thêm thuốc
+            // Thêm sản phẩm cần báo giá
             Surface(color = Color.White) {
                 Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp)) {
                     Row(
@@ -132,13 +130,13 @@ fun BuyMedicineScreen(
                         }
                         Spacer(Modifier.width(14.dp))
                         Column {
-                            Text("Thêm thuốc cần tư vấn (không bắt buộc)",
+                            Text("Thêm sản phẩm cần báo giá (không bắt buộc)",
                                 color = GreenTop, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            Text("Nhập theo tên thuốc hoặc sản phẩm",
+                            Text("Nhập tên vật tư hoặc mã sản phẩm",
                                 color = Color.Gray, fontSize = 12.sp)
                         }
                     }
-                    medicines.forEach { med ->
+                    products.forEach { prod ->
                         Spacer(Modifier.height(8.dp))
                         Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFF0F4FF)) {
                             Row(
@@ -146,8 +144,8 @@ fun BuyMedicineScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(med, fontSize = 13.sp, color = Color(0xFF1A1A1A))
-                                IconButton(onClick = { medicines = medicines - med }, modifier = Modifier.size(20.dp)) {
+                                Text(prod, fontSize = 13.sp, color = Color(0xFF1A1A1A))
+                                IconButton(onClick = { products = products - prod }, modifier = Modifier.size(20.dp)) {
                                     Icon(Icons.Filled.Close, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                                 }
                             }
@@ -169,10 +167,10 @@ fun BuyMedicineScreen(
                     LcOutlinedField(label = "Số điện thoại", value = phone, onValueChange = { phone = it })
                     Spacer(Modifier.height(10.dp))
                     LcOutlinedField(
-                        label = "Ghi chú (không bắt buộc)",
+                        label = "Ghi chú yêu cầu (không bắt buộc)",
                         value = note,
                         onValueChange = { note = it },
-                        placeholder = "Ví dụ: Tôi cần tư vấn thuốc về bệnh đau dạ dày",
+                        placeholder = "Ví dụ: Cần mua khẩu trang N95 số lượng lớn cho bệnh viện",
                         minLines = 3
                     )
                 }
@@ -188,7 +186,7 @@ fun BuyMedicineScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
                     modifier = Modifier.fillMaxWidth().height(52.dp)
                 ) {
-                    Text("Gửi yêu cầu tư vấn", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("Gửi yêu cầu báo giá", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(14.dp))
                 Row(
@@ -197,13 +195,14 @@ fun BuyMedicineScreen(
                 ) {
                     Icon(Icons.Outlined.Receipt, null, tint = GreenTop, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Xem lại Đơn thuốc của tôi", color = GreenTop, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Xem lại Đơn hàng của tôi", color = GreenTop, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(24.dp))
             }
         }
     }
 }
+
 
 @Composable
 private fun LcOutlinedField(
@@ -230,4 +229,4 @@ private fun LcOutlinedField(
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun BuyMedicineScreenPreview() { NhathuocTheme { BuyMedicineScreen() } }
+fun MedicalSuppliesQuoteScreenPreview() { NhathuocTheme { MedicalSuppliesQuoteScreen() } }

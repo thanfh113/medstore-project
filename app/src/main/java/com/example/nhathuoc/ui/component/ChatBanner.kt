@@ -66,7 +66,7 @@ fun ChatBanner(
                     Spacer(Modifier.height(4.dp))
                 }
                 Text(
-                    "Chat với Dược sĩ ",
+                    "Chat với Chuyên gia ",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp

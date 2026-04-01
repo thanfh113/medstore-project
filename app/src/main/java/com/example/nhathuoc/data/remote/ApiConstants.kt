@@ -9,64 +9,90 @@ object ApiConstants {
     const val BASE_URL = "http://10.0.2.2:8080"
 
     // Auth endpoints
-    const val AUTH_REGISTER = "/api/auth/register"
-    const val AUTH_LOGIN = "/api/auth/login"
-    const val AUTH_REFRESH = "/api/auth/refresh"
-    const val AUTH_LOGOUT = "/api/auth/logout"
+    const val AUTH_REGISTER = "/api/v1/auth/register"
+    const val AUTH_LOGIN = "/api/v1/auth/login"
+    const val AUTH_REFRESH = "/api/v1/auth/refresh"
+    const val AUTH_LOGOUT = "/api/v1/auth/logout"
 
     // User endpoints
-    const val USER_ME = "/api/user/me"
-    const val USER_UPDATE = "/api/user/update"
-    const val USER_ADDRESSES = "/api/user/addresses"
-    const val USER_ADDRESS_ADD = "/api/user/addresses"
+    const val USER_ME = "/api/v1/user/me"
+    const val USER_UPDATE = "/api/v1/user/update"
+    const val USER_ADDRESSES = "/api/v1/user/addresses"
+    const val USER_ADDRESS_ADD = "/api/v1/user/addresses"
 
     // Product endpoints
-    const val PRODUCTS = "/api/products"
-    const val PRODUCTS_FLASH_SALE = "/api/products/flash-sale"
-    const val PRODUCTS_BEST_SELLERS = "/api/products/best-sellers"
-    const val PRODUCT_BY_ID = "/api/products/{id}"
-    const val PRODUCT_CERTIFICATES = "/api/products/{id}/certificates"
+    const val PRODUCTS = "/api/v1/products"
+    const val PRODUCTS_FLASH_SALE = "/api/v1/products/flash-sale"
+    const val PRODUCTS_BEST_SELLERS = "/api/v1/products/best-sellers"
+    const val PRODUCT_BY_ID = "/api/v1/products/{id}"
+    const val PRODUCT_CERTIFICATES = "/api/v1/products/{id}/certificates"
+
+    // Category endpoints
+    const val CATEGORIES = "/api/v1/categories"
+    const val CATEGORY_BY_ID = "/api/v1/categories/{id}"
 
     // Cart endpoints
-    const val CART = "/api/cart"
-    const val CART_ITEMS = "/api/cart/items"
-    const val CART_ITEM = "/api/cart/items/{itemId}"
+    const val CART = "/api/v1/cart"
+    const val CART_ITEMS = "/api/v1/cart/items"
+    const val CART_ITEM = "/api/v1/cart/items/{itemId}"
 
     // Order endpoints
-    const val ORDERS = "/api/orders"
-    const val ORDER_BY_ID = "/api/orders/{orderId}"
-    const val ORDER_CANCEL = "/api/orders/{orderId}/cancel"
+    const val ORDERS = "/api/v1/orders"
+    const val ORDER_BY_ID = "/api/v1/orders/{orderId}"
+    const val ORDER_CANCEL = "/api/v1/orders/{orderId}/cancel"
 
     // Reward endpoints
-    const val REWARD_ACCOUNT = "/api/rewards/account"
-    const val REWARD_PRODUCTS = "/api/rewards/products"
-    const val REWARD_REDEEM = "/api/rewards/redeem"
+    const val REWARD_ACCOUNT = "/api/v1/rewards/account"
+    const val REWARD_PRODUCTS = "/api/v1/rewards/products"
+    const val REWARD_REDEEM = "/api/v1/rewards/redeem"
 
-    // Vaccine endpoints
-    const val VACCINES = "/api/vaccines"
-    const val VACCINE_BOOK = "/api/vaccines/book"
-    const val VACCINE_BOOKINGS = "/api/vaccines/my-bookings"
 
     // Chat endpoints
-    const val CHAT_SESSIONS = "/api/chat/sessions"
-    const val CHAT_SESSION = "/api/chat/sessions/{sessionId}"
-    const val CHAT_MESSAGES = "/api/chat/sessions/{sessionId}/messages"
-    const val CHAT_SEND = "/api/chat/sessions/{sessionId}/send"
+    const val CHAT_SESSIONS = "/api/v1/chat/sessions"
+    const val CHAT_SESSION = "/api/v1/chat/sessions/{sessionId}"
+    const val CHAT_MESSAGES = "/api/v1/chat/sessions/{sessionId}/messages"
+    const val CHAT_SEND = "/api/v1/chat/sessions/{sessionId}/send"
 
     // Pharmacy endpoints
-    const val PHARMACIES = "/api/pharmacies"
-    const val PHARMACY_BY_ID = "/api/pharmacies/{id}"
+    const val PHARMACIES = "/api/v1/pharmacies"
+    const val PHARMACY_BY_ID = "/api/v1/pharmacies/{id}"
 
     // Notification endpoints
-    const val NOTIFICATIONS = "/api/notifications"
-    const val NOTIFICATION_READ = "/api/notifications/{id}/read"
-    const val NOTIFICATIONS_READ_ALL = "/api/notifications/read-all"
+    const val NOTIFICATIONS = "/api/v1/notifications"
+    const val NOTIFICATION_READ = "/api/v1/notifications/{id}/read"
+    const val NOTIFICATIONS_READ_ALL = "/api/v1/notifications/read-all"
 
     // Banner endpoints
-    const val BANNERS = "/api/banners"
+    const val BANNERS = "/api/v1/banners"
+    const val BANNER_BY_ID = "/api/v1/banners/{id}"
+
+    // Shop endpoints
+    const val SHOPS = "/api/v1/shops"
+    const val SHOP_BY_ID = "/api/v1/shops/{id}"
+
+    // Prescription endpoints
+    const val PRESCRIPTIONS = "/api/v1/prescriptions"
+    const val PRESCRIPTION_BY_ID = "/api/v1/prescriptions/{id}"
+
+    // Health Article endpoints
+    const val HEALTH_ARTICLES = "/api/v1/health-articles"
+    const val HEALTH_ARTICLE_BY_SLUG = "/api/v1/health-articles/{slug}"
+
+    // Disease Category endpoints
+    const val DISEASE_CATEGORIES = "/api/v1/disease-categories"
+
+    // Payment Method endpoints
+    const val PAYMENT_METHODS = "/api/v1/payment-methods"
 
     // Upload endpoints
-    const val UPLOAD_FILE = "/api/upload"
+    const val UPLOAD_FILE = "/api/v1/upload"
+
+    // Category attributes for dynamic product fields
+    const val CATEGORY_ATTRIBUTES = "/api/v1/categories/{id}/attributes"
+
+    // Inventory management (for future shop/admin integration)
+    const val INVENTORY_BATCHES = "/api/v1/inventory/batches"
+    const val INVENTORY_ALERTS_EXPIRING = "/api/v1/inventory/alerts/expiring"
 
     // HTTP Headers
     const val HEADER_AUTHORIZATION = "Authorization"

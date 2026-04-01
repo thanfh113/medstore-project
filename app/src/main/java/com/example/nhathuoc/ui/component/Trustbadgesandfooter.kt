@@ -24,7 +24,7 @@ data class TrustBadge(
 )
 
 val defaultTrustBadges = listOf(
-    TrustBadge(Icons.Outlined.Shield,        "Thuốc chính hãng",       "đa dạng và chuyên sâu"),
+    TrustBadge(Icons.Outlined.Shield,        "Vật tư y tế chính hãng", "đa dạng và chuyên sâu"),
     TrustBadge(Icons.Outlined.Replay,        "Đổi trả trong 30 ngày",  "kể từ ngày mua hàng"),
     TrustBadge(Icons.Outlined.ThumbUp,       "Cam kết 100%",           "chất lượng sản phẩm"),
     TrustBadge(Icons.Outlined.LocalShipping, "Miễn phí vận chuyển",    "theo chính sách giao hàng"),
@@ -104,7 +104,7 @@ fun HomeFooter(
         HorizontalDivider(color = Color(0xFFEEEEEE))
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "© 2007 - 2026 Công ty Cổ Phần Dược Phẩm Hà Tiến Thành",
+            text = "© 2007 - 2026 Công ty Cổ Phần Vật Tư Y Tế Hà Tiến Thành",
             fontSize = 11.sp,
             color = Color.Gray,
             textAlign = TextAlign.Center

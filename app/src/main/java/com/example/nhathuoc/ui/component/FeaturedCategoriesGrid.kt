@@ -25,14 +25,14 @@ data class FeaturedCategory(
 )
 
 val defaultFeaturedCategories = listOf(
-    FeaturedCategory(Icons.Outlined.Psychology,       "Thần kinh não",           59),
-    FeaturedCategory(Icons.Outlined.MedicalServices,  "Vitamin & Khoáng chất",   80),
-    FeaturedCategory(Icons.Outlined.Favorite,         "Tim mạch - Huyết áp",     23),
-    FeaturedCategory(Icons.Outlined.Shield,           "Miễn dịch - Đề kháng",   53),
-    FeaturedCategory(Icons.Outlined.Restaurant,       "Tiêu hóa",               83),
-    FeaturedCategory(Icons.Outlined.Science,          "Sinh lý - Nội tiết tố",  45),
-    FeaturedCategory(Icons.Outlined.Vaccines,         "Vắc xin",                 18),
-    FeaturedCategory(Icons.Outlined.RemoveRedEye,     "Chăm sóc mắt",           31),
+    FeaturedCategory(Icons.Outlined.LocalHospital,    "Dụng cụ tiêm truyền",      120),
+    FeaturedCategory(Icons.Outlined.HealthAndSafety,   "Băng gạc - Cầm máu",       95),
+    FeaturedCategory(Icons.Outlined.MedicalServices,   "Thiết bị phẫu thuật",      63),
+    FeaturedCategory(Icons.Outlined.MonitorHeart,      "Thiết bị chẩn đoán",       48),
+    FeaturedCategory(Icons.Outlined.Masks,             "Khẩu trang - PPE",         210),
+    FeaturedCategory(Icons.Outlined.Sanitizer,         "Chống nhiễm khuẩn",        77),
+    FeaturedCategory(Icons.Outlined.Accessibility,     "Phục hồi chức năng",       34),
+    FeaturedCategory(Icons.Outlined.Biotech,           "Vật tư xét nghiệm",        58),
 )
 
 @Composable
