@@ -162,12 +162,6 @@ fun AppnavHost(navController: NavHostController) {
                 onReorder = { navController.popBackStack() }
             )
         }
-        composable("CheckoutScreen") {
-            CheckoutScreen(navController = navController)
-        }
-        composable("PaymentScreen") {
-            PaymentScreen(navController = navController)
-        }
         composable(
             route = "CategoryProductScreen/{categoryName}",
             arguments = listOf(androidx.navigation.navArgument("categoryName") { type = androidx.navigation.NavType.StringType })

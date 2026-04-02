@@ -29,10 +29,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.data.repository.AuthRepository
+import com.example.nhathuoc.data.local.SessionManager
 import com.example.nhathuoc.ui.theme.NhathuocTheme
 import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.ui.theme.GreenLight
@@ -44,11 +46,15 @@ import com.example.nhathuoc.viewmodel.AuthViewModelFactory
 @Composable
 fun LoginScreen(
     modifier: Modifier = Modifier,
-    navController: NavController? = null,
-    viewModel: AuthViewModel = viewModel(
-        factory = AuthViewModelFactory(AuthRepository(null))
-    )
+    navController: NavController? = null
 ) {
+    val context = LocalContext.current
+    val viewModel: AuthViewModel = viewModel(
+        factory = AuthViewModelFactory(
+            AuthRepository(SessionManager(context))
+        )
+    )
+
     var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }

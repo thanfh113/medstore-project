@@ -1,9 +1,6 @@
 package com.example.nhathuoc.data.model
 
 import kotlinx.serialization.Serializable
-import com.example.nhathuoc.data.model.OrderStatus
-import com.example.nhathuoc.data.model.PaymentMethod
-import com.example.nhathuoc.data.model.PickupType
 
 /**
  * Order related data transfer objects

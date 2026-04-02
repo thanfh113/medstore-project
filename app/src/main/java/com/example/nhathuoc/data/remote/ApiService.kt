@@ -240,7 +240,7 @@ interface ApiService {
     @GET(ApiConstants.PAYMENT_METHODS)
     suspend fun getPaymentMethods(
         @Query("isActive") isActive: Boolean = true
-    ): Response<List<PaymentMethod>>
+    ): Response<List<String>>
 
 
     // ===== Chat Endpoints =====

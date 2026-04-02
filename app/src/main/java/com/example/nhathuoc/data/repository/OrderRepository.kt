@@ -130,24 +130,19 @@ class OrderRepository {
         }
     }
 
-    // Helper: Get orders by status
-    suspend fun getOrdersByStatus(status: OrderStatus): NetworkResult<OrderListResponse> {
-        return getOrders(status = status.value)
-    }
-
     // Helper: Get pending orders
     suspend fun getPendingOrders(): NetworkResult<OrderListResponse> {
-        return getOrdersByStatus(OrderStatus.PENDING)
+        return getOrders(status = "PENDING")
     }
 
     // Helper: Get delivered orders
     suspend fun getDeliveredOrders(): NetworkResult<OrderListResponse> {
-        return getOrdersByStatus(OrderStatus.DELIVERED)
+        return getOrders(status = "DELIVERED")
     }
 
     // Helper: Get cancelled orders
     suspend fun getCancelledOrders(): NetworkResult<OrderListResponse> {
-        return getOrdersByStatus(OrderStatus.CANCELLED)
+        return getOrders(status = "CANCELLED")
     }
 
     // Helper function to parse error messages

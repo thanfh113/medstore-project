@@ -20,6 +20,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -33,6 +34,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.data.repository.AuthRepository
+import com.example.nhathuoc.data.local.SessionManager
 import com.example.nhathuoc.ui.theme.NhathuocTheme
 import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.ui.theme.GreenLight
@@ -44,11 +46,15 @@ import com.example.nhathuoc.viewmodel.AuthViewModelFactory
 @Composable
 fun RegisterScreen(
     modifier: Modifier = Modifier,
-    navController: NavController? = null,
-    viewModel: AuthViewModel = viewModel(
-        factory = AuthViewModelFactory(AuthRepository(null))
-    )
+    navController: NavController? = null
 ) {
+    val context = LocalContext.current
+    val viewModel: AuthViewModel = viewModel(
+        factory = AuthViewModelFactory(
+            AuthRepository(SessionManager(context))
+        )
+    )
+
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
