@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.viewmodel.OrderViewModel
 
@@ -35,13 +36,61 @@ fun OrderConfirmationScreen(
     navController: NavController = rememberNavController(),
     viewModel: OrderViewModel = viewModel()
 ) {
-    val isLoading = remember { mutableStateOf(true) }
+    val orderState by viewModel.orderState.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     LaunchedEffect(orderId) {
-        // Load order details
-        isLoading.value = false
+        if (orderId.isNotEmpty()) {
+            viewModel.getOrderById(orderId)
+        }
     }
 
+    when (orderState) {
+        is UiState.Loading -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = GreenTop)
+            }
+        }
+        is UiState.Success<*> -> {
+            val order = (orderState as? UiState.Success<*>)?.let {
+                it.data as? com.example.nhathuoc.data.model.OrderDto
+            }
+
+            if (order != null) {
+                OrderConfirmationContent(
+                    order = order,
+                    navController = navController,
+                    modifier = modifier
+                )
+            }
+        }
+        is UiState.Error -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Lỗi tải đơn hàng", fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = { viewModel.getOrderById(orderId) }) {
+                        Text("Thử lại")
+                    }
+                }
+            }
+        }
+        else -> {}
+    }
+}
+
+@Composable
+private fun OrderConfirmationContent(
+    order: com.example.nhathuoc.data.model.OrderDto,
+    navController: NavController,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -73,7 +122,7 @@ fun OrderConfirmationScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Đơn hàng của bạn đã được trc thành công",
+                        "Đơn hàng của bạn đã được tiếp nhận thành công",
                         fontSize = 14.sp,
                         color = Color.Gray,
                         textAlign = TextAlign.Center
@@ -104,14 +153,14 @@ fun OrderConfirmationScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                orderId,
+                                order.orderCode,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.weight(1f)
                             )
                             IconButton(
                                 onClick = {
-                                    // Copy to clipboard
+                                    // Copy to clipboard logic would go here
                                 },
                                 modifier = Modifier.size(32.dp)
                             ) {
@@ -124,32 +173,33 @@ fun OrderConfirmationScreen(
 
             // Order timeline
             item {
-                OrderTimeline()
+                OrderTimeline(status = order.status)
             }
 
-            // Order items (sample)
-            item {
-                Text("Chi tiết đơn hàng", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            }
+            // Order items
+            if (order.items.isNotEmpty()) {
+                item {
+                    Text("Chi tiết đơn hàng", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
 
-            items(
-                listOf(
-                    Triple("Vitamin C 1000mg", 2, 178000),
-                    Triple("Kem dưỡng da SPF50", 1, 199000)
-                )
-            ) { (name, qty, price) ->
-                OrderItemRow(name = name, quantity = qty, price = price)
+                items(order.items) { item ->
+                    OrderItemRow(
+                        name = item.name,
+                        quantity = item.quantity,
+                        price = item.price.toInt()
+                    )
+                }
             }
 
             // Pricing breakdown
             item {
                 PricingBreakdown(
-                    subtotal = 1253000.0,
-                    discount = 62650.0,
-                    shipping = 30000.0,
-                    tax = 125300.0,
-                    rewardPoints = 100,
-                    total = 1345650.0
+                    subtotal = order.subtotal,
+                    discount = order.discount,
+                    shipping = order.shippingFee,
+                    tax = order.subtotal * 0.1,
+                    rewardPoints = order.pointsEarned,
+                    total = order.total
                 )
             }
 
@@ -232,7 +282,7 @@ private fun AnimatedCheckmark() {
 }
 
 @Composable
-private fun OrderTimeline() {
+private fun OrderTimeline(status: String = "PENDING") {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -242,11 +292,20 @@ private fun OrderTimeline() {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             val steps = listOf(
-                "Đã đặt hàng" to "Vừa xong",
-                "Xác nhận" to "--",
-                "Chuẩn bị hàng" to "--",
-                "Đã giao" to "--"
+                "Đã đặt hàng" to (if (listOf("PENDING", "CONFIRMED", "PREPARING", "SHIPPING", "DELIVERED").contains(status)) "Vừa xong" else "--"),
+                "Xác nhận" to (if (listOf("CONFIRMED", "PREPARING", "SHIPPING", "DELIVERED").contains(status)) "Đã xác nhận" else "--"),
+                "Chuẩn bị hàng" to (if (listOf("PREPARING", "SHIPPING", "DELIVERED").contains(status)) "Đang chuẩn bị" else "--"),
+                "Đã giao" to (if (status == "DELIVERED") "Đã giao" else "--")
             )
+
+            val completedSteps = when (status) {
+                "PENDING" -> 0
+                "CONFIRMED" -> 1
+                "PREPARING" -> 2
+                "SHIPPING" -> 3
+                "DELIVERED" -> 4
+                else -> 0
+            }
 
             steps.forEachIndexed { index, (step, time) ->
                 Row(
@@ -256,11 +315,11 @@ private fun OrderTimeline() {
                     // Timeline circle
                     Surface(
                         modifier = Modifier.size(32.dp),
-                        color = if (index == 0) GreenTop else Color(0xFFE8F5E9),
+                        color = if (index < completedSteps) GreenTop else Color(0xFFE8F5E9),
                         shape = CircleShape
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            if (index == 0) {
+                            if (index < completedSteps) {
                                 Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
                             } else {
                                 Text((index + 1).toString(), color = GreenTop)
@@ -357,9 +416,4 @@ private fun PricingRowItem(
         Text(label, fontSize = 12.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
         Text(value, fontSize = 12.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal, color = color)
     }
-}
-
-// Placeholder ViewModel (create in viewmodel package)
-class OrderViewModel : androidx.lifecycle.ViewModel() {
-    // Implement order-related logic
 }
