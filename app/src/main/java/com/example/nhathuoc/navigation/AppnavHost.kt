@@ -1,28 +1,29 @@
 package com.example.nhathuoc.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.nhathuoc.ui.component.defaultFlashSaleProducts
-import com.example.nhathuoc.ui.component.defaultBestSellers
-import com.example.nhathuoc.ui.component.defaultDiseases
-import com.example.nhathuoc.ui.screen.miniscreen.categoryScreenDataMap
-import com.example.nhathuoc.ui.screen.MainScreen
+import com.example.nhathuoc.data.local.SessionManager
+import com.example.nhathuoc.data.repository.CartRepository
+import com.example.nhathuoc.ui.screen.CartScreenV2
 import com.example.nhathuoc.ui.screen.miniscreen.*
+import com.example.nhathuoc.viewmodel.CartViewModel
+import com.example.nhathuoc.viewmodel.CartViewModelFactory
+import com.example.nhathuoc.ui.component.*
+import com.example.nhathuoc.ui.screen.*
 import com.example.nhathuoc.util.AuthenticatedAction
 
 @Composable
 fun AppnavHost(navController: NavHostController) {
     // Lưu product context tạm khi navigate từ ProductDetail → ChatScreen
-    var pendingProductContext by remember { mutableStateOf<ChatProductContext?>(null) }
+    val pendingProductContext = remember { mutableStateOf<ChatProductContext?>(null) }
     val context = LocalContext.current
 
     NavHost(
@@ -41,9 +42,12 @@ fun AppnavHost(navController: NavHostController) {
         composable("MainScreen") {
             MainScreen(navController)
         }
+        composable("ProductListScreen") {
+            ProductListScreen(navController = navController)
+        }
         composable("ChatScreen") {
             // Lấy context nếu có (từ ProductDetail), sau đó clear
-            val ctx = pendingProductContext
+            val ctx = pendingProductContext.value
             ChatScreen(
                 onBack          = { navController.popBackStack() },
                 productContext  = ctx
@@ -118,11 +122,18 @@ fun AppnavHost(navController: NavHostController) {
                 )
             }
 
+            // Create CartViewModel for this screen
+            val cartViewModel: CartViewModel = viewModel(
+                factory = CartViewModelFactory(
+                    CartRepository()
+                )
+            )
+
             ProductDetailScreen(
                 product        = detail,
                 onBack         = { navController.popBackStack() },
                 onChat         = { ctx ->
-                    pendingProductContext = ctx
+                    pendingProductContext.value = ctx
                     navController.navigate("ChatScreen")
                 },
                 onFindPharmacy = { navController.navigate("FindPharmacyScreen") },
@@ -130,8 +141,12 @@ fun AppnavHost(navController: NavHostController) {
                     context = context,
                     navController = navController
                 ) {
-                    // Add to cart logic here - authenticated user only
-                    // TODO: Implement add to cart functionality
+                    // Add to cart logic - authenticated user only
+                    cartViewModel.addToCart(
+                        productId = detail.id,
+                        quantity = 1,
+                        unit = detail.unit
+                    )
                 }
             )
         }
@@ -156,7 +171,7 @@ fun AppnavHost(navController: NavHostController) {
                 order     = order,
                 onBack    = { navController.popBackStack() },
                 onSupport = { ctx ->
-                    pendingProductContext = ctx
+                    pendingProductContext.value = ctx
                     navController.navigate("ChatScreen")
                 },
                 onReorder = { navController.popBackStack() }
@@ -173,6 +188,26 @@ fun AppnavHost(navController: NavHostController) {
                 navController = navController,
                 onBack        = { navController.popBackStack() }
             )
+        }
+        composable("CartScreenV2") {
+            CartScreenV2(navController = navController)
+        }
+        composable("CheckoutScreen") {
+            CheckoutScreen(navController = navController)
+        }
+        composable(
+            route = "PaymentScreen/{orderId}",
+            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+            PaymentScreen(orderId = orderId, navController = navController)
+        }
+        composable(
+            route = "OrderConfirmationScreen/{orderId}",
+            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+            OrderConfirmationScreen(orderId = orderId, navController = navController)
         }
     }
 }
