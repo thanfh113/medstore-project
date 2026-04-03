@@ -1,5 +1,6 @@
 package com.example.nhathuoc.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nhathuoc.data.model.*
@@ -53,10 +54,41 @@ class CheckoutViewModel(
         viewModelScope.launch {
             _checkoutState.value = _checkoutState.value.copy(isLoading = true)
 
-            // TODO: Load cart items from CartRepository
-            // TODO: Load user addresses from API
+            // Load cart items
+            val cartItems = when (val result = cartRepository.getCart()) {
+                is NetworkResult.Success -> {
+                    result.data.items.map { cartItem ->
+                        OrderItemDto(
+                            id = cartItem.id,
+                            orderId = "", // Will be set by server
+                            productId = cartItem.productId,
+                            name = cartItem.product?.name ?: "Unknown Product",
+                            quantity = cartItem.quantity,
+                            unit = cartItem.unit,
+                            price = cartItem.unitPrice,
+                            totalPrice = cartItem.totalPrice
+                        )
+                    }
+                }
+                is NetworkResult.Error -> {
+                    Log.e("CheckoutVM", "Failed to load cart: ${result.message}")
+                    emptyList()
+                }
+                is NetworkResult.Exception -> {
+                    Log.e("CheckoutVM", "Error loading cart", result.e)
+                    emptyList()
+                }
+            }
 
-            _checkoutState.value = _checkoutState.value.copy(isLoading = false)
+            // TODO: Load user addresses from AddressRepository
+            // For now, initialize with empty addresses
+            // When implemented: val addresses = addressRepository.getUserAddresses()
+
+            _checkoutState.value = _checkoutState.value.copy(
+                items = cartItems,
+                isLoading = false
+            )
+            calculateTotals()
         }
     }
 
