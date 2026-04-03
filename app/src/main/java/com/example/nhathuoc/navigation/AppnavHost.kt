@@ -12,12 +12,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.nhathuoc.data.local.SessionManager
 import com.example.nhathuoc.data.repository.CartRepository
-import com.example.nhathuoc.ui.screen.CartScreenV2
-import com.example.nhathuoc.ui.screen.miniscreen.*
 import com.example.nhathuoc.viewmodel.CartViewModel
 import com.example.nhathuoc.viewmodel.CartViewModelFactory
 import com.example.nhathuoc.ui.component.*
 import com.example.nhathuoc.ui.screen.*
+import com.example.nhathuoc.ui.screen.miniscreen.*
 import com.example.nhathuoc.util.AuthenticatedAction
 
 @Composable
@@ -189,8 +188,8 @@ fun AppnavHost(navController: NavHostController) {
                 onBack        = { navController.popBackStack() }
             )
         }
-        composable("CartScreenV2") {
-            CartScreenV2(navController = navController)
+        composable("CartScreen") {
+            CartScreen(navController = navController)
         }
         composable("CheckoutScreen") {
             CheckoutScreen(navController = navController)
