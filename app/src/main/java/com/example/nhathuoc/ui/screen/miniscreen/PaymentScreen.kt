@@ -18,6 +18,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import android.webkit.WebView
+import com.example.nhathuoc.data.model.NetworkResult
+import com.example.nhathuoc.data.repository.OrderRepository
 import com.example.nhathuoc.ui.theme.GreenTop
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -28,14 +30,70 @@ fun PaymentScreen(
     navController: NavController = rememberNavController()
 ) {
     var paymentStatus by remember { mutableStateOf("PROCESSING") } // PROCESSING, SUCCESS, FAILED
-    var paymentUrl by remember { mutableStateOf("https://sandbox.vnpayment.vn/?...")  }
+    var paymentUrl by remember { mutableStateOf<String?>(null) }
     var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
 
-    // TODO: Fetch payment URL from backend using orderId
+    // Fetch payment URL when orderId is provided
+    LaunchedEffect(orderId) {
+        if (orderId.isNotEmpty()) {
+            val orderRepository = OrderRepository()
+            val result = orderRepository.getOrderById(orderId)
+
+            when (result) {
+                is NetworkResult.Success -> {
+                    val url = result.data.let {
+                        // Construct payment URL based on paymentMethod
+                        when (it.paymentMethod) {
+                            "VNPAY" -> "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vtc=${it.id}"
+                            "MOMO" -> "https://sandbox.momoio.vn/pay?order=${it.id}"
+                            else -> null
+                        }
+                    }
+                    paymentUrl = url
+                }
+                is NetworkResult.Error -> {
+                    showError = true
+                    errorMessage = result.message
+                }
+                is NetworkResult.Exception -> {
+                    showError = true
+                    errorMessage = result.e.message ?: "Không thể tải thông tin thanh toán"
+                }
+            }
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
-        when (paymentStatus) {
-            "PROCESSING" -> {
+        when {
+            showError -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Error,
+                        contentDescription = null,
+                        modifier = Modifier.size(80.dp),
+                        tint = Color.Red
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text("Lỗi tải thanh toán", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(errorMessage, fontSize = 14.sp, color = Color.Gray)
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Button(
+                        onClick = { navController.popBackStack() },
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
+                    ) {
+                        Text("Quay lại", color = Color.White)
+                    }
+                }
+            }
+            paymentStatus == "PROCESSING" -> {
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Header
                     Surface(modifier = Modifier
@@ -50,37 +108,49 @@ fun PaymentScreen(
                     }
 
                     // WebView for payment gateway
-                    AndroidView(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                        factory = { context ->
-                            WebView(context).apply {
-                                settings.javaScriptEnabled = true
-                                webViewClient = PaymentWebViewClient(
-                                    onSuccess = {
-                                        paymentStatus = "SUCCESS"
-                                    },
-                                    onError = {
-                                        paymentStatus = "FAILED"
-                                    }
-                                )
-                                //loadUrl(paymentUrl)
-                                // For demo: load about:blank
-                                loadUrl("about:blank")
+                    if (paymentUrl != null) {
+                        AndroidView(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            factory = { context ->
+                                WebView(context).apply {
+                                    settings.javaScriptEnabled = true
+                                    webViewClient = PaymentWebViewClient(
+                                        onSuccess = {
+                                            paymentStatus = "SUCCESS"
+                                        },
+                                        onError = {
+                                            paymentStatus = "FAILED"
+                                        }
+                                    )
+                                    loadUrl(paymentUrl!!)
+                                }
                             }
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = GreenTop)
                         }
-                    )
+                    }
                 }
             }
 
-            "SUCCESS" -> {
+            paymentStatus == "SUCCESS" -> {
                 PaymentSuccessScreen(orderId = orderId, navController = navController)
             }
 
-            "FAILED" -> {
+            paymentStatus == "FAILED" -> {
                 PaymentFailedScreen(
-                    onRetry = { paymentStatus = "PROCESSING" },
+                    onRetry = {
+                        paymentStatus = "PROCESSING"
+                        paymentUrl = null
+                    },
                     navController = navController
                 )
             }
