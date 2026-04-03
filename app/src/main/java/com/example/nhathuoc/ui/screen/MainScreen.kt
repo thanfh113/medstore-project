@@ -93,7 +93,7 @@ fun MainScreen(navController: NavController) {
                     0 -> HomeScreen(navController = navController)
                     1 -> RewardScreen(onShopNow = { selectedTab = 0 })
                     3 -> CartScreen(navController = navController)
-                    4 -> AccountScreen(navController = navController)
+                    4 -> AccountScreen(navController = navController, mainNavController = navController)
                 }
             }
         }

@@ -88,17 +88,14 @@ private fun HomeScreenContent(
         }
     }
 
-    val hintAlpha    by animateFloatAsState(if (collapseLevel < 0.5f) 1f - collapseLevel * 2f else 0f, tween(150))
-    val logoAlpha    by animateFloatAsState(if (collapseLevel < 1.2f) 1f else 1f - (collapseLevel - 1.2f) / 0.8f, tween(150))
-    val compactAlpha by animateFloatAsState(if (collapseLevel > 1.5f) (collapseLevel - 1.5f) / 0.5f else 0f, tween(150))
+    val hintAlpha = if (collapseLevel < 0.5f) 1f - collapseLevel * 2f else 0f
+    val logoAlpha = if (collapseLevel < 1.2f) 1f else 1f - (collapseLevel - 1.2f) / 0.8f
+    val compactAlpha = if (collapseLevel > 1.5f) (collapseLevel - 1.5f) / 0.5f else 0f
 
-    val headerHeight by animateDpAsState(
-        targetValue = when {
-            collapseLevel <= 1f -> HEADER_FULL - (HEADER_FULL - HEADER_MID) * collapseLevel
-            else                -> HEADER_MID  - (HEADER_MID  - HEADER_COLLAPSED) * (collapseLevel - 1f)
-        },
-        animationSpec = tween(100)
-    )
+    val headerHeight = when {
+        collapseLevel <= 1f -> HEADER_FULL - (HEADER_FULL - HEADER_MID) * collapseLevel
+        else                -> HEADER_MID  - (HEADER_MID  - HEADER_COLLAPSED) * (collapseLevel - 1f)
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
 

@@ -20,7 +20,7 @@ data class RegisterRequest(
 
 @Serializable
 data class LoginRequest(
-    val phone: String,
+    val credential: String,  // Email or Phone
     val password: String
 )
 
@@ -31,25 +31,25 @@ data class RefreshTokenRequest(
 
 @Serializable
 data class AuthResponse(
-    val message: String,
     val user: UserResponse,
     val accessToken: String,
-    val refreshToken: String
+    val refreshToken: String,
+    val message: String = ""  // Move to end with default - API may not always include
 )
 
 @Serializable
 data class UserResponse(
     val id: String, // UUID from backend
-    val fullName: String,
+    val fullName: String? = null,  // Make nullable - API can return null
     val phone: String,
-    val email: String,
+    val email: String? = null,  // Make nullable - API can return null
     val avatarUrl: String? = null,
     val gender: Int? = null, // 1:Male, 2:Female, 3:Other
     val dateOfBirth: String? = null,
     val role: String,
     val isActive: Boolean = true,
-    val createdAt: String,
-    val updatedAt: String,
+    val createdAt: String = "",  // Add default
+    val updatedAt: String = "",  // Add default
     val deletedAt: String? = null
 )
 

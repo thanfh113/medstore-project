@@ -42,6 +42,7 @@ import com.example.nhathuoc.ui.theme.BgColor
 import com.example.nhathuoc.util.ValidationUtils
 import com.example.nhathuoc.viewmodel.AuthViewModel
 import com.example.nhathuoc.viewmodel.AuthViewModelFactory
+import android.util.Log
 
 @Composable
 fun RegisterScreen(
@@ -63,6 +64,7 @@ fun RegisterScreen(
     var isPasswordVisible by remember { mutableStateOf(false) }
     var isConfirmPasswordVisible by remember { mutableStateOf(false) }
     var agreeToTerms by remember { mutableStateOf(false) }
+    var hasNavigatedBack by remember { mutableStateOf(false) }
 
     var fullNameError by remember { mutableStateOf<String?>(null) }
     var emailError by remember { mutableStateOf<String?>(null) }
@@ -77,20 +79,27 @@ fun RegisterScreen(
         ValidationUtils.assessPasswordStrength(password)
     }
 
-    // Handle registration state changes
+    Log.d("RegisterScreen", "📝 RegisterScreen rendered, registerState=$registerState, hasNavigatedBack=$hasNavigatedBack")
+
+    // Clear previous state when screen enters
+    LaunchedEffect(Unit) {
+        Log.d("RegisterScreen", "🔄 Clearing register state on entry")
+        viewModel.clearRegisterState()
+        hasNavigatedBack = false
+    }
+
+    // Handle successful registration - navigate to MainScreen
     LaunchedEffect(registerState) {
-        when (registerState) {
-            is UiState.Success -> {
-                // Auto-login after successful registration
-                navController?.navigate("MainScreen") {
-                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                }
-                viewModel.clearRegisterState()
+        // Fix: Check class name instead (avoids generic type erasure)
+        val isSuccess = registerState.javaClass.simpleName == "Success"
+
+        if (isSuccess && !hasNavigatedBack) {
+            Log.d("RegisterScreen", "✅ Registration Success detected!")
+            hasNavigatedBack = true
+            Log.d("RegisterScreen", "🏠 Navigating to MainScreen")
+            navController?.navigate("MainScreen") {
+                popUpTo(navController.graph.startDestinationId) { inclusive = true }
             }
-            is UiState.Error -> {
-                // Error already displayed in UI
-            }
-            else -> {}
         }
     }
 
@@ -542,24 +551,35 @@ fun RegisterScreen(
 
                     Button(
                         onClick = {
+                            Log.d("RegisterScreen", "📝 Register button clicked")
+                            Log.d("RegisterScreen", "📋 Input: fullName=$fullName, email=$email, phone=$phone")
+
                             // Validate all fields
                             val (nameValid, nameErr) = ValidationUtils.isValidFullName(fullName)
                             fullNameError = nameErr
+                            Log.d("RegisterScreen", "👤 FullName validation: valid=$nameValid, error=$nameErr")
 
                             val (emailValid, emailErr) = ValidationUtils.isValidEmail(email)
                             emailError = emailErr
+                            Log.d("RegisterScreen", "📧 Email validation: valid=$emailValid, error=$emailErr")
 
                             val (phoneValid, phoneErr) = ValidationUtils.isValidVietnamesePhone(phone)
                             phoneError = phoneErr
+                            Log.d("RegisterScreen", "📱 Phone validation: valid=$phoneValid, error=$phoneErr")
 
                             val (pwdValid, pwdErr) = ValidationUtils.isValidPassword(password)
                             passwordError = pwdErr
+                            Log.d("RegisterScreen", "🔑 Password validation: valid=$pwdValid, error=$pwdErr")
 
                             val (confirmValid, confirmErr) = ValidationUtils.passwordsMatch(password, confirmPassword)
                             confirmPasswordError = confirmErr
+                            Log.d("RegisterScreen", "🔐 Confirm password validation: valid=$confirmValid, error=$confirmErr")
 
                             if (nameValid && emailValid && phoneValid && pwdValid && confirmValid) {
+                                Log.d("RegisterScreen", "✅ All validation passed! Calling viewModel.register()")
                                 viewModel.register(fullName, phone, email, password)
+                            } else {
+                                Log.e("RegisterScreen", "❌ Validation failed!")
                             }
                         },
                         shape = RoundedCornerShape(50.dp),

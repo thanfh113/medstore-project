@@ -1,5 +1,6 @@
 package com.example.nhathuoc.ui.screen.miniscreen
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -55,30 +56,50 @@ fun LoginScreen(
         )
     )
 
-    var phone by remember { mutableStateOf("") }
+    var credential by remember { mutableStateOf("") }  // Email or Phone
     var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
     var rememberMe by remember { mutableStateOf(false) }
-    var phoneError by remember { mutableStateOf<String?>(null) }
+    var credentialError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
+    var hasNavigatedBack by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
     val loginState by viewModel.loginState.collectAsState()
 
-    // Handle login state changes
+    Log.d("LoginScreen", "🔐 LoginScreen rendered, loginState=$loginState, hasNavigatedBack=$hasNavigatedBack")
+
+    // Clear previous state when screen enters
+    LaunchedEffect(Unit) {
+        Log.d("LoginScreen", "🔄 Clearing login state on entry")
+        viewModel.clearLoginState()
+        hasNavigatedBack = false
+    }
+
+    // Handle successful login - navigate to MainScreen
     LaunchedEffect(loginState) {
-        when (loginState) {
-            is UiState.Success -> {
-                // Clear state and navigate
-                navController?.navigate("MainScreen") {
+        Log.d("LoginScreen", "⚡ LaunchedEffect triggered! loginState=$loginState, hasNavigatedBack=$hasNavigatedBack, navController=$navController")
+
+        // Fix: Check class name instead (avoids generic type erasure)
+        val isSuccess = loginState.javaClass.simpleName == "Success"
+        val notNavigated = !hasNavigatedBack
+        Log.d("LoginScreen", "📊 Condition check: isSuccess=$isSuccess, notNavigated=$notNavigated")
+
+        if (isSuccess && notNavigated) {
+            Log.d("LoginScreen", "✅ Login Success detected!")
+            hasNavigatedBack = true
+            Log.d("LoginScreen", "🏠 About to navigate to MainScreen")
+            Log.d("LoginScreen", "🔗 navController is null? ${navController == null}")
+
+            if (navController != null) {
+                Log.d("LoginScreen", "🔀 Calling navigate(MainScreen)...")
+                navController.navigate("MainScreen") {
                     popUpTo(navController.graph.startDestinationId) { inclusive = true }
                 }
-                viewModel.clearLoginState()
+                Log.d("LoginScreen", "✅ Navigate call completed")
+            } else {
+                Log.e("LoginScreen", "❌ navController is NULL!")
             }
-            is UiState.Error -> {
-                // Error already displayed in UI
-            }
-            else -> {}
         }
     }
 
@@ -213,34 +234,34 @@ fun LoginScreen(
                         }
                     }
 
-                    // Phone field
+                    // Credential field (Email or Phone)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            "Số điện thoại",
+                            "Email hoặc Số điện thoại",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color.Black
                         )
                         OutlinedTextField(
-                            value = phone,
+                            value = credential,
                             onValueChange = {
-                                phone = it
-                                phoneError = null // Clear error on edit
+                                credential = it
+                                credentialError = null // Clear error on edit
                             },
-                            placeholder = { Text("0xxx-xxx-xxx hoặc 0xxxxxxxxx") },
+                            placeholder = { Text("user@gmail.com hoặc 0xxxxxxxxx") },
                             leadingIcon = {
                                 Icon(
-                                    Icons.Outlined.Phone,
+                                    Icons.Outlined.Person,
                                     contentDescription = null,
                                     tint = GreenTop
                                 )
                             },
-                            isError = phoneError != null,
-                            supportingText = if (phoneError != null) {
-                                { Text(phoneError!!, fontSize = 12.sp) }
+                            isError = credentialError != null,
+                            supportingText = if (credentialError != null) {
+                                { Text(credentialError!!, fontSize = 12.sp) }
                             } else null,
                             keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Phone,
+                                keyboardType = KeyboardType.Email,
                                 imeAction = ImeAction.Next
                             ),
                             keyboardActions = KeyboardActions(
@@ -336,20 +357,48 @@ fun LoginScreen(
 
                     // Login button
                     val isLoading = loginState is UiState.Loading
-                    val isFormValid = phone.isNotEmpty() && password.isNotEmpty()
+                    val isFormValid = credential.isNotEmpty() && password.isNotEmpty()
 
                     Button(
                         onClick = {
-                            // Validate phone
-                            val (phoneValid, phoneErr) = ValidationUtils.isValidVietnamesePhone(phone)
-                            phoneError = phoneErr
+                            Log.d("LoginScreen", "🔐 Login button clicked")
+                            Log.d("LoginScreen", "📝 Input: credential=$credential, password length=${password.length}")
+
+                            credentialError = null
+                            passwordError = null
+
+                            // Auto-detect credential type (email or phone)
+                            val isEmail = credential.contains("@")
+                            Log.d("LoginScreen", "🔍 Credential type: ${if(isEmail) "Email" else "Phone"}")
+
+                            // Validate credential
+                            val credentialValid = if (isEmail) {
+                                val (emailValid, emailErr) = ValidationUtils.isValidEmail(credential)
+                                credentialError = emailErr
+                                Log.d("LoginScreen", "📧 Email validation: valid=$emailValid, error=$emailErr")
+                                emailValid
+                            } else {
+                                val (phoneValid, phoneErr) = ValidationUtils.isValidVietnamesePhone(credential)
+                                credentialError = phoneErr
+                                Log.d("LoginScreen", "📱 Phone validation: valid=$phoneValid, error=$phoneErr")
+                                phoneValid
+                            }
 
                             // Validate password
                             val (pwdValid, pwdErr) = ValidationUtils.isValidPassword(password)
                             passwordError = pwdErr
+                            Log.d("LoginScreen", "🔑 Password validation: valid=$pwdValid, error=$pwdErr")
 
-                            if (phoneValid && pwdValid) {
-                                viewModel.login(phone, password)
+                            if (credentialValid && pwdValid) {
+                                Log.d("LoginScreen", "✅ Validation passed! Calling viewModel.login()")
+                                // Send email or phone based on credential type
+                                if (isEmail) {
+                                    viewModel.loginWithEmail(credential, password)
+                                } else {
+                                    viewModel.login(credential, password)
+                                }
+                            } else {
+                                Log.e("LoginScreen", "❌ Validation failed!")
                             }
                         },
                         shape = RoundedCornerShape(50.dp),

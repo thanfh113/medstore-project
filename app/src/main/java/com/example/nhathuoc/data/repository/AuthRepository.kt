@@ -7,6 +7,7 @@ import com.example.nhathuoc.data.remote.RetrofitClient
 import kotlinx.coroutines.flow.Flow
 import retrofit2.HttpException
 import java.io.IOException
+import android.util.Log
 
 /**
  * Repository for authentication operations
@@ -38,10 +39,14 @@ class AuthRepository(
                 dateOfBirth = dateOfBirth
             )
 
+            Log.d("AuthRepo", "📤 Sending register request: fullName=$fullName, phone=$phone, email=$email")
+
             val response = apiService.register(request)
+            Log.d("AuthRepo", "📥 Register response code: ${response.code()}, isSuccessful: ${response.isSuccessful}")
 
             if (response.isSuccessful) {
                 val authResponse = response.body()!!
+                Log.d("AuthRepo", "✅ Register success: userId=${authResponse.user.id}, token=${authResponse.accessToken.take(20)}...")
 
                 // Save session data
                 sessionManager.saveAuthData(
@@ -57,28 +62,36 @@ class AuthRepository(
                 NetworkResult.Success(authResponse)
             } else {
                 val errorMessage = parseErrorMessage(response.errorBody()?.string())
+                Log.e("AuthRepo", "❌ Register failed: code=${response.code()}, error=$errorMessage")
                 NetworkResult.Error(response.code(), errorMessage)
             }
         } catch (e: HttpException) {
+            Log.e("AuthRepo", "❌ HTTP Exception: ${e.code()} - ${e.message()}")
             NetworkResult.Error(e.code(), e.message())
         } catch (e: IOException) {
+            Log.e("AuthRepo", "❌ IO Exception: ${e.message}")
             NetworkResult.Exception(e)
         } catch (e: Exception) {
+            Log.e("AuthRepo", "❌ Exception: ${e.message}")
             NetworkResult.Exception(e)
         }
     }
 
-    // Login user
+    // Login user (supports both email and phone as credential)
     suspend fun login(
-        phone: String,
+        credential: String,  // Email or Phone
         password: String
     ): NetworkResult<AuthResponse> {
         return try {
-            val request = LoginRequest(phone = phone, password = password)
+            val request = LoginRequest(credential = credential, password = password)
+            Log.d("AuthRepo", "📤 Sending login request: credential=$credential")
+
             val response = apiService.login(request)
+            Log.d("AuthRepo", "📥 Login response code: ${response.code()}, isSuccessful: ${response.isSuccessful}")
 
             if (response.isSuccessful) {
                 val authResponse = response.body()!!
+                Log.d("AuthRepo", "✅ Login success: userId=${authResponse.user.id}, token=${authResponse.accessToken.take(20)}...")
 
                 // Save session data
                 sessionManager.saveAuthData(
@@ -94,13 +107,17 @@ class AuthRepository(
                 NetworkResult.Success(authResponse)
             } else {
                 val errorMessage = parseErrorMessage(response.errorBody()?.string())
+                Log.e("AuthRepo", "❌ Login failed: code=${response.code()}, error=$errorMessage")
                 NetworkResult.Error(response.code(), errorMessage)
             }
         } catch (e: HttpException) {
+            Log.e("AuthRepo", "❌ HTTP Exception: ${e.code()} - ${e.message()}")
             NetworkResult.Error(e.code(), e.message())
         } catch (e: IOException) {
+            Log.e("AuthRepo", "❌ IO Exception: ${e.message}")
             NetworkResult.Exception(e)
         } catch (e: Exception) {
+            Log.e("AuthRepo", "❌ Exception: ${e.message}")
             NetworkResult.Exception(e)
         }
     }

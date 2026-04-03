@@ -5,13 +5,13 @@ package com.example.nhathuoc.util
  */
 object ValidationUtils {
 
-    // Vietnamese phone validation: 0[3,5,7,8,9] + 8 digits
+    // Vietnamese phone validation: 0 + 9 digits = 10 digits total
     fun isValidVietnamesePhone(phone: String): Pair<Boolean, String?> {
         val cleanPhone = phone.trim()
-        return if (cleanPhone.matches(Regex("^(0[3,5,7,8,9])+([0-9]{8})$"))) {
+        return if (cleanPhone.matches(Regex("^0[0-9]{9}$"))) {
             Pair(true, null)
         } else {
-            Pair(false, "Số điện thoại không hợp lệ (định dạng: 0xxxxxxxxx)")
+            Pair(false, "Số điện thoại không hợp lệ (định dạng: 0xxxxxxxxx - 10 chữ số)")
         }
     }
 

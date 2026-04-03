@@ -28,6 +28,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.nhathuoc.ui.theme.NhathuocTheme
 import com.example.nhathuoc.ui.theme.GreenTop
+import android.util.Log
 import com.example.nhathuoc.ui.theme.GreenLight
 import com.example.nhathuoc.ui.theme.GoldColor
 import com.example.nhathuoc.ui.theme.BgColor
@@ -78,7 +79,8 @@ private val aboutMenuItems = listOf(
 @Composable
 fun AccountScreen(
     modifier: Modifier = Modifier,
-    navController: NavController = rememberNavController()
+    navController: NavController = rememberNavController(),
+    mainNavController: NavController? = null
 ) {
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
@@ -86,14 +88,24 @@ fun AccountScreen(
     val userName = sessionManager.userFullName.collectAsState(initial = null)
     val userPhone = sessionManager.userPhone.collectAsState(initial = null)
 
+    // Use mainNavController if provided, otherwise fall back to local navController
+    val activeNavController = mainNavController ?: navController
+
+    Log.d("AccountScreen", "🔐 AccountScreen rendered")
+    Log.d("AccountScreen", "📱 isLoggedIn=${isLoggedIn.value}")
+    Log.d("AccountScreen", "🎯 activeNavController=${activeNavController.hashCode()}")
+    Log.d("AccountScreen", "🎯 mainNavController=${mainNavController?.hashCode()}")
+
     if (!isLoggedIn.value) {
         // Show login prompt when not authenticated
-        LoginPromptScreen(navController = navController)
+        Log.d("AccountScreen", "📍 Showing LoginPromptScreen (not logged in)")
+        LoginPromptScreen(navController = activeNavController)
     } else {
         // Show account content when authenticated
+        Log.d("AccountScreen", "📍 Showing AuthenticatedAccountContent (logged in)")
         AuthenticatedAccountContent(
             modifier = modifier,
-            navController = navController,
+            navController = activeNavController,
             userName = userName.value ?: "User",
             userPhone = userPhone.value ?: ""
         )
@@ -103,6 +115,8 @@ fun AccountScreen(
 // ── Login Prompt Screen ──────────────────────────────────────────
 @Composable
 private fun LoginPromptScreen(navController: NavController) {
+    Log.d("LoginPromptScreen", "🔐 LoginPromptScreen rendered, navController=${navController.hashCode()}")
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -184,7 +198,11 @@ private fun LoginPromptScreen(navController: NavController) {
 
             // Login Button
             Button(
-                onClick = { navController.navigate("LoginScreen") },
+                onClick = {
+                    Log.d("LoginPromptScreen", "📱 Đăng nhập button clicked! navController=$navController")
+                    navController.navigate("LoginScreen")
+                    Log.d("LoginPromptScreen", "✅ Navigate to LoginScreen called")
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
@@ -203,7 +221,11 @@ private fun LoginPromptScreen(navController: NavController) {
 
             // Register Button
             OutlinedButton(
-                onClick = { navController.navigate("RegisterScreen") },
+                onClick = {
+                    Log.d("LoginPromptScreen", "📝 Đăng ký button clicked! navController=$navController")
+                    navController.navigate("RegisterScreen")
+                    Log.d("LoginPromptScreen", "✅ Navigate to RegisterScreen called")
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),

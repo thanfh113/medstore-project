@@ -35,18 +35,22 @@ class SessionManager(private val context: Context) {
         accessToken: String,
         refreshToken: String,
         userId: String, // Changed to String for UUID
-        fullName: String,
+        fullName: String?,
         phone: String,
-        email: String,
+        email: String?,
         role: String
     ) {
         context.dataStore.edit { preferences ->
             preferences[ACCESS_TOKEN_KEY] = accessToken
             preferences[REFRESH_TOKEN_KEY] = refreshToken
             preferences[USER_ID_KEY] = userId // Store UUID directly as String
-            preferences[USER_FULL_NAME_KEY] = fullName
+            if (fullName != null) {
+                preferences[USER_FULL_NAME_KEY] = fullName
+            }
             preferences[USER_PHONE_KEY] = phone
-            preferences[USER_EMAIL_KEY] = email
+            if (email != null) {
+                preferences[USER_EMAIL_KEY] = email
+            }
             preferences[USER_ROLE_KEY] = role
         }
     }
@@ -96,14 +100,18 @@ class SessionManager(private val context: Context) {
 
     // Update user info
     suspend fun updateUserInfo(
-        fullName: String,
+        fullName: String?,
         phone: String,
-        email: String
+        email: String?
     ) {
         context.dataStore.edit { preferences ->
-            preferences[USER_FULL_NAME_KEY] = fullName
+            if (fullName != null) {
+                preferences[USER_FULL_NAME_KEY] = fullName
+            }
             preferences[USER_PHONE_KEY] = phone
-            preferences[USER_EMAIL_KEY] = email
+            if (email != null) {
+                preferences[USER_EMAIL_KEY] = email
+            }
         }
     }
 
@@ -126,9 +134,9 @@ class SessionManager(private val context: Context) {
                 accessToken = accessToken,
                 refreshToken = refreshToken,
                 userId = userId,
-                fullName = preferences[USER_FULL_NAME_KEY] ?: "",
+                fullName = preferences[USER_FULL_NAME_KEY],
                 phone = preferences[USER_PHONE_KEY] ?: "",
-                email = preferences[USER_EMAIL_KEY] ?: "",
+                email = preferences[USER_EMAIL_KEY],
                 role = preferences[USER_ROLE_KEY] ?: "user"
             )
         } else null
@@ -140,8 +148,8 @@ data class SessionData(
     val accessToken: String,
     val refreshToken: String,
     val userId: String, // Changed to String for UUID
-    val fullName: String,
+    val fullName: String?,
     val phone: String,
-    val email: String,
+    val email: String?,
     val role: String
 )

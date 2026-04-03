@@ -8,6 +8,7 @@ import com.example.nhathuoc.data.model.*
 import com.example.nhathuoc.data.repository.AuthRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import android.util.Log
 
 /**
  * ViewModel for authentication operations
@@ -47,17 +48,22 @@ class AuthViewModel(
         email: String,
         password: String
     ) {
+        Log.d("AuthViewModel", "📝 register() called with fullName=$fullName, phone=$phone, email=$email")
         viewModelScope.launch {
+            Log.d("AuthViewModel", "⏳ Setting state to Loading")
             _registerState.value = UiState.Loading
 
             when (val result = authRepository.register(fullName, phone, email, password)) {
                 is NetworkResult.Success -> {
+                    Log.d("AuthViewModel", "✅ Register success!")
                     _registerState.value = UiState.Success(result.data)
                 }
                 is NetworkResult.Error -> {
+                    Log.e("AuthViewModel", "❌ Register error: ${result.message}")
                     _registerState.value = UiState.Error(result.message)
                 }
                 is NetworkResult.Exception -> {
+                    Log.e("AuthViewModel", "❌ Register exception: ${result.e.message}")
                     _registerState.value = UiState.Error(
                         result.e.message ?: "Có lỗi xảy ra, vui lòng thử lại"
                     )
@@ -66,25 +72,36 @@ class AuthViewModel(
         }
     }
 
-    // Login user
+    // Login user with phone
     fun login(phone: String, password: String) {
+        Log.d("AuthViewModel", "🔐 login() called with phone=$phone")
         viewModelScope.launch {
+            Log.d("AuthViewModel", "⏳ Setting state to Loading")
             _loginState.value = UiState.Loading
 
             when (val result = authRepository.login(phone, password)) {
                 is NetworkResult.Success -> {
+                    Log.d("AuthViewModel", "✅ Login success!")
                     _loginState.value = UiState.Success(result.data)
                 }
                 is NetworkResult.Error -> {
+                    Log.e("AuthViewModel", "❌ Login error: ${result.message}")
                     _loginState.value = UiState.Error(result.message)
                 }
                 is NetworkResult.Exception -> {
+                    Log.e("AuthViewModel", "❌ Login exception: ${result.e.message}")
                     _loginState.value = UiState.Error(
                         result.e.message ?: "Có lỗi xảy ra, vui lòng thử lại"
                     )
                 }
             }
         }
+    }
+
+    // Login user with email (same as phone login - backend handles both)
+    fun loginWithEmail(email: String, password: String) {
+        Log.d("AuthViewModel", "📧 loginWithEmail() called with email=$email")
+        login(email, password) // Backend supports both email and phone credential
     }
 
     // Logout user
@@ -172,7 +189,7 @@ class AuthViewModel(
 
     // Validation helpers
     fun isValidPhone(phone: String): Boolean {
-        return phone.matches(Regex("^(0[3,5,7,8,9])+([0-9]{8})$"))
+        return phone.matches(Regex("^0[0-9]{9}$"))
     }
 
     fun isValidEmail(email: String): Boolean {
