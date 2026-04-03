@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.nhathuoc.data.model.*
 import com.example.nhathuoc.data.repository.OrderRepository
 import com.example.nhathuoc.data.repository.CartRepository
+import com.example.nhathuoc.data.repository.AddressRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,7 +32,8 @@ data class CheckoutState(
 
 class CheckoutViewModel(
     private val orderRepository: OrderRepository = OrderRepository(),
-    private val cartRepository: CartRepository = CartRepository()
+    private val cartRepository: CartRepository = CartRepository(),
+    private val addressRepository: AddressRepository = AddressRepository()
 ) : ViewModel() {
 
     private val _checkoutState = MutableStateFlow(CheckoutState())
@@ -80,12 +82,25 @@ class CheckoutViewModel(
                 }
             }
 
-            // TODO: Load user addresses from AddressRepository
-            // For now, initialize with empty addresses
-            // When implemented: val addresses = addressRepository.getUserAddresses()
+            // Load user addresses from API
+            val addresses = when (val result = addressRepository.getUserAddresses()) {
+                is NetworkResult.Success -> {
+                    Log.d("CheckoutVM", "Loaded ${result.data.size} addresses")
+                    result.data
+                }
+                is NetworkResult.Error -> {
+                    Log.e("CheckoutVM", "Failed to load addresses: ${result.message}")
+                    emptyList()
+                }
+                is NetworkResult.Exception -> {
+                    Log.e("CheckoutVM", "Error loading addresses", result.e)
+                    emptyList()
+                }
+            }
 
             _checkoutState.value = _checkoutState.value.copy(
                 items = cartItems,
+                addresses = addresses,
                 isLoading = false
             )
             calculateTotals()

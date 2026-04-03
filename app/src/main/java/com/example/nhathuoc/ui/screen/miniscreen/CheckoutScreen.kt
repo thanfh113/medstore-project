@@ -143,7 +143,6 @@ private fun AddressSelectionStep(
     viewModel: CheckoutViewModel,
     state: com.example.nhathuoc.viewmodel.CheckoutState
 ) {
-    // TODO: Load addresses from API
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -153,28 +152,81 @@ private fun AddressSelectionStep(
         Text("Chọn địa chỉ giao hàng", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Address placeholder
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { viewModel.selectAddress("default-address") },
-            color = Color.White,
-            shadowElevation = 2.dp
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+        if (state.addresses.isEmpty()) {
+            // Show placeholder when no addresses loaded yet
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { viewModel.selectAddress("default-address") },
+                color = Color.White,
+                shadowElevation = 2.dp
             ) {
-                Icon(Icons.Filled.LocationOn, "Location", tint = GreenTop)
-                Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text("Địa chỉ mặc định", fontWeight = FontWeight.SemiBold)
-                    Text("123 Đường ABC, Quận 1, TP HCM", fontSize = 12.sp, color = Color.Gray)
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.LocationOn, "Location", tint = GreenTop)
+                    Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text("Địa chỉ mặc định", fontWeight = FontWeight.SemiBold)
+                        Text("123 Đường ABC, Quận 1, TP HCM", fontSize = 12.sp, color = Color.Gray)
+                    }
+                    RadioButton(
+                        selected = state.selectedAddressId == "default-address",
+                        onClick = { viewModel.selectAddress("default-address") }
+                    )
                 }
-                RadioButton(
-                    selected = state.selectedAddressId == "default-address",
-                    onClick = { viewModel.selectAddress("default-address") }
-                )
+            }
+        } else {
+            // Display actual user addresses
+            state.addresses.forEach { address ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { viewModel.selectAddress(address.id) },
+                    color = if (state.selectedAddressId == address.id) Color(0xFFE8F5E9) else Color.White,
+                    border = BorderStroke(
+                        2.dp,
+                        if (state.selectedAddressId == address.id) GreenTop else Color.LightGray
+                    ),
+                    shadowElevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Filled.LocationOn, "Location", tint = GreenTop)
+                        Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                            Text(address.recipientName, fontWeight = FontWeight.SemiBold)
+                            Text(address.recipientPhone, fontSize = 12.sp, color = Color.Gray)
+                            Text(
+                                "${address.fullAddress}, ${address.ward}, ${address.district}, ${address.province}",
+                                fontSize = 11.sp,
+                                color = Color.Gray
+                            )
+                            if (address.isDefault) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFFE8F5E9)
+                                ) {
+                                    Text(
+                                        "Mặc định",
+                                        fontSize = 10.sp,
+                                        color = GreenTop,
+                                        modifier = Modifier.padding(4.dp)
+                                    )
+                                }
+                            }
+                        }
+                        RadioButton(
+                            selected = state.selectedAddressId == address.id,
+                            onClick = { viewModel.selectAddress(address.id) }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
