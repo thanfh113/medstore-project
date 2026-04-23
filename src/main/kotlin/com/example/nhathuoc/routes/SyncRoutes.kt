@@ -19,9 +19,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import org.jetbrains.exposed.sql.SortOrder
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.greater
-import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.max
 import org.jetbrains.exposed.sql.selectAll
@@ -85,7 +83,7 @@ fun Route.syncRoutes() {
         authenticate("auth-jwt") {
             post("/push") {
                 try {
-                    val (principal, shopId) = call.requireInternalAccess()
+                    val (principal, _) = call.requireInternalAccess()
                     val userId = principal.getUserId()
                     val request = call.receive<PushSyncRequest>()
 
@@ -100,7 +98,6 @@ fun Route.syncRoutes() {
                         val maxVersionExpr = SyncChangesTable.serverVersion.max()
                         var currentVersion = SyncChangesTable
                             .select(maxVersionExpr)
-                            .where { SyncChangesTable.shopId eq shopId }
                             .firstOrNull()
                             ?.get(maxVersionExpr)
                             ?: 0L
@@ -117,10 +114,7 @@ fun Route.syncRoutes() {
                             if (mutationId != null) {
                                 val existed = SyncChangesTable
                                     .selectAll()
-                                    .where {
-                                        (SyncChangesTable.shopId eq shopId) and
-                                            (SyncChangesTable.clientMutationId eq mutationId)
-                                    }
+                                    .where { SyncChangesTable.clientMutationId eq mutationId }
                                     .firstOrNull()
 
                                 if (existed != null) {
@@ -138,7 +132,6 @@ fun Route.syncRoutes() {
                             currentVersion += 1
                             SyncChangesTable.insert {
                                 it[id] = UUID.randomUUID().toString()
-                                it[SyncChangesTable.shopId] = shopId
                                 it[entityType] = change.entityType
                                 it[entityId] = change.entityId
                                 it[operation] = op
@@ -159,7 +152,7 @@ fun Route.syncRoutes() {
                             )
                         }
 
-                        upsertCheckpoint(shopId = shopId, deviceId = request.deviceId, pushedVersion = currentVersion, syncedAt = now)
+                        upsertCheckpoint(deviceId = request.deviceId, pushedVersion = currentVersion, syncedAt = now)
 
                         PushSyncResponse(
                             accepted = accepted,
@@ -178,7 +171,7 @@ fun Route.syncRoutes() {
 
             get("/pull") {
                 try {
-                    val (_, shopId) = call.requireInternalAccess()
+                    call.requireInternalAccess()
                     val deviceId = call.request.queryParameters["deviceId"]?.trim().orEmpty()
                     val sinceVersion = call.request.queryParameters["sinceVersion"]?.toLongOrNull() ?: 0L
                     val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 200).coerceIn(1, 1000)
@@ -191,10 +184,7 @@ fun Route.syncRoutes() {
                     val response = transaction {
                         val rows = SyncChangesTable
                             .selectAll()
-                            .where {
-                                (SyncChangesTable.shopId eq shopId) and
-                                    (SyncChangesTable.serverVersion greater sinceVersion)
-                            }
+                            .where { SyncChangesTable.serverVersion greater sinceVersion }
                             .orderBy(SyncChangesTable.serverVersion, SortOrder.ASC)
                             .limit(limit)
                             .toList()
@@ -203,13 +193,12 @@ fun Route.syncRoutes() {
                             ?: (SyncChangesTable.run {
                                 val maxVersionExpr = serverVersion.max()
                                 select(maxVersionExpr)
-                                .where { SyncChangesTable.shopId eq shopId }
                                 .firstOrNull()
                                 ?.get(maxVersionExpr)
                                     ?: sinceVersion
                             })
 
-                        upsertCheckpoint(shopId = shopId, deviceId = deviceId, pulledVersion = latest, syncedAt = now)
+                        upsertCheckpoint(deviceId = deviceId, pulledVersion = latest, syncedAt = now)
 
                         PullSyncResponse(
                             data = rows.map {
@@ -239,7 +228,6 @@ fun Route.syncRoutes() {
 }
 
 private fun upsertCheckpoint(
-    shopId: String,
     deviceId: String,
     syncedAt: kotlinx.datetime.LocalDateTime,
     pulledVersion: Long? = null,
@@ -247,16 +235,12 @@ private fun upsertCheckpoint(
 ) {
     val existing = SyncCheckpointsTable
         .selectAll()
-        .where {
-            (SyncCheckpointsTable.shopId eq shopId) and
-                (SyncCheckpointsTable.deviceId eq deviceId)
-        }
+        .where { SyncCheckpointsTable.deviceId eq deviceId }
         .firstOrNull()
 
     if (existing == null) {
         SyncCheckpointsTable.insert {
             it[id] = UUID.randomUUID().toString()
-            it[SyncCheckpointsTable.shopId] = shopId
             it[SyncCheckpointsTable.deviceId] = deviceId
             it[lastPulledVersion] = pulledVersion ?: 0L
             it[lastPushedVersion] = pushedVersion ?: 0L

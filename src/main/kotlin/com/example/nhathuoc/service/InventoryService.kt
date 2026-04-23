@@ -33,7 +33,6 @@ data class CreateBatchRequest(
 data class BatchDto(
     val id: String,
     val productId: String,
-    val shopId: String,
     val productName: String,
     val lotNumber: String?,
     val mfgDate: LocalDate?,
@@ -50,7 +49,6 @@ data class ExpiringBatchAlert(
     val id: String,
     val productId: String,
     val productName: String,
-    val shopId: String,
     val lotNumber: String?,
     val expDate: LocalDate,
     val quantityOnHand: Int,
@@ -63,13 +61,17 @@ class InventoryService {
      * Create a new product batch for inventory
      */
     fun createBatch(shopId: String, request: CreateBatchRequest): String {
+        return createBatch(request)
+    }
+
+    fun createBatch(request: CreateBatchRequest): String {
         return transaction {
-            // Validate product exists and belongs to shop
+            // Validate product exists
             val product = ProductsTable
                 .selectAll()
-                .where { (ProductsTable.id eq request.productId) and (ProductsTable.shopId eq shopId) }
+                .where { ProductsTable.id eq request.productId }
                 .singleOrNull()
-                ?: throw IllegalArgumentException("Product not found or doesn't belong to shop")
+                ?: throw IllegalArgumentException("Product not found")
 
             val batchId = UUID.randomUUID().toString()
 
@@ -99,7 +101,7 @@ class InventoryService {
      * Get batches with filtering options
      */
     fun getBatches(
-        shopId: String?,
+        shopId: String? = null,
         productId: String? = null,
         expired: Boolean? = null,
         expWithinDays: Int? = null,
@@ -114,10 +116,6 @@ class InventoryService {
                 .join(ProductsTable, JoinType.INNER) { ProductBatchesTable.productId eq ProductsTable.id }
                 .selectAll()
 
-            // Filter by shop if specified (through products table)
-            if (shopId != null) {
-                query = query.andWhere { ProductsTable.shopId eq shopId }
-            }
 
             // Filter by product if specified
             if (productId != null) {
@@ -173,7 +171,6 @@ class InventoryService {
                     BatchDto(
                         id = row[ProductBatchesTable.id],
                         productId = row[ProductBatchesTable.productId],
-                        shopId = row[ProductsTable.shopId], // Get shopId from products table
                         productName = row[ProductsTable.name],
                         lotNumber = row[ProductBatchesTable.lotNumber],
                         mfgDate = row[ProductBatchesTable.mfgDate],
@@ -192,7 +189,11 @@ class InventoryService {
     /**
      * Get expiring batch alerts
      */
-    fun getExpiringBatches(shopId: String?, days: Int): List<ExpiringBatchAlert> {
+    fun getExpiringBatches(shopId: String, days: Int): List<ExpiringBatchAlert> {
+        return getExpiringBatches(days)
+    }
+
+    fun getExpiringBatches(days: Int): List<ExpiringBatchAlert> {
         return transaction {
             val today = Clock.System.todayIn(TimeZone.UTC)
             val alertDate = today.plus(DatePeriod(days = days))
@@ -207,10 +208,6 @@ class InventoryService {
                     (ProductBatchesTable.expDate lessEq alertDate)
                 }
 
-            if (shopId != null) {
-                query = query.andWhere { ProductsTable.shopId eq shopId }
-            }
-
             query.orderBy(ProductBatchesTable.expDate to SortOrder.ASC)
                 .map { row ->
                     val expDate = row[ProductBatchesTable.expDate]!!
@@ -220,7 +217,6 @@ class InventoryService {
                         id = row[ProductBatchesTable.id],
                         productId = row[ProductBatchesTable.productId],
                         productName = row[ProductsTable.name],
-                        shopId = row[ProductsTable.shopId], // Get shopId from products table
                         lotNumber = row[ProductBatchesTable.lotNumber],
                         expDate = expDate,
                         quantityOnHand = row[ProductBatchesTable.quantityOnHand],
@@ -239,6 +235,13 @@ class InventoryService {
         shopId: String,
         totalQuantityNeeded: Int
     ): List<Pair<String, Int>> {
+        return allocateBatchesForProduct(productId, totalQuantityNeeded)
+    }
+
+    fun allocateBatchesForProduct(
+        productId: String,
+        totalQuantityNeeded: Int
+    ): List<Pair<String, Int>> {
         return transaction {
             val today = Clock.System.todayIn(TimeZone.UTC)
             val minExpDate = today.plus(DatePeriod(days = 5)) // Block batches expiring within 5 days
@@ -249,7 +252,6 @@ class InventoryService {
                 .selectAll()
                 .where {
                     (ProductBatchesTable.productId eq productId) and
-                    (ProductsTable.shopId eq shopId) and // Check shop through products table
                     (ProductBatchesTable.quantityOnHand greater 0) and
                     (
                         ProductBatchesTable.expDate.isNull() or

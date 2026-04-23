@@ -12,9 +12,15 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.datetime.Instant
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 
+@Serializable
 data class CategoryDto(
     val id: String,
     val parentId: String?,
@@ -25,6 +31,12 @@ data class CategoryDto(
     val sortOrder: Int,
     val isActive: Boolean,
     val productTypeDefault: String?  // Match DB: nullable
+)
+
+@Serializable
+private data class CategoryListEnvelope(
+    val data: List<CategoryDto>,
+    val message: String
 )
 
 fun Route.categoryRoutes() {
@@ -53,14 +65,35 @@ fun Route.categoryRoutes() {
                         .sortedBy { it.sortOrder }
                 }
 
-                call.respond(
-                    HttpStatusCode.OK,
-                    mapOf(
-                        "data" to categories,
-                        "message" to "Get categories successfully"
+                val response = buildJsonObject {
+                    put(
+                        "data",
+                        JsonArray(
+                            categories.map { category ->
+                                buildJsonObject {
+                                    put("id", JsonPrimitive(category.id))
+                                    put("parentId", category.parentId?.let(::JsonPrimitive) ?: JsonNull)
+                                    put("name", JsonPrimitive(category.name))
+                                    put("slug", category.slug?.let(::JsonPrimitive) ?: JsonNull)
+                                    put("description", category.description?.let(::JsonPrimitive) ?: JsonNull)
+                                    put("iconUrl", category.iconUrl?.let(::JsonPrimitive) ?: JsonNull)
+                                    put("sortOrder", JsonPrimitive(category.sortOrder))
+                                    put("isActive", JsonPrimitive(category.isActive))
+                                    put("productTypeDefault", category.productTypeDefault?.let(::JsonPrimitive) ?: JsonNull)
+                                }
+                            }
+                        )
                     )
+                    put("message", JsonPrimitive("Get categories successfully"))
+                }
+
+                call.respondText(
+                    text = response.toString(),
+                    contentType = ContentType.Application.Json,
+                    status = HttpStatusCode.OK
                 )
             } catch (e: Exception) {
+                call.application.log.error("Failed to get categories", e)
                 call.respond(
                     HttpStatusCode.InternalServerError,
                     mapOf("error" to "Failed to get categories: ${e.message}")

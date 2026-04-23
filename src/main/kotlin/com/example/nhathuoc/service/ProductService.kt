@@ -1,10 +1,13 @@
 package com.example.nhathuoc.service
 
 import com.example.nhathuoc.database.tables.*
+import com.example.nhathuoc.util.CloudinaryHelper
 import kotlinx.datetime.*
+import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.math.BigDecimal
@@ -12,12 +15,13 @@ import java.util.*
 
 data class ProductDto(
     val id: String,
-    val shopId: String,
     val categoryId: String?,
     val name: String,
     val slug: String?,
+    val shortDescription: String?,
     val description: String?,
     val brand: String?,
+    val manufacturer: String?,
     val origin: String?,
     val sku: String?,
     val unit: String,
@@ -26,10 +30,12 @@ data class ProductDto(
     val discountPct: Int,
     val rewardPoints: Int,
     val stock: Int,
-    val productType: String,
+    val productType: String = "MEDICAL_SUPPLY",
     val registrationNumber: String?,
+    val riskClassification: String,
     val requiresCertification: Boolean,
     val requiresConsultation: Boolean,
+    val targetAudience: String,
     val isActive: Boolean,
     val isFlashSale: Boolean,
     val flashSaleEnd: LocalDateTime?,
@@ -38,12 +44,70 @@ data class ProductDto(
     val attributes: Map<String, Any> = emptyMap(),
     val images: List<ProductImageDto> = emptyList(),
     val certificates: List<ProductCertificateDto> = emptyList()
-)
+) {
+    fun toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "categoryId" to categoryId,
+        "name" to name,
+        "slug" to slug,
+        "shortDescription" to shortDescription,
+        "description" to description,
+        "brand" to brand,
+        "manufacturer" to manufacturer,
+        "origin" to origin,
+        "sku" to sku,
+        "unit" to unit,
+        "price" to price.toString(),
+        "originalPrice" to originalPrice?.toString(),
+        "discountPct" to discountPct,
+        "rewardPoints" to rewardPoints,
+        "stock" to stock,
+        "registrationNumber" to registrationNumber,
+        "riskClassification" to riskClassification,
+        "requiresCertification" to requiresCertification,
+        "requiresConsultation" to requiresConsultation,
+        "targetAudience" to targetAudience,
+        "isActive" to isActive,
+        "isFlashSale" to isFlashSale,
+        "flashSaleEnd" to flashSaleEnd?.toString(),
+        "createdAt" to createdAt.toString(),
+        "updatedAt" to updatedAt.toString(),
+        "attributes" to attributes,
+        "images" to images.map { it.toMap() },
+        "certificates" to certificates.map { it.toMap() }
+    )
+}
 
 data class ProductImageDto(
     val id: String,
     val url: String,
+    val mediaType: String,
+    val publicId: String?,
     val sortOrder: Int
+) {
+    fun toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "url" to url,
+        "mediaType" to mediaType,
+        "publicId" to publicId,
+        "sortOrder" to sortOrder
+    )
+}
+
+data class ProductImageInput(
+    val url: String,
+    val mediaType: String = "IMAGE",
+    val publicId: String? = null,
+    val sortOrder: Int = 0
+)
+
+data class ProductCertificateInput(
+    val type: String,
+    val name: String,
+    val fileUrl: String,
+    val issueDate: String? = null,
+    val expireDate: String? = null,
+    val issuer: String? = null
 )
 
 data class ProductCertificateDto(
@@ -54,46 +118,71 @@ data class ProductCertificateDto(
     val issueDate: String?,
     val expireDate: String?,
     val issuer: String?
-)
+) {
+    fun toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "type" to type,
+        "name" to name,
+        "fileUrl" to fileUrl,
+        "issueDate" to issueDate,
+        "expireDate" to expireDate,
+        "issuer" to issuer
+    )
+}
 
 data class CreateProductRequest(
     val categoryId: String,
     val name: String,
+    val shortDescription: String? = null,
     val description: String?,
     val brand: String?,
+    val manufacturer: String? = null,
     val origin: String?,
     val sku: String?,
     val unit: String = "Hộp",
     val price: BigDecimal,
     val originalPrice: BigDecimal?,
+    val stock: Int = 0,
     val discountPct: Int = 0,
     val rewardPoints: Int = 0,
     val productType: String = "MEDICAL_SUPPLY",
-    val registrationNumber: String?,
+    val registrationNumber: String? = null,
+    val riskClassification: String = "A",
     val requiresCertification: Boolean = false,
     val requiresConsultation: Boolean = false,
+    val targetAudience: String = "ALL",
     val isActive: Boolean = true,
-    val attributes: Map<String, Any> = emptyMap()
+    val attributes: Map<String, Any> = emptyMap(),
+    val images: List<ProductImageInput> = emptyList(),
+    val certificates: List<ProductCertificateInput> = emptyList()
 )
 
 data class UpdateProductRequest(
     val categoryId: String?,
     val name: String?,
+    val shortDescription: String? = null,
     val description: String?,
     val brand: String?,
+    val manufacturer: String? = null,
     val origin: String?,
     val sku: String?,
     val unit: String?,
     val price: BigDecimal?,
     val originalPrice: BigDecimal?,
+    val stock: Int?,
+    val stockQuantity: Int? = null,  // For Desktop compatibility
     val discountPct: Int?,
-    val rewardPoints: Int?,
-    val productType: String?,
-    val registrationNumber: String?,
+    val rewardPoints: Int? = null,
+    val productType: String? = null,
+    val registrationNumber: String? = null,
+    val riskClassification: String?,
     val requiresCertification: Boolean?,
     val requiresConsultation: Boolean?,
+    val targetAudience: String? = null,
     val isActive: Boolean?,
-    val attributes: Map<String, Any>?
+    val attributes: Map<String, Any>?,
+    val images: List<ProductImageInput>?,
+    val certificates: List<ProductCertificateInput>? = null
 )
 
 data class ProductListResponse(
@@ -104,21 +193,46 @@ data class ProductListResponse(
     val totalPages: Int
 )
 
+@Serializable
+data class ProductDeleteRequestDto(
+    val id: String,
+    val productId: String,
+    val productName: String,
+    val status: String,
+    val reason: String?,
+    val requestedByUserId: String,
+    val reviewedByUserId: String?,
+    val reviewedAt: LocalDateTime?,
+    val createdAt: LocalDateTime,
+    val updatedAt: LocalDateTime
+)
+
 class ProductService(
     private val categoryAttributeService: CategoryAttributeService = CategoryAttributeService()
 ) {
+    private val allowedRiskClassifications = setOf("A", "B", "C", "D")
+
+    private fun normalizeRiskClassification(value: String): String {
+        val normalized = value.trim().uppercase()
+        require(normalized in allowedRiskClassifications) {
+            "Risk classification must be one of A, B, C, D"
+        }
+        return normalized
+    }
 
     /**
      * Get products with filtering and pagination
      */
     fun getProducts(
+        shopId: String? = null,
         categoryId: String? = null,
         brand: String? = null,
         minPrice: BigDecimal? = null,
         maxPrice: BigDecimal? = null,
         sortBy: String = "name",
         page: Int = 1,
-        limit: Int = 20
+        limit: Int = 20,
+        onlyActive: Boolean = true
     ): ProductListResponse {
         return transaction {
             var query = ProductsTable.selectAll()
@@ -137,8 +251,9 @@ class ProductService(
                 query = query.andWhere { ProductsTable.price lessEq maxPrice }
             }
 
-            // Only show active products
-            query = query.andWhere { ProductsTable.isActive eq true }
+            if (onlyActive) {
+                query = query.andWhere { ProductsTable.isActive eq true }
+            }
 
             // Get total count
             val total = query.count()
@@ -201,9 +316,13 @@ class ProductService(
     }
 
     /**
-     * Create a new product (SHOP only)
+     * Create a new product
      */
     fun createProduct(shopId: String, request: CreateProductRequest): String {
+        return createProduct(request)
+    }
+
+    fun createProduct(request: CreateProductRequest): String {
         return transaction {
             // Validate category exists
             val categoryExists = CategoriesTable
@@ -220,16 +339,18 @@ class ProductService(
 
             val productId = UUID.randomUUID().toString()
             val slug = generateSlug(request.name, productId)
+            val riskClassification = normalizeRiskClassification(request.riskClassification)
 
-            // Insert product
+            // Insert product - stock will be managed through batches
             ProductsTable.insert {
                 it[ProductsTable.id] = productId
-                it[ProductsTable.shopId] = shopId
                 it[ProductsTable.categoryId] = request.categoryId
                 it[ProductsTable.name] = request.name
                 it[ProductsTable.slug] = slug
+                it[ProductsTable.shortDescription] = request.shortDescription
                 it[ProductsTable.description] = request.description
                 it[ProductsTable.brand] = request.brand
+                it[ProductsTable.manufacturer] = request.manufacturer
                 it[ProductsTable.origin] = request.origin
                 it[ProductsTable.sku] = request.sku
                 it[ProductsTable.unit] = request.unit
@@ -237,34 +358,42 @@ class ProductService(
                 it[ProductsTable.originalPrice] = request.originalPrice
                 it[ProductsTable.discountPct] = request.discountPct
                 it[ProductsTable.rewardPoints] = request.rewardPoints
-                it[ProductsTable.stock] = 0 // Initial stock is 0, updated via inventory
-                it[ProductsTable.productType] = request.productType
+                it[ProductsTable.stock] = 0  // Will be updated by batch operations
                 it[ProductsTable.registrationNumber] = request.registrationNumber
+                it[ProductsTable.riskClassification] = riskClassification
                 it[ProductsTable.requiresCertification] = request.requiresCertification
                 it[ProductsTable.requiresConsultation] = request.requiresConsultation
+                it[ProductsTable.targetAudience] = request.targetAudience.ifBlank { "ALL" }
                 it[ProductsTable.isActive] = request.isActive
             }
 
             // Save product attributes
             saveProductAttributes(productId, request.categoryId, request.attributes)
+            saveProductImages(productId, request.images)
+            saveProductCertificates(productId, request.certificates)
+
 
             productId
         }
     }
 
     /**
-     * Update a product (SHOP only)
+     * Update a product
      */
     fun updateProduct(productId: String, shopId: String, request: UpdateProductRequest) {
+        updateProduct(productId, request)
+    }
+
+    fun updateProduct(productId: String, request: UpdateProductRequest) {
         transaction {
-            // Validate product exists and belongs to shop
+            // Validate product exists
             val product = ProductsTable
                 .selectAll()
                 .where {
-                    (ProductsTable.id eq productId) and (ProductsTable.shopId eq shopId)
+                    ProductsTable.id eq productId
                 }
                 .singleOrNull()
-                ?: throw IllegalArgumentException("Product not found or doesn't belong to shop")
+                ?: throw IllegalArgumentException("Product not found")
 
             val currentCategoryId = product[ProductsTable.categoryId]
             val newCategoryId = request.categoryId ?: currentCategoryId
@@ -283,19 +412,27 @@ class ProductService(
                     it[ProductsTable.name] = value
                     it[ProductsTable.slug] = generateSlug(value, productId)
                 }
+                request.shortDescription?.let { value -> it[ProductsTable.shortDescription] = value }
                 request.description?.let { value -> it[ProductsTable.description] = value }
                 request.brand?.let { value -> it[ProductsTable.brand] = value }
+                request.manufacturer?.let { value -> it[ProductsTable.manufacturer] = value }
                 request.origin?.let { value -> it[ProductsTable.origin] = value }
                 request.sku?.let { value -> it[ProductsTable.sku] = value }
                 request.unit?.let { value -> it[ProductsTable.unit] = value }
                 request.price?.let { value -> it[ProductsTable.price] = value }
                 request.originalPrice?.let { value -> it[ProductsTable.originalPrice] = value }
+                // Handle stock - prefer stockQuantity if provided (Desktop), else use stock
+                val stockValue = request.stockQuantity ?: request.stock
+                stockValue?.let { value -> it[ProductsTable.stock] = value }
                 request.discountPct?.let { value -> it[ProductsTable.discountPct] = value }
                 request.rewardPoints?.let { value -> it[ProductsTable.rewardPoints] = value }
-                request.productType?.let { value -> it[ProductsTable.productType] = value }
                 request.registrationNumber?.let { value -> it[ProductsTable.registrationNumber] = value }
+                request.riskClassification?.let { value ->
+                    it[ProductsTable.riskClassification] = normalizeRiskClassification(value)
+                }
                 request.requiresCertification?.let { value -> it[ProductsTable.requiresCertification] = value }
                 request.requiresConsultation?.let { value -> it[ProductsTable.requiresConsultation] = value }
+                request.targetAudience?.let { value -> it[ProductsTable.targetAudience] = value.ifBlank { "ALL" } }
                 request.isActive?.let { value -> it[ProductsTable.isActive] = value }
                 it[ProductsTable.updatedAt] = Clock.System.now().toLocalDateTime(TimeZone.UTC)
             }
@@ -310,28 +447,45 @@ class ProductService(
                 // Save new attributes
                 saveProductAttributes(productId, newCategoryId, request.attributes)
             }
+
+            if (request.images != null) {
+                replaceProductImages(productId, request.images)
+            }
+
+            if (request.certificates != null) {
+                replaceProductCertificates(productId, request.certificates)
+            }
         }
     }
 
     /**
-     * Delete a product (SHOP only)
+     * Delete a product
      */
     fun deleteProduct(productId: String, shopId: String) {
+        deleteProduct(productId)
+    }
+
+    fun deleteProduct(productId: String) {
         transaction {
-            // Validate product exists and belongs to shop
+            // Validate product exists
             val productExists = ProductsTable
                 .selectAll()
                 .where {
-                    (ProductsTable.id eq productId) and (ProductsTable.shopId eq shopId)
+                    ProductsTable.id eq productId
                 }
                 .count() > 0
 
             if (!productExists) {
-                throw IllegalArgumentException("Product not found or doesn't belong to shop")
+                throw IllegalArgumentException("Product not found")
             }
 
             // Check if product can be deleted (no pending orders, etc.)
             // This is a business rule - you might want to just mark as inactive instead
+
+            val cloudinaryPublicIds = ProductImagesTable
+                .selectAll()
+                .where { ProductImagesTable.productId eq productId }
+                .mapNotNull { it[ProductImagesTable.cloudinaryPublicId] }
 
             // Delete related data
             ProductAttributeValuesTable.deleteWhere { ProductAttributeValuesTable.productId eq productId }
@@ -340,18 +494,234 @@ class ProductService(
 
             // Delete product
             ProductsTable.deleteWhere { ProductsTable.id eq productId }
+
+            cloudinaryPublicIds.forEach(::safeDeleteCloudinaryAsset)
+        }
+    }
+
+    /**
+     * Add a batch/lot to a product
+     */
+    fun addBatch(
+        productId: String,
+        lotNumber: String?,
+        mfgDate: LocalDate?,
+        expDate: LocalDate?,
+        quantity: Int,
+        importPrice: BigDecimal?
+    ): String {
+        return transaction {
+            // Validate product exists
+            val productExists = ProductsTable
+                .selectAll()
+                .where { ProductsTable.id eq productId }
+                .count() > 0
+
+            if (!productExists) {
+                throw IllegalArgumentException("Product not found")
+            }
+
+            require(quantity > 0) { "Batch quantity must be greater than 0" }
+
+            val batchId = UUID.randomUUID().toString()
+
+            // Insert batch
+            ProductBatchesTable.insert {
+                it[ProductBatchesTable.id] = batchId
+                it[ProductBatchesTable.productId] = productId
+                it[ProductBatchesTable.lotNumber] = lotNumber
+                it[ProductBatchesTable.mfgDate] = mfgDate
+                it[ProductBatchesTable.expDate] = expDate
+                it[ProductBatchesTable.quantityOnHand] = quantity
+                it[ProductBatchesTable.importPrice] = importPrice
+            }
+
+            // Update product stock
+            val currentStock = ProductsTable
+                .select(ProductsTable.stock)
+                .where { ProductsTable.id eq productId }
+                .single()[ProductsTable.stock]
+
+            ProductsTable.update({ ProductsTable.id eq productId }) {
+                it[ProductsTable.stock] = currentStock + quantity
+                it[ProductsTable.updatedAt] = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+            }
+
+            batchId
+        }
+    }
+
+    fun replaceProductDiseases(productId: String, diseaseIds: List<String>) {
+        transaction {
+            val productExists = ProductsTable
+                .selectAll()
+                .where { ProductsTable.id eq productId }
+                .count() > 0
+            if (!productExists) {
+                throw IllegalArgumentException("Product not found")
+            }
+
+            val normalizedIds = diseaseIds
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .distinct()
+
+            if (normalizedIds.isNotEmpty()) {
+                val validIds = DiseaseCategoriesTable
+                    .selectAll()
+                    .where { DiseaseCategoriesTable.id inList normalizedIds }
+                    .map { it[DiseaseCategoriesTable.id] }
+                    .toSet()
+                val missingIds = normalizedIds.filterNot { it in validIds }
+                if (missingIds.isNotEmpty()) {
+                    throw IllegalArgumentException("Invalid disease IDs: ${missingIds.joinToString(", ")}")
+                }
+            }
+
+            ProductDiseasesTable.deleteWhere { ProductDiseasesTable.productId eq productId }
+            normalizedIds.forEach { diseaseId ->
+                ProductDiseasesTable.insert {
+                    it[ProductDiseasesTable.productId] = productId
+                    it[ProductDiseasesTable.diseaseId] = diseaseId
+                }
+            }
+        }
+    }
+
+    fun createDeleteRequest(shopId: String, productId: String, requestedByUserId: String, reason: String?): String {
+        return createDeleteRequest(productId, requestedByUserId, reason)
+    }
+
+    fun createDeleteRequest(productId: String, requestedByUserId: String, reason: String?): String {
+        return transaction {
+            val exists = ProductsTable
+                .selectAll()
+                .where { ProductsTable.id eq productId }
+                .count() > 0
+            if (!exists) {
+                throw IllegalArgumentException("Product not found")
+            }
+
+            val pending = ProductDeleteRequestsTable
+                .selectAll()
+                .where {
+                    (ProductDeleteRequestsTable.productId eq productId) and
+                    (ProductDeleteRequestsTable.status eq "PENDING")
+                }
+                .count() > 0
+            if (pending) {
+                throw IllegalArgumentException("Delete request is already pending for this product")
+            }
+
+            val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+            val requestId = UUID.randomUUID().toString()
+            ProductDeleteRequestsTable.insert {
+                it[id] = requestId
+                it[ProductDeleteRequestsTable.productId] = productId
+                it[ProductDeleteRequestsTable.requestedByUserId] = requestedByUserId
+                it[ProductDeleteRequestsTable.reason] = reason?.trim()?.ifBlank { null }
+                it[status] = "PENDING"
+                it[createdAt] = now
+                it[updatedAt] = now
+            }
+            requestId
+        }
+    }
+
+    fun listDeleteRequests(status: String? = null): List<ProductDeleteRequestDto> {
+        return transaction {
+            val normalizedStatus = status?.trim()?.uppercase()?.ifBlank { null }
+            ProductDeleteRequestsTable
+                .join(ProductsTable, JoinType.INNER, ProductDeleteRequestsTable.productId, ProductsTable.id)
+                .selectAll()
+                .where {
+                    if (normalizedStatus == null) ProductDeleteRequestsTable.status neq "ARCHIVED"
+                    else ProductDeleteRequestsTable.status eq normalizedStatus
+                }
+                .orderBy(ProductDeleteRequestsTable.createdAt, SortOrder.DESC)
+                .map { row ->
+                    ProductDeleteRequestDto(
+                        id = row[ProductDeleteRequestsTable.id],
+                        productId = row[ProductDeleteRequestsTable.productId],
+                        productName = row[ProductsTable.name],
+                        status = row[ProductDeleteRequestsTable.status],
+                        reason = row[ProductDeleteRequestsTable.reason],
+                        requestedByUserId = row[ProductDeleteRequestsTable.requestedByUserId],
+                        reviewedByUserId = row[ProductDeleteRequestsTable.reviewedByUserId],
+                        reviewedAt = row[ProductDeleteRequestsTable.reviewedAt],
+                        createdAt = row[ProductDeleteRequestsTable.createdAt],
+                        updatedAt = row[ProductDeleteRequestsTable.updatedAt]
+                    )
+                }
+        }
+    }
+
+    fun reviewDeleteRequest(requestId: String, adminUserId: String, approve: Boolean): ProductDeleteRequestDto {
+        return transaction {
+            val existing = ProductDeleteRequestsTable
+                .selectAll()
+                .where {
+                    ProductDeleteRequestsTable.id eq requestId
+                }
+                .singleOrNull()
+                ?: throw IllegalArgumentException("Delete request not found")
+
+            if (existing[ProductDeleteRequestsTable.status] != "PENDING") {
+                throw IllegalArgumentException("Delete request is already processed")
+            }
+
+            val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+            val finalStatus = if (approve) "APPROVED" else "REJECTED"
+
+            ProductDeleteRequestsTable.update({ ProductDeleteRequestsTable.id eq requestId }) {
+                it[status] = finalStatus
+                it[reviewedByUserId] = adminUserId
+                it[reviewedAt] = now
+                it[updatedAt] = now
+            }
+
+            val productId = existing[ProductDeleteRequestsTable.productId]
+            val productName = ProductsTable
+                .select(ProductsTable.name)
+                .where { ProductsTable.id eq productId }
+                .singleOrNull()
+                ?.get(ProductsTable.name)
+                ?: "Deleted product"
+
+            val responseDto = ProductDeleteRequestDto(
+                id = requestId,
+                productId = productId,
+                productName = productName,
+                status = finalStatus,
+                reason = existing[ProductDeleteRequestsTable.reason],
+                requestedByUserId = existing[ProductDeleteRequestsTable.requestedByUserId],
+                reviewedByUserId = adminUserId,
+                reviewedAt = now,
+                createdAt = existing[ProductDeleteRequestsTable.createdAt],
+                updatedAt = now
+            )
+
+            if (approve) {
+                // FK is RESTRICT from product_delete_requests -> products, so clear related requests first.
+                ProductDeleteRequestsTable.deleteWhere { ProductDeleteRequestsTable.productId eq productId }
+                deleteProduct(productId)
+                return@transaction responseDto
+            }
+
+            responseDto
         }
     }
 
     private fun mapRowToProductDto(row: ResultRow): ProductDto {
         return ProductDto(
             id = row[ProductsTable.id],
-            shopId = row[ProductsTable.shopId],
             categoryId = row[ProductsTable.categoryId],
             name = row[ProductsTable.name],
             slug = row[ProductsTable.slug],
+            shortDescription = row[ProductsTable.shortDescription],
             description = row[ProductsTable.description],
             brand = row[ProductsTable.brand],
+            manufacturer = row[ProductsTable.manufacturer],
             origin = row[ProductsTable.origin],
             sku = row[ProductsTable.sku],
             unit = row[ProductsTable.unit],
@@ -360,10 +730,11 @@ class ProductService(
             discountPct = row[ProductsTable.discountPct],
             rewardPoints = row[ProductsTable.rewardPoints],
             stock = row[ProductsTable.stock],
-            productType = row[ProductsTable.productType],
             registrationNumber = row[ProductsTable.registrationNumber],
+            riskClassification = row[ProductsTable.riskClassification],
             requiresCertification = row[ProductsTable.requiresCertification],
             requiresConsultation = row[ProductsTable.requiresConsultation],
+            targetAudience = row[ProductsTable.targetAudience],
             isActive = row[ProductsTable.isActive],
             isFlashSale = row[ProductsTable.isFlashSale],
             flashSaleEnd = row[ProductsTable.flashSaleEnd],
@@ -405,6 +776,8 @@ class ProductService(
                 ProductImageDto(
                     id = row[ProductImagesTable.id],
                     url = row[ProductImagesTable.url],
+                    mediaType = row[ProductImagesTable.mediaType],
+                    publicId = row[ProductImagesTable.cloudinaryPublicId],
                     sortOrder = row[ProductImagesTable.sortOrder]
                 )
             }
@@ -473,6 +846,65 @@ class ProductService(
                     }
                 }
             }
+        }
+    }
+
+    private fun replaceProductImages(productId: String, images: List<ProductImageInput>) {
+        val retainedPublicIds = images.mapNotNull { it.publicId }.toSet()
+        val existingPublicIds = ProductImagesTable
+            .selectAll()
+            .where { ProductImagesTable.productId eq productId }
+            .mapNotNull { it[ProductImagesTable.cloudinaryPublicId] }
+
+        ProductImagesTable.deleteWhere { ProductImagesTable.productId eq productId }
+        saveProductImages(productId, images)
+
+        existingPublicIds
+            .filterNot { it in retainedPublicIds }
+            .forEach(::safeDeleteCloudinaryAsset)
+    }
+
+    private fun replaceProductCertificates(productId: String, certificates: List<ProductCertificateInput>) {
+        ProductCertificatesTable.deleteWhere { ProductCertificatesTable.productId eq productId }
+        saveProductCertificates(productId, certificates)
+    }
+
+    private fun saveProductImages(productId: String, images: List<ProductImageInput>) {
+        images
+            .filter { it.url.isNotBlank() }
+            .sortedBy { it.sortOrder }
+            .forEach { image ->
+                ProductImagesTable.insert {
+                    it[ProductImagesTable.id] = UUID.randomUUID().toString()
+                    it[ProductImagesTable.productId] = productId
+                    it[ProductImagesTable.url] = image.url
+                    it[ProductImagesTable.mediaType] = image.mediaType.ifBlank { "IMAGE" }
+                    it[ProductImagesTable.cloudinaryPublicId] = image.publicId
+                    it[ProductImagesTable.sortOrder] = image.sortOrder
+                }
+            }
+    }
+
+    private fun saveProductCertificates(productId: String, certificates: List<ProductCertificateInput>) {
+        certificates
+            .filter { it.name.isNotBlank() && it.fileUrl.isNotBlank() }
+            .forEach { certificate ->
+                ProductCertificatesTable.insert {
+                    it[ProductCertificatesTable.id] = UUID.randomUUID().toString()
+                    it[ProductCertificatesTable.productId] = productId
+                    it[ProductCertificatesTable.type] = certificate.type.ifBlank { "MOH_LICENSE" }
+                    it[ProductCertificatesTable.name] = certificate.name
+                    it[ProductCertificatesTable.fileUrl] = certificate.fileUrl
+                    it[ProductCertificatesTable.issueDate] = certificate.issueDate?.ifBlank { null }
+                    it[ProductCertificatesTable.expireDate] = certificate.expireDate?.ifBlank { null }
+                    it[ProductCertificatesTable.issuer] = certificate.issuer?.ifBlank { null }
+                }
+            }
+    }
+
+    private fun safeDeleteCloudinaryAsset(publicId: String) {
+        runCatching {
+            CloudinaryHelper.delete(publicId)
         }
     }
 

@@ -128,8 +128,12 @@ class CheckoutService {
                 BigDecimal.ZERO
             }
 
-            // Calculate reward points value (1 point = 1,000 VND)
-            val pointsValue = BigDecimal(useRewardPoints) * BigDecimal(1000)
+            // Reward points can only offset merchandise value after discount.
+            val maxRewardPointsApplicable = ((subtotal - discount).coerceAtLeast(BigDecimal.ZERO) / BigDecimal(1000))
+                .toInt()
+                .coerceAtLeast(0)
+            val appliedRewardPoints = useRewardPoints.coerceIn(0, maxRewardPointsApplicable)
+            val pointsValue = BigDecimal(appliedRewardPoints) * BigDecimal(1000)
 
             // Get shipping fee
             val shippingFee = if (subtotal >= BigDecimal(500000)) {
@@ -153,6 +157,7 @@ class CheckoutService {
                 subtotal = subtotal,
                 discount = discount,
                 shippingFee = shippingFee,
+                appliedRewardPoints = appliedRewardPoints,
                 pointsUsedValue = pointsValue,
                 tax = tax,
                 total = total
@@ -232,6 +237,7 @@ class CheckoutService {
 
             // Calculate totals
             val totals = calculateTotals(userId, request.rewardPointsToUse)
+            val appliedRewardPoints = totals.appliedRewardPoints
 
             // Get cart items for order items
             val cartItems = (CartItemsTable innerJoin ProductsTable)
@@ -239,8 +245,12 @@ class CheckoutService {
                 .where { CartItemsTable.userId eq userId }
                 .toList()
 
+            if (request.rewardPointsToUse > appliedRewardPoints) {
+                throw IllegalArgumentException("Reward points exceed the applicable limit for this order: $appliedRewardPoints")
+            }
+
             // Check available reward points
-            if (request.rewardPointsToUse > 0) {
+            if (appliedRewardPoints > 0) {
                 val userReward = RewardAccountsTable
                     .selectAll()
                     .where { RewardAccountsTable.userId eq userId }
@@ -262,27 +272,24 @@ class CheckoutService {
                 ProductsTable.selectAll()
                     .where { ProductsTable.id eq item[CartItemsTable.productId] }
                     .singleOrNull()
-                    ?.get(ProductsTable.shopId)
+                    ?.get(ProductsTable.id)
             } ?: throw IllegalArgumentException("Không thể xác định cửa hàng")
 
-            // Calculate points earned (1% of total value, minimum 100 points)
-            val pointsEarned = maxOf(
-                (totals.total * BigDecimal(0.01)).toInt(),
-                100
-            )
+            val pointsEarned = cartItems.sumOf { row ->
+                row[ProductsTable.rewardPoints] * row[CartItemsTable.quantity]
+            }
 
             OrdersTable.insert {
                 it[OrdersTable.id] = orderId
                 it[OrdersTable.orderCode] = orderCode
                 it[OrdersTable.userId] = userId
-                it[OrdersTable.shopId] = firstShopId
                 it[OrdersTable.status] = "PENDING"
                 it[OrdersTable.pickupType] = request.pickupType
                 it[OrdersTable.addressId] = request.addressId
                 it[OrdersTable.subtotal] = totals.subtotal
                 it[OrdersTable.shippingFee] = totals.shippingFee
                 it[OrdersTable.discount] = totals.discount
-                it[OrdersTable.pointsUsed] = request.rewardPointsToUse
+                it[OrdersTable.pointsUsed] = appliedRewardPoints
                 it[OrdersTable.pointsEarned] = pointsEarned
                 it[OrdersTable.total] = totals.total
                 it[OrdersTable.paymentMethod] = request.paymentMethod
@@ -321,10 +328,10 @@ class CheckoutService {
             CartItemsTable.deleteWhere { CartItemsTable.userId eq userId }
 
             // Deduct reward points if used
-            if (request.rewardPointsToUse > 0) {
+            if (appliedRewardPoints > 0) {
                 RewardAccountsTable.update({ RewardAccountsTable.userId eq userId }) {
                     with(SqlExpressionBuilder) {
-                        it[RewardAccountsTable.usedPoints] = RewardAccountsTable.usedPoints + request.rewardPointsToUse
+                        it[RewardAccountsTable.usedPoints] = RewardAccountsTable.usedPoints + appliedRewardPoints
                     }
                 }
 
@@ -333,7 +340,7 @@ class CheckoutService {
                     it[RewardTransactionsTable.userId] = userId
                     it[RewardTransactionsTable.orderId] = orderId
                     it[RewardTransactionsTable.type] = "REDEEM"
-                    it[RewardTransactionsTable.points] = -request.rewardPointsToUse
+                    it[RewardTransactionsTable.points] = -appliedRewardPoints
                     it[RewardTransactionsTable.description] = "Dùng điểm thưởng cho đơn hàng $orderCode"
                 }
             }
@@ -354,7 +361,7 @@ class CheckoutService {
                 subtotal = totals.subtotal,
                 shippingFee = totals.shippingFee,
                 discount = totals.discount,
-                pointsUsed = request.rewardPointsToUse,
+                pointsUsed = appliedRewardPoints,
                 pointsEarned = pointsEarned,
                 total = totals.total,
                 paymentMethod = request.paymentMethod,
@@ -419,6 +426,7 @@ data class CheckoutTotals(
     val subtotal: BigDecimal,
     val discount: BigDecimal,
     val shippingFee: BigDecimal,
+    val appliedRewardPoints: Int,
     val pointsUsedValue: BigDecimal,
     val tax: BigDecimal,
     val total: BigDecimal

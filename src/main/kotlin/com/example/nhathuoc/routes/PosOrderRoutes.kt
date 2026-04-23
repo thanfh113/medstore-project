@@ -4,7 +4,9 @@ import com.example.nhathuoc.database.tables.CouponRedemptionsTable
 import com.example.nhathuoc.database.tables.CouponsTable
 import com.example.nhathuoc.database.tables.OrderItemsTable
 import com.example.nhathuoc.database.tables.OrdersTable
+import com.example.nhathuoc.database.tables.PaymentsTable
 import com.example.nhathuoc.database.tables.ProductsTable
+import com.example.nhathuoc.service.PaymentService
 import com.example.nhathuoc.util.getUserId
 import com.example.nhathuoc.util.requireInternalAccess
 import io.ktor.http.HttpStatusCode
@@ -12,12 +14,14 @@ import io.ktor.server.auth.authenticate
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
+import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.selectAll
@@ -50,11 +54,77 @@ private data class ConfirmCashRequest(
     val cashReceived: Double? = null
 )
 
+@Serializable
+private data class InitPosPaymentRequest(
+    val paymentMethod: String? = null,
+    val returnUrl: String? = null
+)
+
+@Serializable
+private data class PosOrderCreateData(
+    val id: String,
+    val orderCode: String,
+    val status: String,
+    val paymentMethod: String,
+    val paymentStatus: String,
+    val subtotal: Double,
+    val discount: Double,
+    val total: Double
+)
+
+@Serializable
+private data class PosOrderConfirmData(
+    val id: String,
+    val status: String,
+    val paymentMethod: String,
+    val paymentStatus: String,
+    val cashReceived: Double,
+    val cashChange: Double
+)
+
+@Serializable
+private data class PosPaymentInitData(
+    val id: String,
+    val orderCode: String,
+    val status: String,
+    val paymentMethod: String,
+    val paymentStatus: String,
+    val total: Double,
+    val paymentUrl: String,
+    val qrContent: String,
+    val paymentReference: String,
+    val amount: Long
+)
+
+@Serializable
+private data class PosOrderStatusData(
+    val id: String,
+    val orderCode: String,
+    val status: String,
+    val paymentMethod: String? = null,
+    val paymentStatus: String,
+    val total: Double,
+    val cashReceived: Double? = null,
+    val cashChange: Double? = null,
+    val paymentReference: String? = null,
+    val paidAt: String? = null
+)
+
+@Serializable
+private data class PosEnvelope<T>(
+    val data: T,
+    val message: String
+)
+
+private val supportedPosPaymentMethods = setOf("CASH", "MOMO", "VNPAY", "ZALOPAY")
+private val supportedPosGatewayMethods = setOf("MOMO", "VNPAY", "ZALOPAY")
+
 fun Route.posOrderRoutes() {
+    val paymentService = PaymentService()
     authenticate("auth-jwt") {
         route("/internal/pos/orders") {
             post {
-                val (principal, shopId) = call.requireInternalAccess()
+                val (principal, _) = call.requireInternalAccess()
                 val request = call.receive<CreatePosOrderRequest>()
                 if (request.items.isEmpty()) {
                     return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "items is required"))
@@ -64,7 +134,7 @@ fun Route.posOrderRoutes() {
                 }
 
                 val paymentMethod = request.paymentMethod.trim().uppercase()
-                if (paymentMethod !in setOf("CASH", "MOMO", "VNPAY", "ZALOPAY", "BANK_TRANSFER", "CARD", "COD", "E_WALLET")) {
+                if (paymentMethod !in supportedPosPaymentMethods) {
                     return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Unsupported paymentMethod"))
                 }
 
@@ -75,24 +145,23 @@ fun Route.posOrderRoutes() {
                     val itemMap = request.items.groupBy { it.productId }
                     val products = ProductsTable
                         .selectAll()
-                        .where { ProductsTable.shopId eq shopId }
                         .filter { row -> itemMap.containsKey(row[ProductsTable.id]) }
 
                     if (products.size != itemMap.keys.size) {
-                        return@transaction Result.failure(IllegalArgumentException("Some products do not belong to this shop"))
+                        return@transaction Result.failure(IllegalArgumentException("Some products do not exist"))
                     }
 
                     var subtotal = BigDecimal.ZERO
                     val orderItems = products.map { productRow ->
                         val reqItem = itemMap[productRow[ProductsTable.id]]!!.first()
-                        val lineTotal = productRow[ProductsTable.price].toBigDecimal().multiply(reqItem.quantity.toBigDecimal())
+                        val lineTotal = productRow[ProductsTable.price].multiply(reqItem.quantity.toBigDecimal())
                         subtotal = subtotal.add(lineTotal)
                         Triple(productRow, reqItem.quantity, reqItem.unit?.trim()?.ifBlank { null } ?: productRow[ProductsTable.unit])
                     }
 
                     val couponComputed = request.couponCode
                         ?.takeIf { it.isNotBlank() }
-                        ?.let { code -> computeCouponDiscount(shopId, code, subtotal, request.customerId) }
+                        ?.let { code -> computeCouponDiscount(code, subtotal, request.customerId) }
 
                     if (couponComputed != null && couponComputed.isFailure) {
                         return@transaction Result.failure(couponComputed.exceptionOrNull()!!)
@@ -109,7 +178,6 @@ fun Route.posOrderRoutes() {
                         it[id] = orderId
                         it[OrdersTable.orderCode] = orderCode
                         it[OrdersTable.userId] = request.customerId?.trim()?.ifBlank { null }
-                        it[OrdersTable.shopId] = shopId
                         it[OrdersTable.orderChannel] = "POS"
                         it[OrdersTable.status] = "PENDING"
                         it[OrdersTable.pickupType] = "PICKUP"
@@ -126,11 +194,11 @@ fun Route.posOrderRoutes() {
 
                     orderItems.forEach { (productRow, quantity, unit) ->
                         OrderItemsTable.insert {
-                            it[id] = UUID.randomUUID().toString()
-                            it[orderId] = orderId
-                            it[productId] = productRow[ProductsTable.id]
-                            it[name] = productRow[ProductsTable.name]
-                            it[price] = productRow[ProductsTable.price].setScale(2, RoundingMode.HALF_UP)
+                            it[OrderItemsTable.id] = UUID.randomUUID().toString()
+                            it[OrderItemsTable.orderId] = orderId
+                            it[OrderItemsTable.productId] = productRow[ProductsTable.id]
+                            it[OrderItemsTable.name] = productRow[ProductsTable.name]
+                            it[OrderItemsTable.price] = productRow[ProductsTable.price].setScale(2, RoundingMode.HALF_UP)
                             it[OrderItemsTable.quantity] = quantity
                             it[OrderItemsTable.unit] = unit
                         }
@@ -138,12 +206,12 @@ fun Route.posOrderRoutes() {
 
                     if (couponData != null) {
                         CouponRedemptionsTable.insert {
-                            it[id] = UUID.randomUUID().toString()
-                            it[couponId] = couponData.couponId
+                            it[CouponRedemptionsTable.id] = UUID.randomUUID().toString()
+                            it[CouponRedemptionsTable.couponId] = couponData.couponId
                             it[CouponRedemptionsTable.orderId] = orderId
-                            it[userId] = request.customerId?.trim()?.ifBlank { null }
-                            it[appliedDiscountAmount] = discount
-                            it[status] = "APPLIED"
+                            it[CouponRedemptionsTable.userId] = request.customerId?.trim()?.ifBlank { null }
+                            it[CouponRedemptionsTable.appliedDiscountAmount] = discount
+                            it[CouponRedemptionsTable.status] = "APPLIED"
                         }
                         CouponsTable.update({ CouponsTable.id eq couponData.couponId }) {
                             with(org.jetbrains.exposed.sql.SqlExpressionBuilder) {
@@ -153,27 +221,153 @@ fun Route.posOrderRoutes() {
                     }
 
                     Result.success(
-                        mapOf(
-                            "id" to orderId,
-                            "orderCode" to orderCode,
-                            "status" to "PENDING",
-                            "paymentStatus" to if (paymentMethod == "CASH") "UNPAID" else "PENDING",
-                            "subtotal" to subtotal.toDouble(),
-                            "discount" to discount.toDouble(),
-                            "total" to total.toDouble()
+                        PosOrderCreateData(
+                            id = orderId,
+                            orderCode = orderCode,
+                            status = "PENDING",
+                            paymentMethod = paymentMethod,
+                            paymentStatus = if (paymentMethod == "CASH") "UNPAID" else "PENDING",
+                            subtotal = subtotal.toDouble(),
+                            discount = discount.toDouble(),
+                            total = total.toDouble()
                         )
                     )
                 }
 
                 result.onSuccess { data ->
-                    call.respond(HttpStatusCode.Created, mapOf("data" to data, "message" to "POS order created successfully"))
+                    call.respond(
+                        HttpStatusCode.Created,
+                        PosEnvelope(
+                            data = data,
+                            message = "POS order created successfully"
+                        )
+                    )
                 }.onFailure {
                     call.respond(HttpStatusCode.BadRequest, mapOf("error" to (it.message ?: "Cannot create POS order")))
                 }
             }
 
+            get("/{orderId}") {
+                call.requireInternalAccess()
+                val orderId = call.parameters["orderId"]
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "orderId is required"))
+
+                runCatching {
+                    paymentService.reconcilePendingPosGatewayPayment(orderId)
+                }.onFailure {
+                    println("WARN: POS payment reconciliation failed for orderId=$orderId - ${it.message}")
+                }
+
+                val result = transaction {
+                    val order = OrdersTable
+                        .selectAll()
+                        .where {
+                            (OrdersTable.id eq orderId) and
+                                (OrdersTable.orderChannel eq "POS")
+                        }
+                        .singleOrNull()
+                        ?: return@transaction Result.failure(IllegalArgumentException("POS order not found"))
+
+                    val latestPayment = PaymentsTable
+                        .selectAll()
+                        .where { PaymentsTable.orderId eq orderId }
+                        .orderBy(PaymentsTable.createdAt to SortOrder.DESC)
+                        .limit(1)
+                        .firstOrNull()
+
+                    Result.success(
+                        PosOrderStatusData(
+                            id = order[OrdersTable.id],
+                            orderCode = order[OrdersTable.orderCode],
+                            status = order[OrdersTable.status],
+                            paymentMethod = order[OrdersTable.paymentMethod],
+                            paymentStatus = order[OrdersTable.paymentStatus],
+                            total = (order[OrdersTable.total] ?: BigDecimal.ZERO).toDouble(),
+                            cashReceived = order[OrdersTable.cashReceived]?.toDouble(),
+                            cashChange = order[OrdersTable.cashChange]?.toDouble(),
+                            paymentReference = latestPayment?.get(PaymentsTable.transactionId),
+                            paidAt = latestPayment?.get(PaymentsTable.paidAt)?.toString()
+                        )
+                    )
+                }
+
+                result.onSuccess { data ->
+                    call.respond(
+                        PosEnvelope(
+                            data = data,
+                            message = "POS order status retrieved"
+                        )
+                    )
+                }.onFailure {
+                    call.respond(HttpStatusCode.NotFound, mapOf("error" to (it.message ?: "Cannot get POS order status")))
+                }
+            }
+
+            post("/{orderId}/init-payment") {
+                call.requireInternalAccess()
+                val orderId = call.parameters["orderId"]
+                    ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "orderId is required"))
+                val request = call.receive<InitPosPaymentRequest>()
+                println("DEBUG: POS init-payment endpoint called - orderId=$orderId, requestPaymentMethod=${request.paymentMethod}")
+
+                try {
+                    val orderPaymentMethod = transaction {
+                        OrdersTable
+                            .selectAll()
+                            .where {
+                                (OrdersTable.id eq orderId) and
+                                    (OrdersTable.orderChannel eq "POS")
+                            }
+                            .singleOrNull()
+                            ?.get(OrdersTable.paymentMethod)
+                    } ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("error" to "POS order not found"))
+
+                    val resolvedPaymentMethod = request.paymentMethod
+                        ?.trim()
+                        ?.uppercase()
+                        ?.takeIf { it.isNotBlank() }
+                        ?: orderPaymentMethod
+                        ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "POS order has no payment method"))
+
+                    if (resolvedPaymentMethod !in supportedPosGatewayMethods) {
+                        return@post call.respond(
+                            HttpStatusCode.BadRequest,
+                            mapOf("error" to "POS gateway payment chi ho tro MOMO, VNPAY, ZALOPAY")
+                        )
+                    }
+
+                    val payment = paymentService.initiatePosGatewayPayment(
+                        orderId = orderId,
+                        method = resolvedPaymentMethod,
+                        returnUrl = request.returnUrl
+                    )
+
+                    call.respond(
+                        PosEnvelope(
+                            data = PosPaymentInitData(
+                                id = payment.orderId,
+                                orderCode = payment.orderCode,
+                                status = "PENDING",
+                                paymentMethod = payment.paymentMethod,
+                                paymentStatus = payment.status,
+                                total = payment.amount.toDouble(),
+                                paymentUrl = payment.paymentUrl,
+                                qrContent = payment.qrContent,
+                                paymentReference = payment.paymentReference,
+                                amount = payment.amount
+                            ),
+                            message = "POS payment initialized"
+                        )
+                    )
+                } catch (e: IllegalArgumentException) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to (e.message ?: "Cannot init POS payment")))
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.InternalServerError, mapOf("error" to (e.message ?: "Cannot init POS payment")))
+                }
+            }
+
             post("/{orderId}/confirm-cash") {
-                val (_, shopId) = call.requireInternalAccess()
+                call.requireInternalAccess()
                 val orderId = call.parameters["orderId"]
                     ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "orderId is required"))
                 val request = call.receive<ConfirmCashRequest>()
@@ -183,7 +377,6 @@ fun Route.posOrderRoutes() {
                         .selectAll()
                         .where {
                             (OrdersTable.id eq orderId) and
-                                (OrdersTable.shopId eq shopId) and
                                 (OrdersTable.orderChannel eq "POS")
                         }
                         .singleOrNull()
@@ -245,19 +438,56 @@ fun Route.posOrderRoutes() {
                         it[OrdersTable.completedAt] = completedAt
                     }
 
+                    val existingCashPayment = PaymentsTable
+                        .selectAll()
+                        .where {
+                            (PaymentsTable.orderId eq orderId) and
+                                (PaymentsTable.method eq "CASH")
+                        }
+                        .orderBy(PaymentsTable.createdAt to SortOrder.DESC)
+                        .limit(1)
+                        .firstOrNull()
+
+                    if (existingCashPayment != null) {
+                        PaymentsTable.update({ PaymentsTable.id eq existingCashPayment[PaymentsTable.id] }) {
+                            it[PaymentsTable.amount] = total
+                            it[PaymentsTable.status] = "COMPLETED"
+                            it[PaymentsTable.paidAt] = completedAt
+                            it[PaymentsTable.transactionId] = null
+                            it[PaymentsTable.paymentGatewayResponse] = null
+                        }
+                    } else {
+                        PaymentsTable.insert {
+                            it[id] = UUID.randomUUID().toString()
+                            it[PaymentsTable.orderId] = orderId
+                            it[PaymentsTable.method] = "CASH"
+                            it[PaymentsTable.amount] = total
+                            it[PaymentsTable.status] = "COMPLETED"
+                            it[PaymentsTable.paidAt] = completedAt
+                            it[PaymentsTable.transactionId] = null
+                            it[PaymentsTable.paymentGatewayResponse] = null
+                        }
+                    }
+
                     Result.success(
-                        mapOf(
-                            "id" to orderId,
-                            "status" to "DELIVERED",
-                            "paymentStatus" to "COMPLETED",
-                            "cashReceived" to cashReceived.toDouble(),
-                            "cashChange" to cashChange.toDouble()
+                        PosOrderConfirmData(
+                            id = orderId,
+                            status = "DELIVERED",
+                            paymentMethod = "CASH",
+                            paymentStatus = "COMPLETED",
+                            cashReceived = cashReceived.toDouble(),
+                            cashChange = cashChange.toDouble()
                         )
                     )
                 }
 
                 result.onSuccess { data ->
-                    call.respond(mapOf("data" to data, "message" to "POS cash order confirmed"))
+                    call.respond(
+                        PosEnvelope(
+                            data = data,
+                            message = "POS cash order confirmed"
+                        )
+                    )
                 }.onFailure {
                     call.respond(HttpStatusCode.BadRequest, mapOf("error" to (it.message ?: "Cannot confirm POS cash order")))
                 }
@@ -265,4 +495,3 @@ fun Route.posOrderRoutes() {
         }
     }
 }
-

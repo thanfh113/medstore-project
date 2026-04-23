@@ -2,6 +2,7 @@ package com.example.nhathuoc.service
 
 import com.example.nhathuoc.database.tables.*
 import kotlinx.datetime.LocalDateTime
+import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -12,6 +13,7 @@ import java.util.*
 // DTOs
 // ─────────────────────────────────────────────────────────────
 
+@Serializable
 data class RewardAccountDto(
     val id: String,
     val userId: String,
@@ -22,6 +24,7 @@ data class RewardAccountDto(
     val availablePointsCalculated: Int get() = totalPoints - usedPoints
 }
 
+@Serializable
 data class RewardTransactionDto(
     val id: String,
     val userId: String,
@@ -32,6 +35,7 @@ data class RewardTransactionDto(
     val createdAt: LocalDateTime
 )
 
+@Serializable
 data class RewardProductDto(
     val id: String,
     val name: String,
@@ -42,6 +46,7 @@ data class RewardProductDto(
     val isActive: Boolean
 )
 
+@Serializable
 data class RewardRedemptionDto(
     val id: String,
     val userId: String,
@@ -53,12 +58,14 @@ data class RewardRedemptionDto(
     val createdAt: LocalDateTime
 )
 
+@Serializable
 data class RewardSummaryDto(
     val account: RewardAccountDto,
     val recentTransactions: List<RewardTransactionDto>,
     val availableRewards: List<RewardProductDto>
 )
 
+@Serializable
 data class RedeemRewardRequest(
     val rewardProductId: String,
     val quantity: Int = 1

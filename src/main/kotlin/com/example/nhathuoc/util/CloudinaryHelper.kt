@@ -34,10 +34,10 @@ object CloudinaryHelper {
 
     fun init(application: Application) {
         val config = application.environment.config
-        val cloudName = config.property("cloudinary.cloud_name").getString()
-        val apiKey    = config.property("cloudinary.api_key").getString()
-        val apiSecret = config.property("cloudinary.api_secret").getString()
-        folderPrefix  = config.property("cloudinary.folder_prefix").getString()
+        val cloudName = Env.get("CLOUDINARY_CLOUD_NAME") ?: config.property("cloudinary.cloud_name").getString()
+        val apiKey    = Env.get("CLOUDINARY_API_KEY") ?: config.property("cloudinary.api_key").getString()
+        val apiSecret = Env.get("CLOUDINARY_API_SECRET") ?: config.property("cloudinary.api_secret").getString()
+        folderPrefix  = Env.get("CLOUDINARY_FOLDER_PREFIX") ?: config.property("cloudinary.folder_prefix").getString()
 
         val configMap = mapOf(
             "cloud_name" to cloudName,
@@ -57,19 +57,36 @@ object CloudinaryHelper {
      * @param publicId  Tên file tùy chỉnh (optional) — nếu null Cloudinary tự sinh
      * @return          Secure URL của file đã upload
      */
-    fun upload(bytes: ByteArray, type: UploadType, publicId: String? = null): UploadResult {
+    fun upload(
+        bytes: ByteArray,
+        type: UploadType,
+        publicId: String? = null,
+        fileExtension: String? = null
+    ): UploadResult {
         if (bytes.size > type.maxBytes) {
             val maxMB = type.maxBytes / (1024 * 1024)
             throw IllegalArgumentException("File quá lớn. Tối đa ${maxMB}MB cho loại ${type.folder}")
         }
 
         val folder = "$folderPrefix/${type.folder}"
+        val normalizedExtension = fileExtension
+            ?.trim()
+            ?.trimStart('.')
+            ?.lowercase()
+            .orEmpty()
+        val resourceType = when {
+            type in setOf(UploadType.CERTIFICATE, UploadType.PRESCRIPTION) && normalizedExtension == "pdf" -> "raw"
+            else -> type.resourceType
+        }
 
         val params = mutableMapOf<String, Any>(
             "folder" to folder,
-            "resource_type" to type.resourceType,
+            "resource_type" to resourceType,
             "overwrite" to true
         )
+        if (resourceType == "raw" && normalizedExtension.isNotBlank()) {
+            params["format"] = normalizedExtension
+        }
         if (publicId != null) params["public_id"] = publicId
 
         @Suppress("UNCHECKED_CAST")
@@ -78,7 +95,8 @@ object CloudinaryHelper {
         return UploadResult(
             url       = result["secure_url"] as String,
             publicId  = result["public_id"] as String,
-            format    = result["format"] as? String ?: "",
+            format    = result["format"] as? String ?: normalizedExtension,
+            resourceType = resourceType,
             bytes     = (result["bytes"] as? Int) ?: bytes.size,
             width     = result["width"] as? Int,
             height    = result["height"] as? Int,
@@ -94,10 +112,41 @@ object CloudinaryHelper {
         cloudinary.uploader().destroy(publicId, params)
     }
 
+    fun signedDeliveryUrl(fileUrl: String): String {
+        if (fileUrl.isBlank()) return fileUrl
+
+        val resourceType = when {
+            fileUrl.contains("/raw/upload/") -> "raw"
+            fileUrl.contains("/video/upload/") -> "video"
+            else -> "image"
+        }
+        val marker = "/$resourceType/upload/"
+        val afterUpload = fileUrl.substringAfter(marker, missingDelimiterValue = "")
+        if (afterUpload.isBlank()) return fileUrl
+
+        val publicId = afterUpload
+            .substringBefore("?")
+            .split("/")
+            .dropWhile { it.matches(Regex("[a-z_]+:.+")) }
+            .dropWhile { it.startsWith("s--") }
+            .dropWhile { it.matches(Regex("v\\d+")) }
+            .joinToString("/")
+            .ifBlank { return fileUrl }
+
+        return runCatching {
+            cloudinary.url()
+                .secure(true)
+                .resourceType(resourceType)
+                .signed(true)
+                .generate(publicId)
+        }.getOrElse { fileUrl }
+    }
+
     data class UploadResult(
         val url: String,
         val publicId: String,
         val format: String,
+        val resourceType: String,
         val bytes: Int,
         val width: Int?,
         val height: Int?,

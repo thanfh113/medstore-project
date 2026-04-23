@@ -32,7 +32,7 @@ class OrderFulfillmentService(
 ) {
 
     /**
-     * Confirm and pack an order (SHOP only)
+     * Confirm and pack an order (internal desktop roles)
      * This will:
      * 1. Validate order status and ownership
      * 2. Allocate inventory using FEFO
@@ -169,11 +169,6 @@ class OrderFulfillmentService(
             .singleOrNull()
             ?: throw IllegalArgumentException("Order not found")
 
-        // Check order belongs to shop
-        if (order[OrdersTable.shopId] != shopId) {
-            throw IllegalArgumentException("Order doesn't belong to this shop")
-        }
-
         // Check order status
         val currentStatus = order[OrdersTable.status]
         if (currentStatus != "PENDING") {
@@ -182,7 +177,6 @@ class OrderFulfillmentService(
 
         return OrderInfo(
             id = order[OrdersTable.id],
-            shopId = order[OrdersTable.shopId],
             status = currentStatus
         )
     }
@@ -237,7 +231,6 @@ class OrderFulfillmentService(
 // Data classes for internal use
 private data class OrderInfo(
     val id: String,
-    val shopId: String,
     val status: String
 )
 

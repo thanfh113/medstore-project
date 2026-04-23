@@ -1,14 +1,20 @@
 package com.example.nhathuoc.util
 
-import com.example.nhathuoc.database.tables.ShopsTable
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.response.*
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
+
+object AppRoles {
+    const val ADMIN = "ADMIN"
+    const val EMPLOYEE = "EMPLOYEE"
+    const val USER = "USER"
+
+    val internalRoles = setOf(ADMIN, EMPLOYEE)
+}
 
 /**
  * Helper functions for Authentication and Authorization
@@ -67,49 +73,40 @@ suspend fun ApplicationCall.requireAnyRole(allowedRoles: Set<String>): JWTPrinci
 }
 
 /**
- * Get shopId for the current user (only works for SHOP role - suppliers in medical supply context)
+ * Resolve the current managed shop for the authenticated user.
+ * Note: multi-shop was removed. Keep a synthetic context id so older
+ * internal routes can keep destructuring without binding to a real table.
  */
-suspend fun ApplicationCall.getShopIdForOwner(userId: String): String? {
-    return transaction {
-        ShopsTable
-            .selectAll()
-            .where { ShopsTable.ownerId eq userId }
-            .singleOrNull()
-            ?.get(ShopsTable.id)
-    }
+suspend fun ApplicationCall.getManagedShopId(userId: String, role: String?): String? {
+    val principal = this.principal<JWTPrincipal>()
+    return principal?.payload?.getClaim("shopId")?.asString()?.takeIf { it.isNotBlank() }
+        ?: "default-store"
 }
 
 /**
- * Require SHOP role and get shop ID for the current user (supplier access)
+ * Require internal access (admin or employee role)
+ */
+suspend fun ApplicationCall.requireInternalAccess(
+    allowedRoles: Set<String> = AppRoles.internalRoles
+): Pair<JWTPrincipal, String> {
+    val principal = requireAnyRole(allowedRoles)
+    val contextId = principal.payload.getClaim("shopId").asString()?.takeIf { it.isNotBlank() }
+        ?: "default-store"
+    return principal to contextId
+}
+
+/**
+ * Legacy helper kept so existing code keeps compiling while routes migrate.
  */
 suspend fun ApplicationCall.requireShopAccess(): Pair<JWTPrincipal, String> {
-    val principal = requireRole("SHOP")
-    val userId = principal.getUserId()
-        ?: throw AuthenticationException("User ID not found in token")
-
-    val shopId = getShopIdForOwner(userId)
-        ?: run {
-            respond(
-                HttpStatusCode.BadRequest,
-                mapOf("error" to "No supplier found for this user")
-            )
-            throw AuthorizationException("No shop found for user: $userId")
-        }
-
-    return Pair(principal, shopId)
+    return requireInternalAccess()
 }
 
 /**
- * Validate that a resource belongs to the current supplier
+ * Validate that a resource belongs to the current supplier - no longer applicable
  */
 suspend fun ApplicationCall.validateShopOwnership(resourceShopId: String, currentShopId: String) {
-    if (resourceShopId != currentShopId) {
-        respond(
-            HttpStatusCode.Forbidden,
-            mapOf("error" to "Access denied to this resource")
-        )
-        throw AuthorizationException("Resource doesn't belong to current shop")
-    }
+    // Shop validation removed - shops no longer exist in the system
 }
 
 /**

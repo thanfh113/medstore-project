@@ -16,6 +16,7 @@ data class UploadResponse(
     val url: String,
     val publicId: String,
     val format: String,
+    val resourceType: String,
     val bytes: Int,
     val width: Int? = null,
     val height: Int? = null,
@@ -91,7 +92,7 @@ fun Route.uploadRoutes() {
 
                 // Upload lên Cloudinary
                 val result = try {
-                    CloudinaryHelper.upload(fileBytes!!, uploadType)
+                    CloudinaryHelper.upload(fileBytes!!, uploadType, fileExtension = ext)
                 } catch (e: IllegalArgumentException) {
                     return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to e.message))
                 } catch (e: Exception) {
@@ -108,6 +109,7 @@ fun Route.uploadRoutes() {
                         url      = result.url,
                         publicId = result.publicId,
                         format   = result.format,
+                        resourceType = result.resourceType,
                         bytes    = result.bytes,
                         width    = result.width,
                         height   = result.height,

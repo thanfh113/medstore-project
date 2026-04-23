@@ -15,6 +15,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import kotlinx.serialization.Serializable
+import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.selectAll
@@ -68,22 +69,41 @@ private data class CouponValidateData(
     val payableAmount: Double
 )
 
-private data class CouponComputation(
+@Serializable
+private data class CouponIdPayload(
+    val id: String
+)
+
+@Serializable
+private data class CouponEnvelope<T>(
+    val data: T,
+    val message: String
+)
+
+internal data class CouponComputation(
     val couponId: String,
     val code: String,
     val discountAmount: BigDecimal
 )
 
+internal fun computeCouponDiscount(
+    shopId: String,
+    code: String,
+    orderTotal: BigDecimal,
+    userId: String?
+): Result<CouponComputation> {
+    return computeCouponDiscount(code = code, orderTotal = orderTotal, userId = userId)
+}
+
 fun Route.couponRoutes() {
     authenticate("auth-jwt") {
         route("/internal/coupons") {
             get {
-                val (_, shopId) = call.requireInternalAccess()
+                call.requireInternalAccess()
                 val data = transaction {
                     CouponsTable
                         .selectAll()
-                        .where { CouponsTable.shopId eq shopId }
-                        .orderBy(CouponsTable.createdAt)
+                        .orderBy(CouponsTable.createdAt to SortOrder.DESC)
                         .map { row ->
                             CouponDto(
                                 id = row[CouponsTable.id],
@@ -100,11 +120,16 @@ fun Route.couponRoutes() {
                             )
                         }
                 }
-                call.respond(mapOf("data" to data, "message" to "Get coupons successfully"))
+                call.respond(
+                    CouponEnvelope(
+                        data = data,
+                        message = "Get coupons successfully"
+                    )
+                )
             }
 
             post {
-                val (principal, shopId) = call.requireInternalAccess()
+                val (principal, _) = call.requireInternalAccess()
                 if (principal.getRole() != AppRoles.ADMIN) {
                     return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Only ADMIN can create coupon"))
                 }
@@ -128,7 +153,7 @@ fun Route.couponRoutes() {
                 val createdId = transaction {
                     val existed = CouponsTable
                         .selectAll()
-                        .where { (CouponsTable.shopId eq shopId) and (CouponsTable.code eq normalizedCode) }
+                        .where { CouponsTable.code eq normalizedCode }
                         .singleOrNull()
                     if (existed != null) {
                         throw IllegalArgumentException("Coupon code already exists")
@@ -137,7 +162,6 @@ fun Route.couponRoutes() {
                     val id = UUID.randomUUID().toString()
                     CouponsTable.insert {
                         it[CouponsTable.id] = id
-                        it[CouponsTable.shopId] = shopId
                         it[CouponsTable.code] = normalizedCode
                         it[CouponsTable.name] = request.name.trim()
                         it[CouponsTable.description] = request.description?.trim()?.ifBlank { null }
@@ -155,12 +179,15 @@ fun Route.couponRoutes() {
 
                 call.respond(
                     HttpStatusCode.Created,
-                    mapOf("data" to mapOf("id" to createdId), "message" to "Coupon created successfully")
+                    CouponEnvelope(
+                        data = CouponIdPayload(id = createdId),
+                        message = "Coupon created successfully"
+                    )
                 )
             }
 
             post("/validate") {
-                val (_, shopId) = call.requireInternalAccess()
+                call.requireInternalAccess()
                 val request = call.receive<CouponValidateRequest>()
 
                 val orderTotal = request.orderTotal.toBigDecimal().setScale(2, RoundingMode.HALF_UP)
@@ -170,7 +197,6 @@ fun Route.couponRoutes() {
 
                 val result = transaction {
                     computeCouponDiscount(
-                        shopId = shopId,
                         code = request.code,
                         orderTotal = orderTotal,
                         userId = request.userId
@@ -179,14 +205,14 @@ fun Route.couponRoutes() {
 
                 result.onSuccess { computed ->
                     call.respond(
-                        mapOf(
-                            "data" to CouponValidateData(
+                        CouponEnvelope(
+                            data = CouponValidateData(
                                 couponId = computed.couponId,
                                 code = computed.code,
                                 discountAmount = computed.discountAmount.toDouble(),
                                 payableAmount = orderTotal.subtract(computed.discountAmount).toDouble()
                             ),
-                            "message" to "Coupon is valid"
+                            message = "Coupon is valid"
                         )
                     )
                 }.onFailure {
@@ -198,7 +224,6 @@ fun Route.couponRoutes() {
 }
 
 internal fun computeCouponDiscount(
-    shopId: String,
     code: String,
     orderTotal: BigDecimal,
     userId: String?
@@ -208,7 +233,7 @@ internal fun computeCouponDiscount(
 
     val coupon = CouponsTable
         .selectAll()
-        .where { (CouponsTable.shopId eq shopId) and (CouponsTable.code eq normalizedCode) }
+        .where { CouponsTable.code eq normalizedCode }
         .singleOrNull()
         ?: return Result.failure(IllegalArgumentException("Coupon not found"))
 

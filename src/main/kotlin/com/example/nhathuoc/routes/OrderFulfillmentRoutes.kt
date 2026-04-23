@@ -1,7 +1,7 @@
 package com.example.nhathuoc.routes
 
 import com.example.nhathuoc.service.OrderFulfillmentService
-import com.example.nhathuoc.util.requireShopAccess
+import com.example.nhathuoc.util.requireInternalAccess
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -13,10 +13,10 @@ fun Route.orderFulfillmentRoutes() {
 
     route("/orders") {
         authenticate("auth-jwt") {
-            // POST /api/v1/orders/{orderId}/confirm-pack - SHOP only
+            // POST /api/v1/orders/{orderId}/confirm-pack - internal roles only
             post("/{orderId}/confirm-pack") {
                 try {
-                    val (principal, shopId) = call.requireShopAccess()
+                    val (_, shopId) = call.requireInternalAccess()
 
                     val orderId = call.parameters["orderId"]
                         ?: return@post call.respond(
@@ -51,10 +51,10 @@ fun Route.orderFulfillmentRoutes() {
                 }
             }
 
-            // GET /api/v1/orders/{orderId}/fulfillment-details - SHOP only
+            // GET /api/v1/orders/{orderId}/fulfillment-details - internal roles only
             get("/{orderId}/fulfillment-details") {
                 try {
-                    val (principal, shopId) = call.requireShopAccess()
+                    val (_, shopId) = call.requireInternalAccess()
 
                     val orderId = call.parameters["orderId"]
                         ?: return@get call.respond(

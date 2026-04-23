@@ -1,7 +1,9 @@
 package com.example.nhathuoc.service
 
 import com.example.nhathuoc.database.tables.*
+import com.example.nhathuoc.util.EmailHelper
 import kotlinx.datetime.LocalDateTime
+import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -11,6 +13,7 @@ import java.util.*
 // DTOs
 // ─────────────────────────────────────────────────────────────
 
+@Serializable
 data class UserProfileDto(
     val id: String,
     val phone: String,
@@ -25,6 +28,7 @@ data class UserProfileDto(
     val updatedAt: LocalDateTime
 )
 
+@Serializable
 data class UpdateUserProfileRequest(
     val email: String? = null,
     val fullName: String? = null,
@@ -33,6 +37,7 @@ data class UpdateUserProfileRequest(
     val avatarUrl: String? = null
 )
 
+@Serializable
 data class UserAddressDto(
     val id: String,
     val userId: String,
@@ -46,6 +51,7 @@ data class UserAddressDto(
     val isDefault: Boolean
 )
 
+@Serializable
 data class CreateAddressRequest(
     val label: String? = null,
     val recipientName: String? = null,
@@ -57,6 +63,7 @@ data class CreateAddressRequest(
     val isDefault: Boolean = false
 )
 
+@Serializable
 data class UpdateAddressRequest(
     val label: String? = null,
     val recipientName: String? = null,
@@ -114,10 +121,11 @@ class UserService {
                 ?: throw IllegalArgumentException("User not found")
 
             // Validate email uniqueness if provided
-            if (!request.email.isNullOrBlank()) {
+            val normalizedEmail = EmailHelper.normalize(request.email)
+            if (normalizedEmail != null) {
                 val emailExists = UsersTable
                     .selectAll()
-                    .where { (UsersTable.email eq request.email) and (UsersTable.id neq userId) }
+                    .where { (UsersTable.email eq normalizedEmail) and (UsersTable.id neq userId) }
                     .singleOrNull()
 
                 if (emailExists != null) {
@@ -125,8 +133,7 @@ class UserService {
                 }
 
                 // Basic email validation
-                val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
-                if (!emailRegex.matches(request.email)) {
+                if (!EmailHelper.isValid(normalizedEmail)) {
                     throw IllegalArgumentException("Invalid email format")
                 }
             }
@@ -153,7 +160,7 @@ class UserService {
             }
 
             UsersTable.update({ UsersTable.id eq userId }) {
-                if (request.email != null) it[UsersTable.email] = request.email
+                if (request.email != null) it[UsersTable.email] = normalizedEmail
                 if (request.fullName != null) it[UsersTable.fullName] = request.fullName
                 if (request.gender != null) it[UsersTable.gender] = request.gender
                 if (request.dateOfBirth != null) it[UsersTable.dateOfBirth] = request.dateOfBirth

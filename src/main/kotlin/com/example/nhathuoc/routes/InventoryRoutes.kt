@@ -1,32 +1,25 @@
 package com.example.nhathuoc.routes
 
-import com.example.nhathuoc.database.tables.ShopsTable
 import com.example.nhathuoc.service.CreateBatchRequest
 import com.example.nhathuoc.service.InventoryService
-import com.example.nhathuoc.util.requireAnyRole
-import com.example.nhathuoc.util.requireShopAccess
-import com.example.nhathuoc.util.getUserId
+import com.example.nhathuoc.util.requireInternalAccess
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
-import io.ktor.server.auth.jwt.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.datetime.LocalDate
-import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.transactions.transaction
 
 fun Route.inventoryRoutes() {
     val inventoryService = InventoryService()
 
     route("/inventory") {
         authenticate("auth-jwt") {
-            // POST /api/v1/inventory/batches - SHOP only
+            // POST /api/v1/inventory/batches - internal roles only
             post("/batches") {
                 try {
-                    val (principal, shopId) = call.requireShopAccess()
+                    call.requireInternalAccess()
 
                     val request = call.receive<CreateBatchRequest>()
 
@@ -38,7 +31,7 @@ fun Route.inventoryRoutes() {
                         )
                     }
 
-                    val batchId = inventoryService.createBatch(shopId, request)
+                    val batchId = inventoryService.createBatch(request)
 
                     call.respond(
                         HttpStatusCode.Created,
@@ -60,38 +53,11 @@ fun Route.inventoryRoutes() {
                 }
             }
 
-            // GET /api/v1/inventory/batches - SHOP + ADMIN read
+            // GET /api/v1/inventory/batches - internal roles only
             get("/batches") {
                 try {
-                    val principal = call.requireAnyRole(setOf("SHOP", "ADMIN"))
-                    val role = principal.payload.getClaim("role").asString()
-                    val userId = principal.getUserId()
-                        ?: return@get call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Invalid token"))
+                    call.requireInternalAccess()
 
-                    // Determine shop filter based on role
-                    val shopId = when (role) {
-                        "SHOP" -> {
-                            // Shop can only see their own batches
-                            transaction {
-                                ShopsTable
-                                    .selectAll()
-                                    .where { ShopsTable.ownerId eq userId }
-                                    .singleOrNull()
-                                    ?.get(ShopsTable.id)
-                                    ?: return@transaction null
-                            } ?: return@get call.respond(
-                                HttpStatusCode.BadRequest,
-                                mapOf("error" to "No shop found for user")
-                            )
-                        }
-                        "ADMIN" -> {
-                            // Admin can filter by shopId or see all
-                            call.parameters["shopId"]
-                        }
-                        else -> return@get call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Access denied"))
-                    }
-
-                    // Get query parameters
                     val productId = call.parameters["productId"]
                     val expired = call.parameters["expired"]?.toBoolean()
                     val expWithinDays = call.parameters["expWithinDays"]?.toIntOrNull()
@@ -107,7 +73,6 @@ fun Route.inventoryRoutes() {
                     }
 
                     val batches = inventoryService.getBatches(
-                        shopId = shopId,
                         productId = productId,
                         expired = expired,
                         expWithinDays = expWithinDays,
@@ -135,37 +100,12 @@ fun Route.inventoryRoutes() {
                 }
             }
 
-            // GET /api/v1/inventory/alerts/expiring - SHOP + ADMIN read
+            // GET /api/v1/inventory/alerts/expiring - internal roles only
             get("/alerts/expiring") {
                 try {
-                    val principal = call.requireAnyRole(setOf("SHOP", "ADMIN"))
-                    val role = principal.payload.getClaim("role").asString()
-                    val userId = principal.getUserId()
-                        ?: return@get call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Invalid token"))
+                    call.requireInternalAccess()
 
-                    val (shopId, defaultDays) = when (role) {
-                        "SHOP" -> {
-                            // Shop can only see their own alerts
-                            val shop = transaction {
-                                ShopsTable
-                                    .selectAll()
-                                    .where { ShopsTable.ownerId eq userId }
-                                    .singleOrNull()
-                            } ?: return@get call.respond(
-                                HttpStatusCode.BadRequest,
-                                mapOf("error" to "No shop found for user")
-                            )
-                            Pair(shop[ShopsTable.id], shop[ShopsTable.expiryAlertDays])
-                        }
-                        "ADMIN" -> {
-                            // Admin can see all or filter by shopId, default to 30 days
-                            Pair(call.parameters["shopId"], 30)
-                        }
-                        else -> return@get call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Access denied"))
-                    }
-
-                    // Get days parameter, fallback to default
-                    val days = call.parameters["days"]?.toIntOrNull() ?: defaultDays
+                    val days = call.parameters["days"]?.toIntOrNull() ?: 30
 
                     if (days < 1 || days > 365) {
                         return@get call.respond(
@@ -174,7 +114,7 @@ fun Route.inventoryRoutes() {
                         )
                     }
 
-                    val alerts = inventoryService.getExpiringBatches(shopId, days)
+                    val alerts = inventoryService.getExpiringBatches(days)
 
                     call.respond(
                         HttpStatusCode.OK,
