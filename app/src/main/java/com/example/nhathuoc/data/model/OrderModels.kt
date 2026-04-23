@@ -11,8 +11,7 @@ data class OrderDto(
     val id: String, // UUID from backend
     val orderCode: String, // Changed from orderNumber to match schema
     val userId: String, // UUID from backend
-    val shopId: String, // UUID from backend - Added for shop relationship
-    val status: String, // "PENDING", "CONFIRMED", "PREPARING", "SHIPPING", "DELIVERED", "CANCELLED"
+    val status: String, // "PENDING", "PROCESSING", "SHIPPING", "DELIVERED", "CANCELLED", "RETURNED"
     val pickupType: String = "DELIVERY", // Added: "DELIVERY" or "PICKUP"
     val branchId: String? = null, // UUID from backend - Added for pickup orders
     val addressId: String? = null, // UUID from backend - Added address reference
@@ -23,8 +22,8 @@ data class OrderDto(
     val pointsUsed: Int = 0, // Renamed from rewardPointsUsed
     val pointsEarned: Int = 0, // Renamed from rewardPointsEarned
     val total: Double, // Changed from String to numeric
-    val paymentMethod: String, // "COD", "VNPAY", "MOMO"
-    val paymentStatus: String, // "UNPAID", "PAID", "FAILED", "REFUNDED"
+    val paymentMethod: String, // "COD", "VNPAY", "MOMO", "ZALOPAY"
+    val paymentStatus: String, // "UNPAID", "PENDING", "COMPLETED", "FAILED", "REFUNDED"
     val shippingAddress: UserAddress? = null, // Keep for backward compatibility
     val note: String? = null, // Changed from notes to note (singular)
     val estimatedDelivery: String?,
@@ -50,30 +49,6 @@ data class OrderItemDto(
 )
 
 @Serializable
-data class PlaceOrderRequest(
-    val items: List<PlaceOrderItem>,
-    val paymentMethod: String,
-    val pickupType: String = "DELIVERY", // Added: "DELIVERY" or "PICKUP"
-    val shippingAddressId: String?, // UUID from backend - Optional for pickup orders
-    val branchId: String? = null, // UUID from backend - Required for pickup orders
-    val note: String? = null, // Changed from notes to note
-    val pointsToUse: Int = 0 // Renamed from rewardPointsToUse
-)
-
-@Serializable
-data class PlaceOrderItem(
-    val productId: String, // UUID from backend
-    val quantity: Int
-)
-
-@Serializable
-data class PlaceOrderResponse(
-    val message: String,
-    val order: OrderDto,
-    val paymentUrl: String? = null // For online payment methods
-)
-
-@Serializable
 data class OrderListResponse(
     val orders: List<OrderDto>,
     val pagination: PaginationInfo
@@ -83,10 +58,3 @@ data class OrderListResponse(
 data class CancelOrderRequest(
     val reason: String
 )
-
-@Serializable
-data class CancelOrderResponse(
-    val message: String,
-    val order: OrderDto
-)
-

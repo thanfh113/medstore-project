@@ -4,15 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nhathuoc.data.model.*
 import com.example.nhathuoc.data.repository.OrderRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class OrderViewModel(
-    private val orderRepository: OrderRepository = OrderRepository()
+@HiltViewModel
+class OrderViewModel @Inject constructor(
+    private val orderRepository: OrderRepository
 ) : ViewModel() {
-
     private val _orderState = MutableStateFlow<UiState<OrderDto>>(UiState.Idle)
     val orderState: StateFlow<UiState<OrderDto>> = _orderState.asStateFlow()
 
@@ -26,21 +28,11 @@ class OrderViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             _orderState.value = UiState.Loading
-
-            val result = orderRepository.getOrderById(orderId)
-
-            when (result) {
-                is NetworkResult.Success -> {
-                    _orderState.value = UiState.Success(result.data)
-                }
-                is NetworkResult.Error -> {
-                    _orderState.value = UiState.Error("Lỗi: ${result.message}")
-                }
-                is NetworkResult.Exception -> {
-                    _orderState.value = UiState.Error("Lỗi kết nối")
-                }
+            when (val result = orderRepository.getOrderById(orderId)) {
+                is NetworkResult.Success -> _orderState.value = UiState.Success(result.data)
+                is NetworkResult.Error -> _orderState.value = UiState.Error("Loi: ${result.message}")
+                is NetworkResult.Exception -> _orderState.value = UiState.Error("Loi ket noi")
             }
-
             _isLoading.value = false
         }
     }
@@ -49,21 +41,11 @@ class OrderViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             _ordersListState.value = UiState.Loading
-
-            val result = orderRepository.getOrders(status = status, page = page)
-
-            when (result) {
-                is NetworkResult.Success -> {
-                    _ordersListState.value = UiState.Success(result.data)
-                }
-                is NetworkResult.Error -> {
-                    _ordersListState.value = UiState.Error("Lỗi: ${result.message}")
-                }
-                is NetworkResult.Exception -> {
-                    _ordersListState.value = UiState.Error("Lỗi kết nối")
-                }
+            when (val result = orderRepository.getOrders(status = status, page = page)) {
+                is NetworkResult.Success -> _ordersListState.value = UiState.Success(result.data)
+                is NetworkResult.Error -> _ordersListState.value = UiState.Error("Loi: ${result.message}")
+                is NetworkResult.Exception -> _ordersListState.value = UiState.Error("Loi ket noi")
             }
-
             _isLoading.value = false
         }
     }
@@ -71,21 +53,17 @@ class OrderViewModel(
     fun cancelOrder(orderId: String, reason: String) {
         viewModelScope.launch {
             _isLoading.value = true
-
-            val result = orderRepository.cancelOrder(orderId, reason)
-
-            when (result) {
+            when (val result = orderRepository.cancelOrder(orderId, reason)) {
                 is NetworkResult.Success -> {
-                    _orderState.value = UiState.Success(result.data.order)
+                    when (val refreshed = orderRepository.getOrderById(orderId)) {
+                        is NetworkResult.Success -> _orderState.value = UiState.Success(refreshed.data)
+                        is NetworkResult.Error -> _orderState.value = UiState.Error("Da huy don nhung khong tai lai duoc: ${refreshed.message}")
+                        is NetworkResult.Exception -> _orderState.value = UiState.Error("Da huy don nhung mat ket noi khi tai lai")
+                    }
                 }
-                is NetworkResult.Error -> {
-                    _orderState.value = UiState.Error("Lỗi: ${result.message}")
-                }
-                is NetworkResult.Exception -> {
-                    _orderState.value = UiState.Error("Lỗi kết nối")
-                }
+                is NetworkResult.Error -> _orderState.value = UiState.Error("Loi: ${result.message}")
+                is NetworkResult.Exception -> _orderState.value = UiState.Error("Loi ket noi")
             }
-
             _isLoading.value = false
         }
     }

@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.example.nhathuoc.ui.screen.miniscreen
 
 import androidx.compose.foundation.background
@@ -37,7 +38,7 @@ data class PharmacyBranch(
 private val samplePharmacies = listOf(
     PharmacyBranch(1, "Nhà Thuốc FPT Long Châu 1-2-3-4 Chợ Yên Xá",
         "Thôn Yên Xá (Cạnh Cổng Chợ Yên Xá), P. Thanh Liệt, TP. Hà Nội",
-        "0.21 km", "Đang đóng", "Mở cửa lúc 07:00", false),
+        "0.21 km", "Đang dùng", "Mở cửa lúc 07:00", false),
     PharmacyBranch(2, "Nhà Thuốc FPT Long Châu Triều Khúc",
         "Số 15 Triều Khúc, P. Thanh Xuân Nam, Q. Thanh Xuân, Hà Nội",
         "0.85 km", "Đang mở", "Đóng cửa lúc 22:00", true),
@@ -49,7 +50,7 @@ private val samplePharmacies = listOf(
         "1.80 km", "Đang mở", "Đóng cửa lúc 21:30", true),
     PharmacyBranch(5, "Nhà Thuốc FPT Long Châu Kiến Hưng",
         "Lô 12 Khu dân cư Kiến Hưng, P. Kiến Hưng, Q. Hà Đông, Hà Nội",
-        "2.40 km", "Đang đóng", "Mở cửa lúc 07:00", false),
+        "2.40 km", "Đang dùng", "Mở cửa lúc 07:00", false),
 )
 
 @Composable

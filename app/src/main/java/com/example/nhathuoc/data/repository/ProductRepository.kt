@@ -2,21 +2,15 @@ package com.example.nhathuoc.data.repository
 
 import com.example.nhathuoc.data.model.*
 import com.example.nhathuoc.data.remote.ApiService
-import com.example.nhathuoc.data.remote.RetrofitClient
 import retrofit2.HttpException
 import java.io.IOException
+import javax.inject.Inject
+import javax.inject.Singleton
 
-/**
- * Repository for product operations
- * Handles product listing, search, details, flash sales, etc.
- */
-class ProductRepository {
-
-    private val apiService: ApiService by lazy {
-        RetrofitClient.createService<ApiService>()
-    }
-
-    // Get products with filters
+@Singleton
+class ProductRepository @Inject constructor(
+    private val apiService: ApiService
+) {
     suspend fun getProducts(
         category: String? = null,
         brand: String? = null,
@@ -27,22 +21,8 @@ class ProductRepository {
         limit: Int = 20
     ): NetworkResult<ProductListResponse> {
         return try {
-            val response = apiService.getProducts(
-                category = category,
-                brand = brand,
-                minPrice = minPrice,
-                maxPrice = maxPrice,
-                sortBy = sortBy,
-                page = page,
-                limit = limit
-            )
-
-            if (response.isSuccessful) {
-                NetworkResult.Success(response.body()!!)
-            } else {
-                val errorMessage = parseErrorMessage(response.errorBody()?.string())
-                NetworkResult.Error(response.code(), errorMessage)
-            }
+            val response = apiService.getProducts(category, brand, minPrice, maxPrice, sortBy, page, limit)
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
         } catch (e: HttpException) {
             NetworkResult.Error(e.code(), e.message())
         } catch (e: IOException) {
@@ -52,17 +32,10 @@ class ProductRepository {
         }
     }
 
-    // Get flash sale products
     suspend fun getFlashSaleProducts(): NetworkResult<FlashSaleResponse> {
         return try {
             val response = apiService.getFlashSaleProducts()
-
-            if (response.isSuccessful) {
-                NetworkResult.Success(response.body()!!)
-            } else {
-                val errorMessage = parseErrorMessage(response.errorBody()?.string())
-                NetworkResult.Error(response.code(), errorMessage)
-            }
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
         } catch (e: HttpException) {
             NetworkResult.Error(e.code(), e.message())
         } catch (e: IOException) {
@@ -72,17 +45,10 @@ class ProductRepository {
         }
     }
 
-    // Get best seller products
     suspend fun getBestSellers(period: String = "week"): NetworkResult<BestSellersResponse> {
         return try {
             val response = apiService.getBestSellers(period)
-
-            if (response.isSuccessful) {
-                NetworkResult.Success(response.body()!!)
-            } else {
-                val errorMessage = parseErrorMessage(response.errorBody()?.string())
-                NetworkResult.Error(response.code(), errorMessage)
-            }
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
         } catch (e: HttpException) {
             NetworkResult.Error(e.code(), e.message())
         } catch (e: IOException) {
@@ -92,17 +58,10 @@ class ProductRepository {
         }
     }
 
-    // Get product details by ID
     suspend fun getProductById(productId: String): NetworkResult<ProductDetailResponse> {
         return try {
             val response = apiService.getProductById(productId)
-
-            if (response.isSuccessful) {
-                NetworkResult.Success(response.body()!!)
-            } else {
-                val errorMessage = parseErrorMessage(response.errorBody()?.string())
-                NetworkResult.Error(response.code(), errorMessage)
-            }
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
         } catch (e: HttpException) {
             NetworkResult.Error(e.code(), e.message())
         } catch (e: IOException) {
@@ -112,17 +71,10 @@ class ProductRepository {
         }
     }
 
-    // Get product certificates
     suspend fun getProductCertificates(productId: String): NetworkResult<List<ProductCertificateDto>> {
         return try {
             val response = apiService.getProductCertificates(productId)
-
-            if (response.isSuccessful) {
-                NetworkResult.Success(response.body()!!)
-            } else {
-                val errorMessage = parseErrorMessage(response.errorBody()?.string())
-                NetworkResult.Error(response.code(), errorMessage)
-            }
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
         } catch (e: HttpException) {
             NetworkResult.Error(e.code(), e.message())
         } catch (e: IOException) {
@@ -132,16 +84,11 @@ class ProductRepository {
         }
     }
 
-    // Helper function to parse error messages
     private fun parseErrorMessage(errorBody: String?): String {
         return try {
-            if (errorBody != null) {
-                kotlinx.serialization.json.Json.decodeFromString<ApiError>(errorBody).message
-            } else {
-                "Có lỗi xảy ra, vui lòng thử lại"
-            }
+            if (errorBody != null) kotlinx.serialization.json.Json.decodeFromString<ApiError>(errorBody).message else "Co loi xay ra, vui long thu lai"
         } catch (e: Exception) {
-            errorBody ?: "Có lỗi xảy ra, vui lòng thử lại"
+            errorBody ?: "Co loi xay ra, vui long thu lai"
         }
     }
 }

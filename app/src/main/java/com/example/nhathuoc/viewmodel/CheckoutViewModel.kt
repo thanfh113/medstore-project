@@ -1,236 +1,449 @@
-package com.example.nhathuoc.viewmodel
+﻿package com.example.nhathuoc.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.nhathuoc.data.model.*
-import com.example.nhathuoc.data.repository.OrderRepository
-import com.example.nhathuoc.data.repository.CartRepository
+import com.example.nhathuoc.data.model.AddAddressRequest
+import com.example.nhathuoc.data.model.CartItemDto
+import com.example.nhathuoc.data.model.CheckoutOrderSummaryDto
+import com.example.nhathuoc.data.model.CheckoutRequest
+import com.example.nhathuoc.data.model.CodPaymentRequest
+import com.example.nhathuoc.data.model.NetworkResult
+import com.example.nhathuoc.data.model.PaymentInitRequest
+import com.example.nhathuoc.data.model.PaymentStatusDto
+import com.example.nhathuoc.data.model.UserAddress
 import com.example.nhathuoc.data.repository.AddressRepository
+import com.example.nhathuoc.data.repository.CartRepository
+import com.example.nhathuoc.data.repository.CheckoutRepository
+import com.example.nhathuoc.data.repository.RewardRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlin.math.floor
+import kotlin.math.min
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+private const val PAYMENT_RETURN_URL = "nhathuoc://payment-return"
+
 data class CheckoutState(
-    val items: List<OrderItemDto> = emptyList(),
-    val selectedAddressId: String? = null,
     val addresses: List<UserAddress> = emptyList(),
-    val pickupType: String = "DELIVERY", // DELIVERY or PICKUP
-    val branchId: String? = null,
-    val paymentMethod: String = "COD", // COD, VNPAY, MOMO
-    val pointsToUse: Int = 0,
+    val selectedAddressId: String? = null,
+    val cartItems: List<CartItemDto> = emptyList(),
+    val totalItems: Int = 0,
+    val paymentMethod: String = "COD",
+    val promoCode: String = "",
     val note: String = "",
+    val pointsInput: String = "",
+    val useRewardPoints: Boolean = false,
     val subtotal: Double = 0.0,
-    val shipping: Double = 0.0,
     val discount: Double = 0.0,
+    val shipping: Double = 0.0,
     val tax: Double = 0.0,
+    val pointsToUse: Int = 0,
+    val availableRewardPoints: Int = 0,
+    val maxUsableRewardPoints: Int = 0,
+    val estimatedRewardPoints: Int = 0,
     val total: Double = 0.0,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val paymentStatus: PaymentStatusDto? = null
 )
 
-class CheckoutViewModel(
-    private val orderRepository: OrderRepository = OrderRepository(),
-    private val cartRepository: CartRepository = CartRepository(),
-    private val addressRepository: AddressRepository = AddressRepository()
+@HiltViewModel
+class CheckoutViewModel @Inject constructor(
+    private val checkoutRepository: CheckoutRepository,
+    private val addressRepository: AddressRepository,
+    private val cartRepository: CartRepository,
+    private val rewardRepository: RewardRepository
 ) : ViewModel() {
-
     private val _checkoutState = MutableStateFlow(CheckoutState())
     val checkoutState: StateFlow<CheckoutState> = _checkoutState.asStateFlow()
 
-    private val _currentStep = MutableStateFlow(0) // 0: address, 1: delivery, 2: payment, 3: confirm
-    val currentStep: StateFlow<Int> = _currentStep.asStateFlow()
+    private val _orderCreatedEvent = MutableStateFlow<CheckoutOrderSummaryDto?>(null)
+    val orderCreatedEvent: StateFlow<CheckoutOrderSummaryDto?> = _orderCreatedEvent.asStateFlow()
 
     private val _paymentUrlEvent = MutableStateFlow<String?>(null)
     val paymentUrlEvent: StateFlow<String?> = _paymentUrlEvent.asStateFlow()
 
-    private val _orderCreatedEvent = MutableStateFlow<OrderDto?>(null)
-    val orderCreatedEvent: StateFlow<OrderDto?> = _orderCreatedEvent.asStateFlow()
-
     init {
-        loadCartAndAddresses()
+        loadCheckoutData()
     }
 
-    private fun loadCartAndAddresses() {
+    fun loadCheckoutData() {
         viewModelScope.launch {
-            _checkoutState.value = _checkoutState.value.copy(isLoading = true)
+            _checkoutState.update { it.copy(isLoading = true, error = null) }
 
-            // Load cart items
-            val cartItems = when (val result = cartRepository.getCart()) {
+            var firstError: String? = null
+
+            when (val result = addressRepository.getUserAddresses()) {
                 is NetworkResult.Success -> {
-                    result.data.items.map { cartItem ->
-                        OrderItemDto(
-                            id = cartItem.id,
-                            orderId = "", // Will be set by server
-                            productId = cartItem.productId,
-                            name = cartItem.product?.name ?: "Unknown Product",
-                            quantity = cartItem.quantity,
-                            unit = cartItem.unit,
-                            price = cartItem.unitPrice,
-                            totalPrice = cartItem.totalPrice
+                    _checkoutState.update { state ->
+                        val addresses = result.data
+                        val selectedAddressId = state.selectedAddressId
+                            ?.takeIf { currentId -> addresses.any { it.id == currentId } }
+                            ?: addresses.firstOrNull { it.isDefault }?.id
+                            ?: addresses.firstOrNull()?.id
+                        state.copy(
+                            addresses = addresses,
+                            selectedAddressId = selectedAddressId
                         )
                     }
                 }
                 is NetworkResult.Error -> {
-                    Log.e("CheckoutVM", "Failed to load cart: ${result.message}")
-                    emptyList()
+                    firstError = result.message
                 }
                 is NetworkResult.Exception -> {
-                    Log.e("CheckoutVM", "Error loading cart", result.e)
-                    emptyList()
+                    firstError = result.e.localizedMessage ?: "Không thể tải địa chỉ giao hàng"
                 }
             }
 
-            // Load user addresses from API
-            val addresses = when (val result = addressRepository.getUserAddresses()) {
+            when (val result = cartRepository.getCart()) {
                 is NetworkResult.Success -> {
-                    Log.d("CheckoutVM", "Loaded ${result.data.size} addresses")
-                    result.data
-                }
-                is NetworkResult.Error -> {
-                    Log.e("CheckoutVM", "Failed to load addresses: ${result.message}")
-                    emptyList()
-                }
-                is NetworkResult.Exception -> {
-                    Log.e("CheckoutVM", "Error loading addresses", result.e)
-                    emptyList()
-                }
-            }
-
-            _checkoutState.value = _checkoutState.value.copy(
-                items = cartItems,
-                addresses = addresses,
-                isLoading = false
-            )
-            calculateTotals()
-        }
-    }
-
-    fun selectAddress(addressId: String) {
-        _checkoutState.value = _checkoutState.value.copy(selectedAddressId = addressId)
-        calculateTotals()
-    }
-
-    fun setDeliveryType(type: String, branchId: String? = null) {
-        _checkoutState.value = _checkoutState.value.copy(
-            pickupType = type,
-            branchId = branchId
-        )
-        calculateTotals()
-    }
-
-    fun setPaymentMethod(method: String) {
-        _checkoutState.value = _checkoutState.value.copy(paymentMethod = method)
-    }
-
-    fun setRewardPoints(points: Int) {
-        _checkoutState.value = _checkoutState.value.copy(pointsToUse = points)
-        calculateTotals()
-    }
-
-    fun setNote(note: String) {
-        _checkoutState.value = _checkoutState.value.copy(note = note)
-    }
-
-    fun nextStep() {
-        val newStep = (_currentStep.value + 1).coerceAtMost(3)
-        _currentStep.value = newStep
-    }
-
-    fun previousStep() {
-        val newStep = (_currentStep.value - 1).coerceAtLeast(0)
-        _currentStep.value = newStep
-    }
-
-    private fun calculateTotals() {
-        val state = _checkoutState.value
-        val subtotal = state.items.sumOf { it.price.toDouble() * it.quantity }
-        val discount = if (subtotal > 1000000) subtotal * 0.05 else 0.0
-        val shipping = if (subtotal <= 500000) 30000.0 else 0.0
-        val tax = subtotal * 0.1
-        val rewardDiscount = state.pointsToUse * 1000.0
-        val total = subtotal - discount + shipping + tax - rewardDiscount
-
-        _checkoutState.value = state.copy(
-            subtotal = subtotal,
-            discount = discount,
-            shipping = shipping,
-            tax = tax,
-            total = total.coerceAtLeast(0.0)
-        )
-    }
-
-    fun createOrder() {
-        viewModelScope.launch {
-            val state = _checkoutState.value
-            if (state.selectedAddressId == null && state.pickupType == "DELIVERY") {
-                _checkoutState.value = state.copy(error = "Vui lòng chọn địa chỉ giao hàng")
-                return@launch
-            }
-
-            _checkoutState.value = state.copy(isLoading = true, error = null)
-
-            val request = PlaceOrderRequest(
-                items = state.items.map { PlaceOrderItem(it.productId, it.quantity) },
-                paymentMethod = state.paymentMethod,
-                pickupType = state.pickupType,
-                shippingAddressId = state.selectedAddressId,
-                branchId = state.branchId,
-                note = state.note,
-                pointsToUse = state.pointsToUse
-            )
-
-            val result = orderRepository.placeOrder(request)
-
-            when (result) {
-                is NetworkResult.Success -> {
-                    _orderCreatedEvent.value = result.data.order
-                    _checkoutState.value = state.copy(isLoading = false)
-
-                    // If online payment, get payment URL
-                    if (state.paymentMethod in listOf("VNPAY", "MOMO")) {
-                        initiatePayment(result.data.order.id)
+                    val cart = result.data.data
+                    val estimatedRewardPoints = cart.items.sumOf { item ->
+                        (item.product?.rewardPoints ?: 0) * item.quantity
+                    }
+                    _checkoutState.update { state ->
+                        state.copy(
+                            cartItems = cart.items,
+                            totalItems = cart.totalItems,
+                            subtotal = cart.subtotal,
+                            discount = cart.discount,
+                            estimatedRewardPoints = estimatedRewardPoints,
+                            pointsInput = "",
+                            pointsToUse = 0
+                        )
                     }
                 }
                 is NetworkResult.Error -> {
-                    _checkoutState.value = state.copy(
-                        isLoading = false,
-                        error = result.message
-                    )
+                    if (firstError == null) {
+                        firstError = result.message
+                    }
                 }
                 is NetworkResult.Exception -> {
-                    _checkoutState.value = state.copy(
-                        isLoading = false,
-                        error = "Lỗi kết nối: ${result.e.message}"
-                    )
+                    if (firstError == null) {
+                        firstError = result.e.localizedMessage ?: "Không thể tải giỏ hàng"
+                    }
+                }
+            }
+
+            when (val result = rewardRepository.getRewardAccount()) {
+                is NetworkResult.Success -> {
+                    _checkoutState.update { state ->
+                        state.copy(
+                            availableRewardPoints = result.data.availablePoints
+                        )
+                    }
+                }
+                is NetworkResult.Error -> {
+                    if (firstError == null) {
+                        firstError = result.message
+                    }
+                }
+                is NetworkResult.Exception -> {
+                    if (firstError == null) {
+                        firstError = result.e.localizedMessage ?: "Không thể tải điểm thưởng"
+                    }
+                }
+            }
+
+            recalculateTotals()
+            _checkoutState.update { it.copy(isLoading = false, error = firstError) }
+        }
+    }
+
+    fun selectAddress(id: String) {
+        _checkoutState.update { it.copy(selectedAddressId = id) }
+    }
+
+    fun addAddress(request: AddAddressRequest) {
+        viewModelScope.launch {
+            _checkoutState.update { it.copy(isLoading = true, error = null) }
+            when (val result = addressRepository.addAddress(request)) {
+                is NetworkResult.Success -> {
+                    val address = result.data.address
+                    _checkoutState.update { state ->
+                        state.copy(
+                            addresses = listOf(address) + state.addresses.filterNot { it.id == address.id },
+                            selectedAddressId = address.id,
+                            isLoading = false
+                        )
+                    }
+                }
+                is NetworkResult.Error -> {
+                    _checkoutState.update { it.copy(isLoading = false, error = result.message) }
+                }
+                is NetworkResult.Exception -> {
+                    _checkoutState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.e.localizedMessage ?: "Không thể thêm địa chỉ"
+                        )
+                    }
                 }
             }
         }
     }
 
-    private fun initiatePayment(orderId: String) {
-        viewModelScope.launch {
-            val state = _checkoutState.value
-            val method = state.paymentMethod
-
-            // TODO: Call payment API to get payment URL
-            // When received, emit it through _paymentUrlEvent
-
-            // Example:
-            // val paymentUrl = paymentRepository.getPaymentUrl(orderId, method)
-            // _paymentUrlEvent.value = paymentUrl
+    fun setPaymentMethod(method: String) {
+        _checkoutState.update {
+            if (it.paymentMethod == method) it else it.copy(paymentMethod = method, paymentStatus = null)
         }
     }
 
-    fun onPaymentComplete() {
-        _currentStep.value = 3 // Move to confirmation
+    fun setPromoCode(promoCode: String) {
+        _checkoutState.update { it.copy(promoCode = promoCode) }
     }
 
-    fun clearState() {
-        _checkoutState.value = CheckoutState()
-        _currentStep.value = 0
+    fun setNote(note: String) {
+        _checkoutState.update { it.copy(note = note) }
+    }
+
+    fun setPointsInput(value: String) {
+        val digitsOnly = value.filter(Char::isDigit)
+        _checkoutState.update {
+            it.copy(
+                pointsInput = digitsOnly,
+                useRewardPoints = false
+            )
+        }
+        recalculateTotals()
+    }
+
+    fun toggleUseRewardPoints(enabled: Boolean) {
+        _checkoutState.update {
+            it.copy(
+                useRewardPoints = enabled,
+                pointsInput = if (enabled) it.maxUsableRewardPoints.toString() else ""
+            )
+        }
+        recalculateTotals()
+    }
+
+    fun clearError() {
+        _checkoutState.update { it.copy(error = null) }
+    }
+
+    fun clearPaymentProgress() {
+        _checkoutState.update { it.copy(paymentStatus = null, error = null) }
+    }
+
+    fun consumePaymentUrl() {
         _paymentUrlEvent.value = null
+    }
+
+    fun consumeOrderCreatedEvent() {
         _orderCreatedEvent.value = null
+    }
+
+    private fun recalculateTotals() {
+        _checkoutState.update { state ->
+            val maxUsableRewardPoints = calculateMaxUsableRewardPoints(
+                subtotal = state.subtotal,
+                discount = state.discount,
+                availablePoints = state.availableRewardPoints
+            )
+            val requestedPoints = state.pointsInput.toIntOrNull()?.coerceAtLeast(0) ?: 0
+            val appliedPoints = if (state.useRewardPoints) {
+                maxUsableRewardPoints
+            } else {
+                requestedPoints.coerceAtMost(maxUsableRewardPoints)
+            }
+            val pointsValue = appliedPoints * 1000.0
+            val shipping = if (state.subtotal >= 500_000.0 || state.subtotal <= 0.0) 0.0 else 30_000.0
+            val taxableAmount = (state.subtotal - state.discount - pointsValue).coerceAtLeast(0.0)
+            val tax = taxableAmount * 0.10
+            state.copy(
+                pointsInput = if (state.useRewardPoints && appliedPoints > 0) appliedPoints.toString() else state.pointsInput,
+                shipping = shipping,
+                tax = tax,
+                pointsToUse = appliedPoints,
+                maxUsableRewardPoints = maxUsableRewardPoints,
+                total = (taxableAmount + shipping + tax).coerceAtLeast(0.0)
+            )
+        }
+    }
+
+    private fun calculateMaxUsableRewardPoints(
+        subtotal: Double,
+        discount: Double,
+        availablePoints: Int
+    ): Int {
+        if (subtotal <= 0.0 || availablePoints <= 0) return 0
+        val applicableValue = (subtotal - discount).coerceAtLeast(0.0)
+        val orderCap = floor(applicableValue / 1000.0).toInt().coerceAtLeast(0)
+        return min(availablePoints, orderCap)
+    }
+
+    fun createOrder(returnUrl: String = PAYMENT_RETURN_URL) {
+        val currentState = _checkoutState.value
+        if (currentState.selectedAddressId == null) {
+            _checkoutState.update { it.copy(error = "Vui lòng chọn địa chỉ giao hàng") }
+            return
+        }
+        if (currentState.cartItems.isEmpty()) {
+            _checkoutState.update { it.copy(error = "Giỏ hàng của bạn đang trống") }
+            return
+        }
+
+        viewModelScope.launch {
+            _checkoutState.update { it.copy(isLoading = true, error = null) }
+            val request = CheckoutRequest(
+                addressId = currentState.selectedAddressId,
+                pickupType = "DELIVERY",
+                paymentMethod = currentState.paymentMethod,
+                rewardPointsToUse = currentState.pointsToUse,
+                promoCode = currentState.promoCode.ifBlank { null },
+                notes = currentState.note.ifBlank { null }
+            )
+
+            when (val result = checkoutRepository.checkout(request)) {
+                is NetworkResult.Success -> {
+                    val response = result.data
+                    val order = response.data
+                    if (!response.success || order == null) {
+                        _checkoutState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = response.message.ifBlank { "Không thể tạo đơn hàng" }
+                            )
+                        }
+                        return@launch
+                    }
+
+                    _orderCreatedEvent.value = order
+                    val paymentReturnUrl = buildPaymentReturnUrl(order.id, returnUrl)
+                    when (currentState.paymentMethod) {
+                        "MOMO" -> initiateOnlinePayment(order.id, paymentReturnUrl, "MOMO")
+                        "VNPAY" -> initiateOnlinePayment(order.id, paymentReturnUrl, "VNPAY")
+                        "ZALOPAY" -> initiateOnlinePayment(order.id, paymentReturnUrl, "ZALOPAY")
+                        else -> createCodPayment(order.id)
+                    }
+                }
+                is NetworkResult.Error -> {
+                    _checkoutState.update { it.copy(isLoading = false, error = result.message) }
+                }
+                is NetworkResult.Exception -> {
+                    _checkoutState.update { it.copy(isLoading = false, error = result.e.localizedMessage ?: "Lỗi tạo đơn hàng") }
+                }
+            }
+        }
+    }
+
+    fun resumeOnlinePayment(orderId: String, returnUrl: String = PAYMENT_RETURN_URL) {
+        val method = _checkoutState.value.paymentMethod
+        if (method == "COD") {
+            _checkoutState.update { it.copy(error = "Phương thức hiện tại không cần mở cổng thanh toán") }
+            return
+        }
+
+        viewModelScope.launch {
+            _checkoutState.update { it.copy(isLoading = true, error = null) }
+            initiateOnlinePayment(orderId, buildPaymentReturnUrl(orderId, returnUrl), method)
+        }
+    }
+
+    private suspend fun initiateOnlinePayment(orderId: String, returnUrl: String, method: String) {
+        val request = PaymentInitRequest(orderId = orderId, returnUrl = returnUrl)
+        val result = when (method) {
+            "MOMO" -> checkoutRepository.initMomoPayment(request)
+            "VNPAY" -> checkoutRepository.initVnPayPayment(request)
+            "ZALOPAY" -> checkoutRepository.initZaloPayPayment(request)
+            else -> null
+        }
+        
+        if (result == null) {
+            _checkoutState.update { it.copy(isLoading = false, error = "Phương thức thanh toán không được hỗ trợ") }
+            return
+        }
+        
+        when (result) {
+            is NetworkResult.Success -> {
+                _checkoutState.update { it.copy(isLoading = false) }
+                val paymentData = result.data.data
+                _paymentUrlEvent.value = paymentData.deeplink?.takeIf { it.isNotBlank() }
+                    ?: paymentData.paymentUrl
+            }
+            is NetworkResult.Error -> {
+                _checkoutState.update { it.copy(isLoading = false, error = result.message) }
+            }
+            is NetworkResult.Exception -> {
+                _checkoutState.update { it.copy(isLoading = false, error = result.e.localizedMessage ?: "Không thể khởi tạo thanh toán") }
+            }
+        }
+    }
+
+    private suspend fun createCodPayment(orderId: String) {
+        when (val result = checkoutRepository.createCodPayment(CodPaymentRequest(orderId))) {
+            is NetworkResult.Success -> {
+                _checkoutState.update { it.copy(isLoading = false) }
+            }
+            is NetworkResult.Error -> {
+                _checkoutState.update { it.copy(isLoading = false, error = result.message) }
+            }
+            is NetworkResult.Exception -> {
+                _checkoutState.update { it.copy(isLoading = false, error = result.e.localizedMessage ?: "Không thể tạo thanh toán COD") }
+            }
+        }
+    }
+
+    fun refreshPaymentStatus(orderId: String, showErrorOnFailure: Boolean = false) {
+        viewModelScope.launch {
+            when (val result = checkoutRepository.getPaymentStatus(orderId)) {
+                is NetworkResult.Success -> {
+                    _checkoutState.update { it.copy(paymentStatus = result.data.data) }
+                }
+                is NetworkResult.Error -> {
+                    if (showErrorOnFailure) {
+                        _checkoutState.update { it.copy(error = result.message) }
+                    }
+                }
+                is NetworkResult.Exception -> {
+                    if (showErrorOnFailure) {
+                        _checkoutState.update {
+                            it.copy(error = result.e.localizedMessage ?: "Không thể kiểm tra trạng thái thanh toán")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun pollPaymentStatus(orderId: String, maxAttempts: Int = 5) {
+        viewModelScope.launch {
+            repeat(maxAttempts) { attempt ->
+                when (val result = checkoutRepository.getPaymentStatus(orderId)) {
+                    is NetworkResult.Success -> {
+                        val status = result.data.data
+                        _checkoutState.update { it.copy(paymentStatus = status) }
+                        if (status.status == "COMPLETED") {
+                            return@launch
+                        }
+                    }
+                    is NetworkResult.Error -> {
+                        if (attempt == maxAttempts - 1) {
+                            _checkoutState.update { it.copy(error = result.message) }
+                        }
+                    }
+                    is NetworkResult.Exception -> {
+                        if (attempt == maxAttempts - 1) {
+                            _checkoutState.update {
+                                it.copy(error = result.e.localizedMessage ?: "Không thể kiểm tra trạng thái thanh toán")
+                            }
+                        }
+                    }
+                }
+                delay(1500)
+            }
+        }
+    }
+
+    private fun buildPaymentReturnUrl(orderId: String, baseReturnUrl: String): String {
+        val cleanBase = baseReturnUrl.ifBlank { PAYMENT_RETURN_URL }
+        val separator = if (cleanBase.contains("?")) "&" else "?"
+        return "${cleanBase}${separator}orderId=$orderId"
     }
 }

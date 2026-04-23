@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.example.nhathuoc.ui.component
 
 import androidx.compose.foundation.background
@@ -26,8 +27,8 @@ data class HealthArticle(
 
 val defaultHealthArticles = listOf(
     HealthArticle("Truyền thông", "Hà Tiến Thành hợp tác nhà cung cấp vật tư y tế Nhật Bản Santen ra mắt bộ câu hỏi tầm soát khô mắt"),
-    HealthArticle("Truyền thông", "Hà Tiến Thành phối hợp STADA Pymepharco lan toả kiến thức y tế cộng đồng"),
-    HealthArticle("Truyền thông", "Hà Tiến Thành đóng góp sáng kiến về y tế số tại Diễn đàn Kinh tế Thuỵ Sĩ – Việt Nam"),
+    HealthArticle("Truyền thông", "Hà Tiến Thành phối hợp STADA Pymepharco lan tỏa kiến thức y tế cộng đồng"),
+    HealthArticle("Truyền thông", "Hà Tiến Thành đóng góp sáng kiến về y tế số tại Diễn đàn Kinh tế Thụy Sĩ - Việt Nam"),
 )
 
 @Composable

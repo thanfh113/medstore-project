@@ -1,8 +1,9 @@
 package com.example.nhathuoc.ui.screen
 
+import android.net.Uri
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,14 +27,18 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.nhathuoc.ui.component.*
-import com.example.nhathuoc.ui.theme.NhathuocTheme
-import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.ui.theme.GreenLight
+import com.example.nhathuoc.ui.theme.GreenTop
+import com.example.nhathuoc.ui.theme.NhathuocTheme
+import com.example.nhathuoc.viewmodel.CartViewModel
+import com.example.nhathuoc.viewmodel.HomeViewModel
+import kotlinx.coroutines.launch
 
-private val HEADER_FULL      = 160.dp
-private val HEADER_MID       = 110.dp
+private val HEADER_FULL = 160.dp
+private val HEADER_MID = 110.dp
 private val HEADER_COLLAPSED = 72.dp
 
 @Composable
@@ -42,10 +47,18 @@ fun HomeScreen(modifier: Modifier = Modifier, navController: NavController? = nu
 
     AppDrawer(
         drawerState = drawerState,
-        userName = "Uesr",
-        rewardPoints = 246,
-        notificationCount = 3,
+        userName = "Khách hàng",
+        rewardPoints = 0,
+        notificationCount = 0,
         onMenuItemClick = { item ->
+            if (item.label != "Thông báo") {
+                drawerState.close()
+                when (item.label) {
+                    "Hệ thống cửa hàng" -> navController?.navigate("FindPharmacyScreen")
+                    "Tin tức - Kiến thức" -> Unit
+                    else -> navController?.navigate("CategoryProductScreen/${Uri.encode(item.label)}")
+                }
+            }
             if (item.label == "Thông báo") {
                 drawerState.close()
                 navController?.navigate("NotificationScreen")
@@ -53,11 +66,11 @@ fun HomeScreen(modifier: Modifier = Modifier, navController: NavController? = nu
         }
     ) {
         HomeScreenContent(
-            modifier            = modifier,
-            onMenuClick         = { drawerState.toggle() },
-            onChatClick         = { navController?.navigate("ChatScreen") },
+            modifier = modifier,
+            onMenuClick = { drawerState.toggle() },
+            onChatClick = { navController?.navigate("ChatScreen") },
             onNotificationClick = { navController?.navigate("NotificationScreen") },
-            navController       = navController
+            navController = navController
         )
     }
 }
@@ -80,10 +93,10 @@ private fun HomeScreenContent(
     val collapseLevel by remember {
         derivedStateOf {
             when {
-                scrollOffset < 100  -> 0f
-                scrollOffset < 400  -> (scrollOffset - 100f) / 300f
-                scrollOffset < 800  -> 1f + (scrollOffset - 400f) / 400f
-                else                -> 2f
+                scrollOffset < 100 -> 0f
+                scrollOffset < 400 -> (scrollOffset - 100f) / 300f
+                scrollOffset < 800 -> 1f + (scrollOffset - 400f) / 400f
+                else -> 2f
             }.coerceIn(0f, 2f)
         }
     }
@@ -94,15 +107,28 @@ private fun HomeScreenContent(
 
     val headerHeight = when {
         collapseLevel <= 1f -> HEADER_FULL - (HEADER_FULL - HEADER_MID) * collapseLevel
-        else                -> HEADER_MID  - (HEADER_MID  - HEADER_COLLAPSED) * (collapseLevel - 1f)
+        else -> HEADER_MID - (HEADER_MID - HEADER_COLLAPSED) * (collapseLevel - 1f)
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    // ViewModels
+    val cartViewModel: CartViewModel = hiltViewModel()
+    val homeViewModel: HomeViewModel = hiltViewModel()
 
-        // ── Content ─────────────────────────────────────────────
+    // Collect real data from HomeViewModel
+    val flashSaleProducts by homeViewModel.flashSaleProducts.collectAsState()
+    val flashSaleLoading by homeViewModel.flashSaleLoading.collectAsState()
+    val bestSellerProducts by homeViewModel.bestSellerProducts.collectAsState()
+    val bestSellerLoading by homeViewModel.bestSellerLoading.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize().background(Color(0xFFF5F7FA)),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF5F7FA)),
             contentPadding = PaddingValues(top = HEADER_FULL + 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -111,7 +137,7 @@ private fun HomeScreenContent(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    GreetingCard(userName = "Thành", rewardPoints = 246, navController)
+                    GreetingCard(userName = "Bạn", rewardPoints = 0, navController)
                     ChatBanner(hasNewMessage = true, onChatClick = onChatClick)
                 }
             }
@@ -120,11 +146,42 @@ private fun HomeScreenContent(
             item {
                 FlashSaleRow(
                     navController = navController,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    products = flashSaleProducts,
+                    isLoading = flashSaleLoading,
+                    onSeeAll = { navController?.navigate("ProductListScreen") },
+                    onAddToCart = { product ->
+                        scope.launch {
+                            cartViewModel.addToCart(
+                                productId = product.id,
+                                quantity = 1,
+                                unit = product.unit
+                            )
+                            snackbarHostState.showSnackbar("Đã thêm \"${product.name.take(30)}\" vào giỏ hàng.")
+                        }
+                    }
                 )
             }
             item { RecentOrdersRow(navController = navController, modifier = Modifier.padding(horizontal = 16.dp)) }
-            item { BestSellerList(navController = navController, modifier = Modifier.padding(horizontal = 16.dp)) }
+            item {
+                BestSellerList(
+                    navController = navController,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    products = bestSellerProducts,
+                    isLoading = bestSellerLoading,
+                    onSeeAll = { navController?.navigate("ProductListScreen") },
+                    onAddToCart = { product ->
+                        scope.launch {
+                            cartViewModel.addToCart(
+                                productId = product.id,
+                                quantity = 1,
+                                unit = product.unit
+                            )
+                            snackbarHostState.showSnackbar("Đã thêm \"${product.name.take(30)}\" vào giỏ hàng.")
+                        }
+                    }
+                )
+            }
             item { FeaturedCategoriesGrid(navController = navController, modifier = Modifier.padding(horizontal = 16.dp)) }
             item { HealthCheckRow(modifier = Modifier.padding(horizontal = 16.dp)) }
             item { SeasonalDiseaseSection(navController = navController, modifier = Modifier.padding(horizontal = 16.dp)) }
@@ -134,14 +191,19 @@ private fun HomeScreenContent(
             item { HomeFooter(modifier = Modifier.padding(horizontal = 16.dp)) }
         }
 
-        // ── Collapsing TopAppBar ─────────────────────────────────
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 16.dp)
+        )
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(headerHeight)
                 .background(Brush.horizontalGradient(listOf(GreenTop, GreenLight)))
         ) {
-            // Full / mid
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -163,7 +225,7 @@ private fun HomeScreenContent(
                     Text("MedStore", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp)
                 }
                 BadgedBox(
-                    badge = { Badge(containerColor = Color(0xFFFF6D00)) { Text("3", color = Color.White, fontSize = 9.sp) } },
+                    badge = { Badge(containerColor = Color(0xFFFF6D00)) { Text("!", color = Color.White, fontSize = 9.sp) } },
                     modifier = Modifier.align(Alignment.CenterEnd)
                 ) {
                     IconButton(onClick = onNotificationClick) {
@@ -196,7 +258,6 @@ private fun HomeScreenContent(
                 Text("Đặt ngay", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)
             }
 
-            // Collapsed
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -211,7 +272,7 @@ private fun HomeScreenContent(
                 }
                 Box(modifier = Modifier.weight(1f)) { HomeSearchBar() }
                 BadgedBox(badge = {
-                    Badge(containerColor = Color(0xFFFF6D00)) { Text("3", color = Color.White, fontSize = 9.sp) }
+                    Badge(containerColor = Color(0xFFFF6D00)) { Text("!", color = Color.White, fontSize = 9.sp) }
                 }) {
                     IconButton(onClick = onNotificationClick) {
                         Icon(Icons.Filled.Notifications, null, tint = Color.White)
@@ -221,7 +282,6 @@ private fun HomeScreenContent(
         }
     }
 }
-
 
 @Composable
 private fun HomeSearchBar() {

@@ -14,23 +14,26 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.example.nhathuoc.data.model.ProductDto
 import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.ui.theme.GreenLight
 import com.example.nhathuoc.viewmodel.CategoryProductViewModel
-import com.example.nhathuoc.viewmodel.CategoryProductViewModelFactory
-import com.example.nhathuoc.data.repository.ProductRepository
 
-private val GreenTop = Color(0xFF2E7D32)
-private val BgColor = Color(0xFFF5F7FA)
+private val GreenTopCat = Color(0xFF2E7D32)
+private val BgColorCat = Color(0xFFF5F7FA)
 
 @Composable
 fun CategoryProductScreen(
@@ -38,9 +41,7 @@ fun CategoryProductScreen(
     navController: NavController? = null,
     onBack: () -> Unit = {}
 ) {
-    val viewModel: CategoryProductViewModel = viewModel(
-        factory = CategoryProductViewModelFactory(ProductRepository())
-    )
+    val viewModel: CategoryProductViewModel = hiltViewModel()
 
     val state by viewModel.state.collectAsState()
     val products by viewModel.allProducts.collectAsState()
@@ -53,18 +54,18 @@ fun CategoryProductScreen(
     var sortMode by remember { mutableStateOf("price_asc") }
     val sortOptions = listOf("price_asc" to "Giá thấp", "price_desc" to "Giá cao", "name" to "Tên A-Z")
 
-    Scaffold(containerColor = BgColor) { innerPadding ->
+    Scaffold(containerColor = BgColorCat) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // ── TopBar ──────────────────────────────────
+            // ── TopBar ─────────────────────────────────────────────────────
             Surface(color = Color.White, shadowElevation = 2.dp) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Brush.horizontalGradient(listOf(GreenTop, GreenLight)))
+                        .background(Brush.horizontalGradient(listOf(GreenTopCat, GreenLight)))
                         .statusBarsPadding()
                         .height(56.dp)
                 ) {
@@ -88,27 +89,30 @@ fun CategoryProductScreen(
                         IconButton(onClick = {}) {
                             Icon(Icons.Outlined.Search, null, tint = Color.White, modifier = Modifier.size(22.dp))
                         }
-                        BadgedBox(badge = {
-                            Badge(containerColor = Color(0xFFFF6D00)) {
-                                Text("1", color = Color.White, fontSize = 9.sp)
-                            }
-                        }) {
-                            IconButton(onClick = {}) {
-                                Icon(Icons.Outlined.ShoppingCart, null, tint = Color.White, modifier = Modifier.size(22.dp))
-                            }
+                        IconButton(onClick = { navController?.navigate("CartScreen") }) {
+                            Icon(
+                                Icons.Outlined.ShoppingCart,
+                                null,
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                     }
                 }
             }
 
-            // ── Content ──────────────────────────────────
+            // ── Content ────────────────────────────────────────────────────
             when (state) {
                 is UiState.Loading -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = GreenTop)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = GreenTopCat)
+                            Spacer(Modifier.height(12.dp))
+                            Text("Đang tải sản phẩm...", color = Color.Gray, fontSize = 14.sp)
+                        }
                     }
                 }
                 is UiState.Error -> {
@@ -117,11 +121,21 @@ fun CategoryProductScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Outlined.WarningAmber, null, tint = Color.Red, modifier = Modifier.size(48.dp))
+                            Icon(Icons.Outlined.WarningAmber, null, tint = Color(0xFFE53935), modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text("Lỗi tải dữ liệu", fontWeight = FontWeight.Bold)
+                            Text("Không thể tải danh mục", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             Spacer(Modifier.height(8.dp))
-                            Button(onClick = { viewModel.loadProductsByCategory(categoryName) }) {
+                            Text(
+                                (state as UiState.Error).message,
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 24.dp)
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Button(
+                                onClick = { viewModel.loadProductsByCategory(categoryName) },
+                                colors = ButtonDefaults.buttonColors(containerColor = GreenTopCat)
+                            ) {
                                 Text("Thử lại")
                             }
                         }
@@ -133,45 +147,65 @@ fun CategoryProductScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("Không có sản phẩm trong danh mục này")
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Outlined.SearchOff,
+                                    null,
+                                    tint = Color.LightGray,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                Text("Không có sản phẩm trong danh mục này", color = Color.Gray)
+                            }
                         }
                     } else {
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(12.dp),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = PaddingValues(top = 10.dp, bottom = 24.dp)
                         ) {
                             // Sort bar
                             item(span = { GridItemSpan(2) }) {
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(bottom = 8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text("Sắp xếp:", fontSize = 13.sp, color = Color(0xFF555555))
                                     sortOptions.forEach { (key, label) ->
                                         val isSelected = sortMode == key
-                                        Text(
-                                            label,
-                                            fontSize = 12.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            color = if (isSelected) GreenTop else Color(0xFF777777),
+                                        Surface(
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = if (isSelected) GreenTopCat.copy(alpha = 0.12f) else Color.Transparent,
                                             modifier = Modifier.clickable {
                                                 sortMode = key
                                                 viewModel.updateSort(key)
                                             }
-                                        )
+                                        ) {
+                                            Text(
+                                                label,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) GreenTopCat else Color(0xFF777777),
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
 
                             // Product list
                             items(products) { product ->
-                                ProductCard(product, navController)
+                                CategoryProductCard(
+                                    product = product,
+                                    onClick = {
+                                        navController?.navigate("ProductDetailScreen/${product.id}")
+                                    }
+                                )
                             }
                         }
                     }
@@ -183,39 +217,62 @@ fun CategoryProductScreen(
 }
 
 @Composable
-private fun ProductCard(
+private fun CategoryProductCard(
     product: ProductDto,
-    navController: NavController?
+    onClick: () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
         shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
     ) {
         Column(
             modifier = Modifier
                 .padding(10.dp)
-                .fillMaxSize(),
+                .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Product icon/image placeholder
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = Color(0xFFEEF2FF),
-                modifier = Modifier.size(80.dp)
+            // Product image / fallback icon
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFEEF2FF)),
+                contentAlignment = Alignment.Center
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                if (!product.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = product.imageUrl,
+                        contentDescription = product.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
                     Icon(
-                        Icons.Outlined.LocalShipping,
+                        Icons.Outlined.MedicalServices,
                         null,
-                        tint = Color(0xFF2E7D32),
+                        tint = GreenTopCat,
                         modifier = Modifier.size(40.dp)
                     )
                 }
             }
 
             Spacer(Modifier.height(8.dp))
+
+            // Brand
+            if (product.brand.isNotBlank()) {
+                Text(
+                    text = product.brand,
+                    fontSize = 10.sp,
+                    color = Color.Gray,
+                    maxLines = 1,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             // Product name
             Text(
@@ -225,29 +282,43 @@ private fun ProductCard(
                 color = Color(0xFF1A1A1A),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(Modifier.height(6.dp))
 
-            // Price
+            // Origin
+            if (product.origin.isNotBlank()) {
+                Text(
+                    text = product.origin,
+                    fontSize = 10.sp,
+                    color = Color.Gray,
+                    maxLines = 1,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            // Price row
             Row(
-                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "₫${product.price.toInt()}",
+                    text = "${String.format("%,d", product.price.toLong()).replace(',', '.')}đ",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2E7D32)
+                    color = GreenTopCat
                 )
                 if (product.originalPrice != null && product.originalPrice > product.price) {
-                    Spacer(Modifier.width(4.dp))
                     Text(
-                        text = "₫${product.originalPrice.toInt()}",
+                        text = "${String.format("%,d", product.originalPrice.toLong()).replace(',', '.')}đ",
                         fontSize = 11.sp,
                         color = Color.Gray,
-                        textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                        textDecoration = TextDecoration.LineThrough
                     )
                 }
             }
@@ -258,7 +329,8 @@ private fun ProductCard(
             Text(
                 text = "/ ${product.unit}",
                 fontSize = 10.sp,
-                color = Color(0xFF999999)
+                color = Color(0xFF999999),
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder: Găng tay Nitrile Ansell – thay thế bằng mock_gloves.webp -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="400dp" android:height="400dp"
+    android:viewportWidth="400" android:viewportHeight="400">
+    <!-- Background -->
+    <path android:fillColor="#ECEFF1" android:pathData="M0,0 L400,0 L400,400 L0,400 Z"/>
+    <!-- Glove palm/body -->
+    <path android:fillColor="#B0BEC5"
+        android:pathData="M120,200 L120,330 Q120,360 155,360 L245,360 Q280,360 280,330 L280,200 Z"/>
+    <!-- Thumb -->
+    <path android:fillColor="#90A4AE"
+        android:pathData="M120,200 Q80,190 75,230 Q70,270 110,260 L120,250 Z"/>
+    <!-- Index finger -->
+    <path android:fillColor="#CFD8DC"
+        android:pathData="M140,200 L150,200 L155,140 Q155,110 145,110 Q135,110 135,140 Z"/>
+    <!-- Middle finger -->
+    <path android:fillColor="#CFD8DC"
+        android:pathData="M165,200 L177,200 L182,120 Q182,88 172,88 Q162,88 162,120 Z"/>
+    <!-- Ring finger -->
+    <path android:fillColor="#CFD8DC"
+        android:pathData="M192,200 L204,200 L207,135 Q207,105 197,105 Q187,105 187,135 Z"/>
+    <!-- Pinky finger -->
+    <path android:fillColor="#CFD8DC"
+        android:pathData="M215,200 L225,200 L228,160 Q228,135 220,135 Q212,135 212,160 Z"/>
+    <!-- Glove cuff -->
+    <path android:fillColor="#546E7A"
+        android:pathData="M110,330 L290,330 L290,365 Q290,390 260,390 L140,390 Q110,390 110,365 Z"/>
+    <!-- Glove outline -->
+    <path android:fillColor="#00000000" android:strokeColor="#37474F" android:strokeWidth="4"
+        android:pathData="M120,200 L120,330 Q120,360 155,360 L245,360 Q280,360 280,330 L280,200 Z"/>
+</vector>

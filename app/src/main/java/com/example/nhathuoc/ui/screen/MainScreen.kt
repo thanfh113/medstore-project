@@ -30,6 +30,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.nhathuoc.ui.theme.NhathuocTheme
 import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.ui.theme.GreenMedium
+import com.example.nhathuoc.viewmodel.CartViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -70,6 +72,13 @@ fun MainScreen(navController: NavController) {
     var selectedTab       by remember { mutableIntStateOf(0) }
     var showConsultSheet  by remember { mutableStateOf(false) }
 
+    // Real cart badge from CartViewModel
+    val cartViewModel: CartViewModel = hiltViewModel()
+    val cartUiState by cartViewModel.uiState.collectAsState()
+    val cartBadge = cartUiState.items.sumOf { it.quantity }.coerceAtMost(99)
+
+    LaunchedEffect(Unit) { cartViewModel.loadCart() }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             bottomBar = {
@@ -77,13 +86,13 @@ fun MainScreen(navController: NavController) {
                     selectedTab       = selectedTab,
                     onTabSelected     = { idx ->
                         if (idx == BottomNavTab.Consult.index) {
-                            showConsultSheet = true   // mở sheet, KHÔNG đổi tab
+                            showConsultSheet = true
                         } else {
                             selectedTab = idx
                         }
                     },
-                    cartBadgeCount    = 1,
-                    consultBadgeCount = 1
+                    cartBadgeCount    = cartBadge,
+                    consultBadgeCount = 0
                 )
             },
             containerColor = Color(0xFFF5F5F5)

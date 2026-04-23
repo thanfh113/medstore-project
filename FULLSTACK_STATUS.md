@@ -1,7 +1,30 @@
 # 🏥 FULL-STACK STATUS: Medical Supply E-Commerce App
 
 **Đề tài:** Ứng dụng bán vật tư y tế tích hợp ChatbotAI và thanh toán điện tử
-**Ngày cập nhật:** 01/04/2026
+**Ngày cập nhật:** 09/04/2026
+
+---
+
+## 🆕 CẬP NHẬT KỸ THUẬT 09/04/2026
+
+### ✅ Đã chuẩn hóa trong Android app
+- Dọn trùng lặp dependencies trong `app/build.gradle.kts` (Retrofit/Kotlinx Serialization/Compose)
+- Chuẩn hóa plugin versions theo version catalog (`libs.versions.toml`)
+- Bật đầy đủ Hilt plugins/dependencies (`hilt-android`, `hilt-navigation-compose`, `kapt`)
+- Chuẩn hóa DI network layer (`ApiService`, `CartApiService`, `Retrofit`, `OkHttp`, `Json`) qua Hilt
+- Chuẩn hóa Checkout flow theo Hilt:
+  - `CheckoutViewModel` -> `@HiltViewModel`
+  - `CheckoutRepository` -> `@Inject constructor`
+  - `CheckoutScreen` -> `hiltViewModel()`
+- Thêm `android:name=".NhathuocApplication"` trong `AndroidManifest.xml` để Hilt khởi tạo đúng
+
+### ✅ Re-verified Frontend Flow
+- Luồng `Cart -> Checkout -> Payment -> OrderConfirmation` đã có trong codebase
+- Checkout/Payment không còn là mục "missing completely" ở phía frontend
+
+### ⚠️ Lưu ý
+- Các phần phía dưới tài liệu này có thể chứa một số mốc lịch sử từ bản cập nhật cũ (01/04/2026).
+- Khi lập kế hoạch mới, ưu tiên lấy trạng thái thực tế từ source code hiện tại.
 
 ---
 

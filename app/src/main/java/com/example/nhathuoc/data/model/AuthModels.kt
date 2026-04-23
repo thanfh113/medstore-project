@@ -94,7 +94,11 @@ data class UserAddress(
     val province: String,
     val isDefault: Boolean,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    // Compatibility fields for legacy Android screens until Phase 2 rewrite.
+    val label: String? = null,
+    val phone: String? = recipientPhone,
+    val address: String = fullAddress
 )
 
 @Serializable

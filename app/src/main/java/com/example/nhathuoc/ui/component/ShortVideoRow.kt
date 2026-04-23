@@ -30,7 +30,7 @@ data class ShortVideo(
 
 val defaultShortVideos = listOf(
     ShortVideo("Một khoảnh khắc sơ ý khi ăn trái cây khiến bé trai rơi vào nguy kịch", "Radar sức khỏe"),
-    ShortVideo("Nghệ An: Uống nhầm bột thông cống, bé trai suýt thủng thực quản", "Radar sức khỏe"),
+    ShortVideo("Nghệ An: Uống nhầm bật thang cổng, bé trai suýt thủng thực quản", "Radar sức khỏe"),
     ShortVideo("Một dấu hiệu khiến người ta truyền 6 lít máu trong 1 đêm", "Radar sức khỏe"),
     ShortVideo("Cách nhận biết đột quỵ sớm và xử trí đúng cách", "Sức khỏe"),
 )

@@ -1,26 +1,23 @@
-package com.example.nhathuoc.viewmodel
+﻿package com.example.nhathuoc.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.nhathuoc.data.model.*
+import com.example.nhathuoc.data.model.NetworkResult
+import com.example.nhathuoc.data.model.ProductDto
+import com.example.nhathuoc.data.model.ProductListResponse
+import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.data.repository.ProductRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 
-sealed class UiState<out T> {
-    object Idle : UiState<Nothing>()
-    object Loading : UiState<Nothing>()
-    data class Success<T>(val data: T) : UiState<T>()
-    data class Error(val message: String) : UiState<Nothing>()
-}
-
-class ProductListViewModel(
-    private val productRepository: ProductRepository = ProductRepository()
+@HiltViewModel
+class ProductListViewModel @Inject constructor(
+    private val productRepository: ProductRepository
 ) : ViewModel() {
-
     private val _state = MutableStateFlow<UiState<ProductListResponse>>(UiState.Idle)
     val state: StateFlow<UiState<ProductListResponse>> = _state.asStateFlow()
 
@@ -58,12 +55,8 @@ class ProductListViewModel(
                     _hasMore.value = result.data.pagination.hasNext
                     _state.value = UiState.Success(result.data)
                 }
-                is NetworkResult.Error -> {
-                    _state.value = UiState.Error(result.message)
-                }
-                is NetworkResult.Exception -> {
-                    _state.value = UiState.Error("Lỗi kết nối")
-                }
+                is NetworkResult.Error -> _state.value = UiState.Error(result.message)
+                is NetworkResult.Exception -> _state.value = UiState.Error("Loi ket noi")
             }
         }
     }
@@ -106,15 +99,16 @@ class ProductListViewModel(
             _state.value = UiState.Loading
             val minPrice = if (_priceRange.value.start > 0) _priceRange.value.start else null
             val maxPrice = if (_priceRange.value.endInclusive < 1000000) _priceRange.value.endInclusive else null
-
-            when (val result = productRepository.getProducts(
-                category = _selectedCategory.value,
-                minPrice = minPrice,
-                maxPrice = maxPrice,
-                sortBy = _sortBy.value,
-                page = _currentPage.value,
-                limit = 20
-            )) {
+            when (
+                val result = productRepository.getProducts(
+                    category = _selectedCategory.value,
+                    minPrice = minPrice,
+                    maxPrice = maxPrice,
+                    sortBy = _sortBy.value,
+                    page = _currentPage.value,
+                    limit = 20
+                )
+            ) {
                 is NetworkResult.Success -> {
                     _allProducts.value = if (_currentPage.value == 1) {
                         result.data.products
@@ -124,12 +118,8 @@ class ProductListViewModel(
                     _hasMore.value = result.data.pagination.hasNext
                     _state.value = UiState.Success(result.data)
                 }
-                is NetworkResult.Error -> {
-                    _state.value = UiState.Error(result.message)
-                }
-                is NetworkResult.Exception -> {
-                    _state.value = UiState.Error("Lỗi kết nối")
-                }
+                is NetworkResult.Error -> _state.value = UiState.Error(result.message)
+                is NetworkResult.Exception -> _state.value = UiState.Error("Loi ket noi")
             }
         }
     }

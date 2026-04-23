@@ -15,9 +15,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,22 +30,29 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.nhathuoc.data.model.PointTransactionDto
+import com.example.nhathuoc.data.model.RewardProductDto
+import com.example.nhathuoc.data.model.RewardRedemptionHistoryDto
+import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.ui.theme.GreenLight
-import com.example.nhathuoc.ui.theme.NhathuocTheme
+import com.example.nhathuoc.viewmodel.RewardViewModel
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
-// ── Colors ───────────────────────────────────────────────────────
-private val GreenTop = Color(0xFF2E7D32)
+// ── Colors ────────────────────────────────────────────────────────────────
+private val GreenTopRw = Color(0xFF2E7D32)
+private val GoldColorRw = Color(0xFFFFAB00)
 
-private val GoldColor = Color(0xFFFFAB00)
-
-// ── Data ─────────────────────────────────────────────────────────
+// ── Point-tier filter labels ──────────────────────────────────────────────
 private val pointFilters = listOf("1.500 điểm", "3.000 điểm", "4.500 điểm", "6.000 điểm", "10.000 điểm")
 
+// ── Fallback UI model (used only when API products list is empty) ─────────
 data class RewardProduct(
     val id: Int,
     val icon: ImageVector,
@@ -59,111 +63,175 @@ data class RewardProduct(
     val pointCost: Int
 )
 
-private val rewardProducts = listOf(
-    RewardProduct(1,  Icons.Outlined.Face,           Color(0xFFC2185B), Color(0xFFFCE4EC), "Mặt nạ dưỡng ẩm Hyaluronic Acid Deep Sea Water Mask Pack",  "1.000đ / Miếng", 1500),
-    RewardProduct(2,  Icons.Outlined.Spa,            Color(0xFF00838F), Color(0xFFE0F7FA), "Mặt nạ dưỡng ẩm Super Aqua Mask Pack làm mềm mịn da",       "1.000đ / Miếng", 1500),
-    RewardProduct(3,  Icons.Outlined.MedicalServices,Color(0xFF1565C0), Color(0xFFE3F2FD), "Vitamin C 500mg tăng sức đề kháng hộp 100 viên",            "2.000đ / Hộp",   3000),
-    RewardProduct(4,  Icons.Outlined.LocalFlorist,   Color(0xFF2E7D32), Color(0xFFE8F5E9), "Trà thảo mộc hỗ trợ giảm cân Detox Green Tea 20 túi",       "2.000đ / Hộp",   3000),
-    RewardProduct(5,  Icons.Outlined.Opacity,        Color(0xFF6A1B9A), Color(0xFFF3E5F5), "Serum dưỡng trắng da Niacinamide 10% + Zinc 1%",             "3.000đ / Chai",  4500),
-    RewardProduct(6,  Icons.Outlined.ChildCare,      Color(0xFF00838F), Color(0xFFE0F7FA), "Siro bổ sung Canxi & Vitamin D3 cho bé từ 1 tuổi 100ml",     "3.000đ / Chai",  4500),
-    RewardProduct(7,  Icons.Outlined.Science,        Color(0xFF1565C0), Color(0xFFE3F2FD), "Kẽm hữu cơ Zinc Gluconate tăng miễn dịch 60 viên",           "4.000đ / Hộp",   6000),
-    RewardProduct(8,  Icons.Outlined.CleanHands,     Color(0xFF0277BD), Color(0xFFE1F5FE), "Kem dưỡng tay Neutrogena Norwegian Formula 50g",             "4.000đ / Tuýp",  6000),
-    RewardProduct(9,  Icons.Outlined.Restaurant,     Color(0xFF2E7D32), Color(0xFFE8F5E9), "Men vi sinh Probiotic hỗ trợ hệ tiêu hóa 30 gói",           "4.000đ / Hộp",   6000),
-    RewardProduct(10, Icons.Outlined.MonitorHeart,   Color(0xFFE53935), Color(0xFFFFEBEE), "Omega-3 hỗ trợ tim mạch DHA EPA 1000mg 100 viên",           "5.000đ / Hộp",   7500),
-    RewardProduct(11, Icons.Outlined.RemoveRedEye,   Color(0xFF0277BD), Color(0xFFE1F5FE), "Nhỏ mắt Rohto Dry Aid dưỡng ẩm mắt khô 10ml",              "5.000đ / Chai",  7500),
-    RewardProduct(12, Icons.Outlined.Psychology,     Color(0xFF5C6BC0), Color(0xFFE8EAF6), "Ginkgo Biloba hỗ trợ tuần hoàn não 120mg 60 viên",          "5.000đ / Hộp",   7500),
-    RewardProduct(13, Icons.Outlined.Restaurant,     Color(0xFFEF6C00), Color(0xFFFFF3E0), "Enzyme tiêu hóa Pancreatin hỗ trợ hấp thu dinh dưỡng",      "6.000đ / Hộp",   9000),
-    RewardProduct(14, Icons.Outlined.Shield,         Color(0xFF1565C0), Color(0xFFE3F2FD), "Echinacea tăng cường miễn dịch chiết xuất cỏ thảo mộc",     "6.000đ / Hộp",   9000),
-    RewardProduct(15, Icons.Outlined.Favorite,       Color(0xFFE53935), Color(0xFFFFEBEE), "Coenzyme Q10 hỗ trợ tim mạch và chống oxy hóa 100mg",       "7.000đ / Hộp",  10000),
-    RewardProduct(16, Icons.Outlined.Air,            Color(0xFF00ACC1), Color(0xFFE0F7FA), "Xịt mũi muối sinh lý NaCl 0.9% dành cho bé 100ml",          "3.000đ / Chai",  4500),
-    RewardProduct(17, Icons.Outlined.Spa,            Color(0xFF7B1FA2), Color(0xFFF3E5F5), "Collagen Peptide làm đẹp da chống lão hóa Nhật Bản 30 gói", "8.000đ / Hộp",  12000),
-    RewardProduct(18, Icons.Outlined.LocalPharmacy,  Color(0xFF1565C0), Color(0xFFE3F2FD), "Viên uống đẹp da trắng sáng Glutathione 500mg 60 viên",     "8.000đ / Hộp",  12000),
-    RewardProduct(19, Icons.Outlined.HealthAndSafety,Color(0xFF2E7D32), Color(0xFFE8F5E9), "Bộ kit kiểm tra đường huyết tại nhà (10 que thử)",          "7.000đ / Bộ",   10000),
-    RewardProduct(20, Icons.Outlined.Biotech,        Color(0xFF6A1B9A), Color(0xFFF3E5F5), "Thực phẩm bảo vệ sức khỏe TPCN hỗ trợ gan Silymarin 80mg", "6.000đ / Hộp",   9000),
+private val fallbackRewardProducts = listOf(
+    RewardProduct(1, Icons.Outlined.MedicalServices, Color(0xFF1565C0), Color(0xFFE3F2FD), "Bộ dụng cụ y tế cơ bản", "2.000đ / Bộ", 3000),
+    RewardProduct(2, Icons.Outlined.HealthAndSafety, Color(0xFF2E7D32), Color(0xFFE8F5E9), "Bộ kit kiểm tra đường huyết (10 que thử)", "7.000đ / Bộ", 10000),
+    RewardProduct(3, Icons.Outlined.Science,         Color(0xFF1565C0), Color(0xFFE3F2FD), "Kẽm hữu cơ Zinc Gluconate tăng miễn dịch", "4.000đ / Hộp", 6000),
+    RewardProduct(4, Icons.Outlined.MonitorHeart,    Color(0xFFE53935), Color(0xFFFFEBEE), "Omega-3 hỗ trợ tim mạch 1000mg 100 viên", "5.000đ / Hộp", 7500),
 )
 
-// ── Screen ───────────────────────────────────────────────────────
+private enum class RewardScreenTab {
+    REWARDS,
+    HISTORY
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────
 @Composable
 fun RewardScreen(modifier: Modifier = Modifier, onShopNow: () -> Unit = {}) {
-    var selectedFilter by remember { mutableStateOf("1.500 điểm") }
-    var showBanner by remember { mutableStateOf(true) }
-    var showRedeemSheet by remember { mutableStateOf(false) }
-    var redeemProduct by remember { mutableStateOf<RewardProduct?>(null) }
+    val viewModel: RewardViewModel = hiltViewModel()
+    val accountState   by viewModel.accountState.collectAsState()
+    val productsState  by viewModel.productsState.collectAsState()
+    val transactionsState by viewModel.transactionsState.collectAsState()
+    val redemptionsState by viewModel.redemptionsState.collectAsState()
+    val redeemState    by viewModel.redeemState.collectAsState()
 
-    val filteredProducts = remember(selectedFilter) {
-        val pts = selectedFilter.replace(".", "").replace(" điểm", "").trim().toIntOrNull() ?: 0
-        rewardProducts.filter { it.pointCost <= pts + 1500 }
+    var selectedTab       by remember { mutableStateOf(RewardScreenTab.REWARDS) }
+    var selectedFilter    by remember { mutableStateOf("1.500 điểm") }
+    var showBanner        by remember { mutableStateOf(true) }
+    var showRedeemSheet   by remember { mutableStateOf(false) }
+    var redeemProductDto  by remember { mutableStateOf<RewardProductDto?>(null) }
+    var redeemFallback    by remember { mutableStateOf<RewardProduct?>(null) }
+
+    // Derived reward points
+    val userPoints = when (val s = accountState) {
+        is UiState.Success -> s.data.availablePoints
+        else               -> 0
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFFF5F7FA)),
-            contentPadding = PaddingValues(bottom = 24.dp)
-        ) {
-            // ── Header xanh ─────────────────────────────────────────
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Brush.verticalGradient(listOf(GreenTop, GreenLight)))
-                        .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 32.dp)
-                ) {
-                    Column {
-                        // Tab "Quà của tôi" + "Lịch sử"
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            HeaderTab(icon = Icons.Outlined.CardGiftcard, label = "Quà của tôi", selected = true)
-                            HeaderTab(icon = Icons.Outlined.History,      label = "Lịch sử",     selected = false)
-                        }
+    // API product list
+    val apiProducts: List<RewardProductDto> = when (val s = productsState) {
+        is UiState.Success -> s.data
+        else               -> emptyList()
+    }
+    val transactions: List<PointTransactionDto> = when (val s = transactionsState) {
+        is UiState.Success -> s.data
+        else -> emptyList()
+    }
+    val redemptions: List<RewardRedemptionHistoryDto> = when (val s = redemptionsState) {
+        is UiState.Success -> s.data
+        else -> emptyList()
+    }
 
-                        Spacer(Modifier.height(20.dp))
+    // Tier filter
+    val tierPts = selectedFilter.replace(".", "").replace(" điểm", "").trim().toIntOrNull() ?: 0
+    val filteredApi      = apiProducts.filter { it.pointCost <= tierPts + 1500 }
+    val filteredFallback = fallbackRewardProducts.filter { it.pointCost <= tierPts + 1500 }
+    val totalEarnedPoints = transactions.filter { it.points > 0 }.sumOf { it.points }
+    val totalUsedPoints = transactions.filter { it.points < 0 }.sumOf { -it.points }
 
-                        // Points + jar illustration
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text("Điểm thưởng", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
-                                Spacer(Modifier.height(4.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.EmojiEvents, null, tint = GoldColor, modifier = Modifier.size(28.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("246", color = GoldColor, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
-                                }
-                                Spacer(Modifier.height(6.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.clickable { }
-                                ) {
-                                    Text(
-                                        "Xem thể lệ",
-                                        color = Color.White,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        textDecoration = TextDecoration.Underline
-                                    )
-                                    Spacer(Modifier.width(2.dp))
-                                    Icon(Icons.Outlined.ChevronRight, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                }
+    // Snackbar for redeem feedback
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadRewardAccount()
+        viewModel.loadRewardProducts()
+        viewModel.loadRewardTransactions()
+        viewModel.loadRewardRedemptions()
+    }
+
+    LaunchedEffect(redeemState) {
+        when (val s = redeemState) {
+            is UiState.Success -> {
+                showRedeemSheet = false
+                scope.launch { snackbarHostState.showSnackbar("Đổi quà thành công! ${s.data}") }
+                viewModel.clearRedeemState()
+            }
+            is UiState.Error -> {
+                scope.launch { snackbarHostState.showSnackbar("Lỗi: ${s.message}") }
+                viewModel.clearRedeemState()
+            }
+            else -> {}
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color(0xFFF5F7FA)
+    ) { innerPadding ->
+        Box(modifier = modifier.fillMaxSize().padding(innerPadding)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().background(Color(0xFFF5F7FA)),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                // ── Header xanh ───────────────────────────────────────
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Brush.verticalGradient(listOf(GreenTopRw, GreenLight)))
+                            .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 32.dp)
+                    ) {
+                        Column {
+                            // Header tabs
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                HeaderTab(
+                                    icon = Icons.Outlined.CardGiftcard,
+                                    label = "Quà của tôi",
+                                    selected = selectedTab == RewardScreenTab.REWARDS,
+                                    onClick = { selectedTab = RewardScreenTab.REWARDS }
+                                )
+                                HeaderTab(
+                                    icon = Icons.Outlined.History,
+                                    label = "Lịch sử",
+                                    selected = selectedTab == RewardScreenTab.HISTORY,
+                                    onClick = { selectedTab = RewardScreenTab.HISTORY }
+                                )
                             }
+                            Spacer(Modifier.height(20.dp))
 
-                            // Coin jar illustration with icons
-                            Box(
-                                modifier = Modifier
-                                    .size(110.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.12f)),
-                                contentAlignment = Alignment.Center
+                            // Points display
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Filled.Savings, null, tint = GoldColor, modifier = Modifier.size(52.dp))
-                                    Spacer(Modifier.height(2.dp))
-                                    Row {
-                                        repeat(3) {
-                                            Icon(Icons.Filled.MonetizationOn, null, tint = GoldColor, modifier = Modifier.size(16.dp))
+                                Column {
+                                    Text("Điểm thưởng", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
+                                    Spacer(Modifier.height(4.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.EmojiEvents, null, tint = GoldColorRw, modifier = Modifier.size(28.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        when (accountState) {
+                                            is UiState.Loading -> CircularProgressIndicator(
+                                                color = GoldColorRw,
+                                                modifier = Modifier.size(24.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                            is UiState.Error   -> Text("--", color = GoldColorRw, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
+                                            else               -> Text(
+                                                userPoints.toString(),
+                                                color = GoldColorRw,
+                                                fontSize = 36.sp,
+                                                fontWeight = FontWeight.ExtraBold
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Xem thể lệ", color = Color.White, fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            textDecoration = TextDecoration.Underline)
+                                        Spacer(Modifier.width(2.dp))
+                                        Icon(Icons.Outlined.ChevronRight, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+
+                                // Coin illustration
+                                Box(
+                                    modifier = Modifier
+                                        .size(110.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(Icons.Filled.Savings, null, tint = GoldColorRw, modifier = Modifier.size(52.dp))
+                                        Spacer(Modifier.height(2.dp))
+                                        Row {
+                                            repeat(3) {
+                                                Icon(Icons.Filled.MonetizationOn, null, tint = GoldColorRw, modifier = Modifier.size(16.dp))
+                                            }
                                         }
                                     }
                                 }
@@ -171,185 +239,342 @@ fun RewardScreen(modifier: Modifier = Modifier, onShopNow: () -> Unit = {}) {
                         }
                     }
                 }
-            }
 
-            // ── Banner khuyến khích ──────────────────────────────────
-            if (showBanner) {
-                item {
-                    Box(modifier = Modifier.padding(horizontal = 16.dp).offset(y = (-16).dp)) {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.White,
-                            shadowElevation = 4.dp,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        "Mua sắm để tích điểm và đổi quà tại Nhà thuốc Hà Tiến Thành nhé!",
-                                        fontSize = 13.sp,
-                                        color = Color(0xFF1A1A1A),
-                                        lineHeight = 18.sp
-                                    )
-                                    Spacer(Modifier.height(10.dp))
-                                    Button(
-                                        onClick = onShopNow,
-                                        shape = RoundedCornerShape(50),
-                                        colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
-                                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
-                                    ) {
-                                        Text("Mua sắm ngay", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                    }
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                // Mascot placeholder
-                                Box(
-                                    modifier = Modifier
-                                        .size(72.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFE3F2FD)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Filled.FavoriteBorder, null, tint = GreenTop, modifier = Modifier.size(36.dp))
-                                }
-                            }
-                        }
-                        // Close button
-                        IconButton(
-                            onClick = { showBanner = false },
-                            modifier = Modifier.align(Alignment.TopEnd).size(32.dp)
-                        ) {
-                            Icon(Icons.Filled.Close, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
-                        }
-                    }
-                }
-            }
-
-            // ── Quà tặng header + filter chips ───────────────────────
-            item {
-                Column(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .padding(top = if (showBanner) 0.dp else 8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text("Quà tặng", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
-                            Text("Tích điểm đổi quà với giá 1.000 đồng.", fontSize = 12.sp, color = Color.Gray)
-                        }
-                        TextButton(onClick = {}) {
-                            Text("Xem tất cả", color = GreenTop, fontSize = 13.sp)
-                        }
-                    }
-
-                    Spacer(Modifier.height(10.dp))
-
-                    // Filter chips
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        pointFilters.forEach { filter ->
-                            val isSelected = selectedFilter == filter
-                            val bgColor by animateColorAsState(
-                                if (isSelected) GreenTop else Color.White, tween(200)
-                            )
-                            val textColor by animateColorAsState(
-                                if (isSelected) Color.White else Color(0xFF333333), tween(200)
-                            )
+                if (selectedTab == RewardScreenTab.REWARDS && showBanner) {
+                    item {
+                        Box(modifier = Modifier.padding(horizontal = 16.dp).offset(y = (-16).dp)) {
                             Surface(
-                                onClick = { selectedFilter = filter },
-                                shape = RoundedCornerShape(50),
-                                color = bgColor,
-                                border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDDDDDD)),
-                                shadowElevation = if (isSelected) 2.dp else 0.dp
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color.White,
+                                shadowElevation = 4.dp,
+                                modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                    modifier = Modifier.padding(16.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    if (isSelected) {
-                                        Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                                        Spacer(Modifier.width(4.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            "Mua sắm để tích điểm và đổi quà vật tư y tế ngay hôm nay!",
+                                            fontSize = 13.sp, color = Color(0xFF1A1A1A), lineHeight = 18.sp
+                                        )
+                                        Spacer(Modifier.height(10.dp))
+                                        Button(
+                                            onClick = onShopNow,
+                                            shape = RoundedCornerShape(50),
+                                            colors = ButtonDefaults.buttonColors(containerColor = GreenTopRw),
+                                            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
+                                        ) {
+                                            Text("Mua sắm ngay", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        }
                                     }
-                                    Text(filter, color = textColor, fontSize = 13.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                    Spacer(Modifier.width(12.dp))
+                                    Box(
+                                        modifier = Modifier.size(72.dp).clip(CircleShape).background(Color(0xFFE8F5E9)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Filled.HealthAndSafety, null, tint = GreenTopRw, modifier = Modifier.size(38.dp))
+                                    }
+                                }
+                            }
+                            IconButton(
+                                onClick = { showBanner = false },
+                                modifier = Modifier.align(Alignment.TopEnd).size(32.dp)
+                            ) {
+                                Icon(Icons.Filled.Close, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+
+                if (selectedTab == RewardScreenTab.REWARDS) {
+                    // ── Filter chips ──────────────────────────────────────
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .padding(top = if (showBanner) 0.dp else 12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("Quà tặng", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+                                    Text("Tích điểm đổi quà với giá 1.000 VNĐ.", fontSize = 12.sp, color = Color.Gray)
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                pointFilters.forEach { filter ->
+                                    val isSelected = selectedFilter == filter
+                                    val bgColor by animateColorAsState(if (isSelected) GreenTopRw else Color.White, tween(200))
+                                    val textColor by animateColorAsState(if (isSelected) Color.White else Color(0xFF333333), tween(200))
+                                    Surface(
+                                        onClick = { selectedFilter = filter },
+                                        shape = RoundedCornerShape(50),
+                                        color = bgColor,
+                                        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDDDDDD)),
+                                        shadowElevation = if (isSelected) 2.dp else 0.dp
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            if (isSelected) {
+                                                Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                                Spacer(Modifier.width(4.dp))
+                                            }
+                                            Text(filter, color = textColor, fontSize = 13.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            }
 
-            // ── Product grid ─────────────────────────────────────────
-            item {
-                Spacer(Modifier.height(12.dp))
-                // 2-column grid inside LazyColumn item
-                val rows = filteredProducts.chunked(2)
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    rows.forEach { rowItems ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            rowItems.forEach { product ->
-                                RewardProductCard(
-                                    product = product,
-                                    onRedeem = {
-                                        redeemProduct = product
-                                        showRedeemSheet = true
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
+                    // ── Product loading state ─────────────────────────────
+                    when (productsState) {
+                        is UiState.Loading -> item {
+                            Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(color = GreenTopRw)
+                                    Spacer(Modifier.height(8.dp))
+                                    Text("Đang tải danh sách quà...", color = Color.Gray, fontSize = 13.sp)
+                                }
                             }
-                            if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                        is UiState.Error -> item {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFFFFF8E1),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.Info, null, tint = Color(0xFFFF8F00), modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "Đang hiển thị danh sách quà mẫu.\nDữ liệu thật sẽ tải khi có kết nối.",
+                                            fontSize = 12.sp, color = Color(0xFF5D4037), lineHeight = 17.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        else -> {}
+                    }
+
+                    // ── Product grid (API or fallback) ────────────────────
+                    item {
+                        Spacer(Modifier.height(12.dp))
+                        val useApi = filteredApi.isNotEmpty()
+                        if (useApi) {
+                            val rows = filteredApi.chunked(2)
+                            Column(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                rows.forEach { rowItems ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        rowItems.forEach { product ->
+                                            ApiRewardProductCard(
+                                                product = product,
+                                                userPoints = userPoints,
+                                                onRedeem = {
+                                                    redeemProductDto = product
+                                                    redeemFallback = null
+                                                    showRedeemSheet = true
+                                                },
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                        if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        } else {
+                            val rows = filteredFallback.chunked(2)
+                            Column(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                rows.forEach { rowItems ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        rowItems.forEach { product ->
+                                            FallbackRewardProductCard(
+                                                product = product,
+                                                userPoints = userPoints,
+                                                onRedeem = {
+                                                    redeemFallback = product
+                                                    redeemProductDto = null
+                                                    showRedeemSheet = true
+                                                },
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                        if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    item {
+                        RewardHistorySummaryCard(
+                            currentPoints = userPoints,
+                            totalEarnedPoints = totalEarnedPoints,
+                            totalUsedPoints = totalUsedPoints,
+                            redemptionCount = redemptions.size,
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .offset(y = (-16).dp)
+                        )
+                    }
+
+                    item {
+                        RewardHistorySection(
+                            title = "Lịch sử tích và tiêu điểm",
+                            subtitle = "Theo dõi các lần cộng, trừ và điều chỉnh điểm."
+                        ) {
+                            when (val state = transactionsState) {
+                                is UiState.Loading -> HistoryLoadingState("Đang tải giao dịch điểm...")
+                                is UiState.Error -> HistoryErrorState(state.message)
+                                is UiState.Success -> {
+                                    if (state.data.isEmpty()) {
+                                        EmptyHistoryState("Chưa có giao dịch điểm nào.")
+                                    } else {
+                                        state.data.take(8).forEachIndexed { index, transaction ->
+                                            PointTransactionCard(transaction)
+                                            if (index != state.data.take(8).lastIndex) {
+                                                Spacer(Modifier.height(10.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                                else -> EmptyHistoryState("Chưa có dữ liệu giao dịch điểm.")
+                            }
+                        }
+                    }
+
+                    item {
+                        RewardHistorySection(
+                            title = "Lịch sử đổi quà",
+                            subtitle = "Kiểm tra trạng thái các đơn đổi thưởng gần đây."
+                        ) {
+                            when (val state = redemptionsState) {
+                                is UiState.Loading -> HistoryLoadingState("Đang tải lịch sử đổi quà...")
+                                is UiState.Error -> HistoryErrorState(state.message)
+                                is UiState.Success -> {
+                                    if (state.data.isEmpty()) {
+                                        EmptyHistoryState("Bạn chưa đổi quà nào bằng điểm thưởng.")
+                                    } else {
+                                        state.data.take(8).forEachIndexed { index, redemption ->
+                                            RewardRedemptionCard(redemption)
+                                            if (index != state.data.take(8).lastIndex) {
+                                                Spacer(Modifier.height(10.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                                else -> EmptyHistoryState("Chưa có dữ liệu đổi quà.")
+                            }
                         }
                     }
                 }
-            }
-        } // end LazyColumn
+            } // end LazyColumn
 
-        RedeemBottomSheet(
-            visible    = showRedeemSheet,
-            product    = redeemProduct,
-            userPoints = 246,
-            onDismiss  = { showRedeemSheet = false }
-        )
-    } // end Box
-}
-
-// ── Sub-composables ───────────────────────────────────────────────
-@Composable
-private fun HeaderTab(icon: ImageVector, label: String, selected: Boolean) {
-    Surface(
-        shape = RoundedCornerShape(50),
-        color = if (selected) Color.White else Color.White.copy(alpha = 0.2f)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, null, tint = if (selected) GreenTop else Color.White, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(label, color = if (selected) GreenTop else Color.White,
-                fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            // ── Redeem bottom sheet ───────────────────────────────────
+            UnifiedRedeemSheet(
+                visible       = showRedeemSheet,
+                apiProduct    = redeemProductDto,
+                localProduct  = redeemFallback,
+                userPoints    = userPoints,
+                isLoading     = redeemState is UiState.Loading,
+                onDismiss     = { showRedeemSheet = false },
+                onConfirm     = { id, qty ->
+                    viewModel.redeemProduct(id, qty)
+                }
+            )
         }
     }
 }
 
+// ── API product card ───────────────────────────────────────────────────────
 @Composable
-private fun RewardProductCard(
+private fun ApiRewardProductCard(
+    product: RewardProductDto,
+    userPoints: Int,
+    onRedeem: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val canRedeem = userPoints >= product.pointCost
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        shadowElevation = 2.dp,
+        modifier = modifier
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(110.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFE8F5E9)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Outlined.CardGiftcard, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(56.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(product.name, fontSize = 12.sp, color = Color(0xFF1A1A1A), fontWeight = FontWeight.Medium,
+                lineHeight = 16.sp, maxLines = 3, modifier = Modifier.heightIn(min = 48.dp))
+            Spacer(Modifier.height(6.dp))
+            Text("${product.pointCost.toLong().fmtPts()} điểm", fontSize = 12.sp, color = Color.Gray)
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.EmojiEvents, null, tint = GoldColorRw, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    product.pointCost.toLong().fmtPts(),
+                    fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = GoldColorRw
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = onRedeem,
+                enabled = canRedeem,
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GreenTopRw,
+                    disabledContainerColor = Color(0xFFCCCCCC)
+                ),
+                contentPadding = PaddingValues(vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (canRedeem) "Đổi ngay" else "Thiếu điểm", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+// ── Fallback local card ────────────────────────────────────────────────────
+@Composable
+private fun FallbackRewardProductCard(
     product: RewardProduct,
-    onRedeem: () -> Unit = {},
+    userPoints: Int,
+    onRedeem: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -359,88 +584,463 @@ private fun RewardProductCard(
         modifier = modifier
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            // Icon image area
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(110.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(product.iconBg),
+                modifier = Modifier.fillMaxWidth().height(110.dp)
+                    .clip(RoundedCornerShape(10.dp)).background(product.iconBg),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = product.icon,
-                    contentDescription = product.name,
-                    tint = product.iconTint,
-                    modifier = Modifier.size(56.dp)
-                )
+                Icon(product.icon, null, tint = product.iconTint, modifier = Modifier.size(56.dp))
             }
-
             Spacer(Modifier.height(8.dp))
-
-            // Name
-            Text(
-                text = product.name,
-                fontSize = 12.sp,
-                color = Color(0xFF1A1A1A),
-                fontWeight = FontWeight.Medium,
-                lineHeight = 16.sp,
-                maxLines = 3,
-                modifier = Modifier.heightIn(min = 48.dp)
-            )
-
+            Text(product.name, fontSize = 12.sp, color = Color(0xFF1A1A1A), fontWeight = FontWeight.Medium,
+                lineHeight = 16.sp, maxLines = 3, modifier = Modifier.heightIn(min = 48.dp))
             Spacer(Modifier.height(6.dp))
-
-            // Price
-            Text(
-                text = product.priceText,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = GreenTop
-            )
-
+            Text(product.priceText, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = GreenTopRw)
             Spacer(Modifier.height(4.dp))
-
-            // Point cost
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.EmojiEvents, null, tint = GoldColor, modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.EmojiEvents, null, tint = GoldColorRw, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    text = "%,d".format(product.pointCost).replace(",", "."),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = GoldColor
+                    product.pointCost.toLong().fmtPts(),
+                    fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = GoldColorRw
                 )
             }
-
             Spacer(Modifier.height(10.dp))
-
-            // Exchange button
             Button(
                 onClick = onRedeem,
+                enabled = false,
                 shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GreenTopRw,
+                    disabledContainerColor = Color(0xFFCCCCCC)
+                ),
                 contentPadding = PaddingValues(vertical = 8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Đổi ngay", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text("Quà mẫu", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+private fun Long.fmtPts() = String.format("%,d", this).replace(',', '.')
+
+// ── Header tab ────────────────────────────────────────────────────────────
 @Composable
-fun RewardScreenPreview() {
-    NhathuocTheme { RewardScreen() }
+private fun HeaderTab(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = if (selected) Color.White else Color.White.copy(alpha = 0.2f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = if (selected) GreenTopRw else Color.White, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, color = if (selected) GreenTopRw else Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
 }
-// ── Redeem Bottom Sheet ───────────────────────────────────────────
+
+private val rewardHistoryDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+
 @Composable
-fun RedeemBottomSheet(
+private fun RewardHistorySummaryCard(
+    currentPoints: Int,
+    totalEarnedPoints: Int,
+    totalUsedPoints: Int,
+    redemptionCount: Int,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White,
+        shadowElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                "Tổng quan điểm thưởng",
+                color = Color(0xFF1A1A1A),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                RewardHistoryMetricCard(
+                    title = "Hiện có",
+                    value = currentPoints.toLong().fmtPts(),
+                    accent = GoldColorRw,
+                    modifier = Modifier.weight(1f)
+                )
+                RewardHistoryMetricCard(
+                    title = "Đã tích",
+                    value = totalEarnedPoints.toLong().fmtPts(),
+                    accent = GreenTopRw,
+                    modifier = Modifier.weight(1f)
+                )
+                RewardHistoryMetricCard(
+                    title = "Đã đổi",
+                    value = totalUsedPoints.toLong().fmtPts(),
+                    accent = Color(0xFFE65100),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFF6FAF6)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Lượt đổi quà đã tạo",
+                        color = Color(0xFF4A4A4A),
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        redemptionCount.toString(),
+                        color = GreenTopRw,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RewardHistoryMetricCard(
+    title: String,
+    value: String,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFF8FAFC)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(title, color = Color(0xFF6B7280), fontSize = 12.sp)
+            Text(value, color = accent, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+        }
+    }
+}
+
+@Composable
+private fun RewardHistorySection(
+    title: String,
+    subtitle: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White,
+        shadowElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = {
+                Text(title, color = Color(0xFF1A1A1A), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = Color(0xFF6B7280), fontSize = 12.sp, lineHeight = 18.sp)
+                content()
+            }
+        )
+    }
+}
+
+@Composable
+private fun HistoryLoadingState(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 18.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(color = GreenTopRw, modifier = Modifier.size(26.dp), strokeWidth = 2.dp)
+            Spacer(Modifier.height(8.dp))
+            Text(message, color = Color(0xFF6B7280), fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable
+private fun HistoryErrorState(message: String) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFFFF5F5)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Filled.ErrorOutline, null, tint = Color(0xFFD32F2F), modifier = Modifier.size(18.dp))
+            Text(message, color = Color(0xFF8B1E1E), fontSize = 12.sp, lineHeight = 18.sp)
+        }
+    }
+}
+
+@Composable
+private fun EmptyHistoryState(message: String) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFF8FAFC)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(Icons.Outlined.HourglassEmpty, null, tint = Color(0xFF9CA3AF), modifier = Modifier.size(22.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(message, color = Color(0xFF6B7280), fontSize = 12.sp, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun PointTransactionCard(transaction: PointTransactionDto) {
+    val transactionType = transaction.type.uppercase()
+    val accentColor = when (transactionType) {
+        "EARN" -> GreenTopRw
+        "REDEEM" -> Color(0xFFE65100)
+        "EXPIRE" -> Color(0xFF757575)
+        else -> Color(0xFF1565C0)
+    }
+    val icon = when (transactionType) {
+        "EARN" -> Icons.Filled.AddCircle
+        "REDEEM" -> Icons.Filled.Redeem
+        "EXPIRE" -> Icons.Filled.TimerOff
+        else -> Icons.Filled.Tune
+    }
+    val pointsLabel = buildString {
+        if (transaction.points > 0) append("+")
+        append(transaction.points.toLong().fmtPts())
+    }
+    val reference = transaction.orderId?.let { "Đơn hàng ${shortRewardId(it)}" }
+        ?: transaction.redemptionId?.let { "Phiếu đổi ${shortRewardId(it)}" }
+
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFFAFBFC)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(accentColor.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(icon, null, tint = accentColor, modifier = Modifier.size(18.dp))
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            formatRewardTransactionType(transactionType),
+                            color = Color(0xFF1A1A1A),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            transaction.description ?: "Không có mô tả giao dịch.",
+                            color = Color(0xFF4B5563),
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+                Text(
+                    pointsLabel,
+                    color = accentColor,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    formatRewardDateTime(transaction.createdAt),
+                    color = Color(0xFF9CA3AF),
+                    fontSize = 11.sp
+                )
+                if (reference != null) {
+                    Text(
+                        reference,
+                        color = Color(0xFF6B7280),
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RewardRedemptionCard(redemption: RewardRedemptionHistoryDto) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFFAFBFC)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        redemption.productName,
+                        color = Color(0xFF1A1A1A),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Số lượng: ${redemption.quantity} • -${redemption.pointsUsed.toLong().fmtPts()} điểm",
+                        color = Color(0xFF4B5563),
+                        fontSize = 12.sp
+                    )
+                }
+                RedemptionStatusChip(redemption.status)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Mã đổi: ${shortRewardId(redemption.id)}",
+                    color = Color(0xFF6B7280),
+                    fontSize = 11.sp
+                )
+                Text(
+                    formatRewardDateTime(redemption.createdAt),
+                    color = Color(0xFF9CA3AF),
+                    fontSize = 11.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RedemptionStatusChip(status: String) {
+    val normalized = status.uppercase()
+    val background = when (normalized) {
+        "DELIVERED" -> Color(0xFFE8F5E9)
+        "SHIPPED", "APPROVED" -> Color(0xFFE3F2FD)
+        "PROCESSING" -> Color(0xFFFFF3E0)
+        "CANCELLED" -> Color(0xFFFFEBEE)
+        else -> Color(0xFFF3F4F6)
+    }
+    val textColor = when (normalized) {
+        "DELIVERED" -> GreenTopRw
+        "SHIPPED", "APPROVED" -> Color(0xFF1565C0)
+        "PROCESSING" -> Color(0xFFE65100)
+        "CANCELLED" -> Color(0xFFD32F2F)
+        else -> Color(0xFF6B7280)
+    }
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = background
+    ) {
+        Text(
+            text = formatRewardRedemptionStatus(normalized),
+            color = textColor,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+        )
+    }
+}
+
+private fun formatRewardTransactionType(type: String): String = when (type.uppercase()) {
+    "EARN" -> "Tích điểm"
+    "REDEEM" -> "Dùng điểm đổi quà"
+    "EXPIRE" -> "Điểm hết hạn"
+    "ADJUST" -> "Điều chỉnh điểm"
+    else -> type
+}
+
+private fun formatRewardRedemptionStatus(status: String): String = when (status.uppercase()) {
+    "PROCESSING" -> "Đang xử lý"
+    "APPROVED" -> "Đã duyệt"
+    "SHIPPED" -> "Đang giao"
+    "DELIVERED" -> "Hoàn tất"
+    "CANCELLED" -> "Đã hủy"
+    else -> status
+}
+
+private fun shortRewardId(value: String): String {
+    return if (value.length <= 8) value else value.takeLast(8)
+}
+
+private fun formatRewardDateTime(value: String): String {
+    return runCatching {
+        LocalDateTime.parse(value).format(rewardHistoryDateFormatter)
+    }.getOrElse {
+        value.replace('T', ' ').take(16)
+    }
+}
+
+// ── Redeem bottom sheet (unified for API and fallback) ────────────────────
+@Composable
+fun UnifiedRedeemSheet(
     visible: Boolean,
-    product: RewardProduct?,
-    userPoints: Int = 246,
-    onDismiss: () -> Unit = {}
+    apiProduct: RewardProductDto?,
+    localProduct: RewardProduct?,
+    userPoints: Int,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (productId: String, quantity: Int) -> Unit
 ) {
     val sheetHeightDp = 430.dp
     val density       = LocalDensity.current
@@ -450,26 +1050,31 @@ fun RedeemBottomSheet(
     val scope         = rememberCoroutineScope()
     var quantity      by remember { mutableIntStateOf(1) }
 
-    // Reset quantity when a new product is opened
-    LaunchedEffect(product?.id) { quantity = 1 }
+    LaunchedEffect(apiProduct?.id, localProduct?.id) { quantity = 1 }
 
     LaunchedEffect(visible) {
         if (visible) {
-            scope.launch { launch { offsetY.animateTo(0f,            tween(320, easing = FastOutSlowInEasing))  }
-                launch { scrimAlpha.animateTo(0.45f,      tween(280)) } }
+            scope.launch {
+                launch { offsetY.animateTo(0f, tween(320, easing = FastOutSlowInEasing)) }
+                launch { scrimAlpha.animateTo(0.45f, tween(280)) }
+            }
         } else {
-            scope.launch { launch { offsetY.animateTo(sheetHeightPx, tween(260, easing = FastOutLinearInEasing)) }
-                launch { scrimAlpha.animateTo(0f,          tween(240)) } }
+            scope.launch {
+                launch { offsetY.animateTo(sheetHeightPx, tween(260, easing = FastOutLinearInEasing)) }
+                launch { scrimAlpha.animateTo(0f, tween(240)) }
+            }
         }
     }
 
+    val productName = apiProduct?.name ?: localProduct?.name ?: ""
+    val pointCost   = apiProduct?.pointCost ?: localProduct?.pointCost ?: 0
+    val totalCost   = pointCost * quantity
+    val hasEnough   = userPoints >= totalCost
+
     if (offsetY.value < sheetHeightPx || visible) {
         Box(Modifier.fillMaxSize()) {
-
-            // Scrim
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
+                modifier = Modifier.fillMaxSize()
                     .background(Color.Black.copy(alpha = scrimAlpha.value))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -482,46 +1087,26 @@ fun RedeemBottomSheet(
                         onDismiss()
                     }
             )
-
-            // Sheet
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(sheetHeightDp)
+                    .fillMaxWidth().height(sheetHeightDp)
                     .align(Alignment.BottomCenter)
                     .offset { IntOffset(0, offsetY.value.roundToInt()) },
                 shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
                 color = Color.White,
                 shadowElevation = 16.dp
             ) {
-                val p = product ?: return@Surface
-                val totalCost  = p.pointCost * quantity
-                val hasEnough  = userPoints >= totalCost
-
                 Column(Modifier.fillMaxSize()) {
-
                     // Handle bar
                     Box(
-                        modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .padding(top = 10.dp)
-                            .width(36.dp).height(4.dp)
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                            .padding(top = 10.dp).width(36.dp).height(4.dp)
                             .background(Color(0xFFDDDDDD), RoundedCornerShape(50))
                     )
-
-                    // Title + X
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 12.dp)
-                    ) {
-                        Text(
-                            "Đổi quà",
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1A1A),
-                            modifier = Modifier.align(Alignment.Center)
-                        )
+                    // Title
+                    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp)) {
+                        Text("Đổi quà", fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1A1A1A), modifier = Modifier.align(Alignment.Center))
                         IconButton(
                             onClick = {
                                 scope.launch {
@@ -535,110 +1120,72 @@ fun RedeemBottomSheet(
                             Icon(Icons.Filled.Close, null, tint = Color(0xFF555555), modifier = Modifier.size(22.dp))
                         }
                     }
-
                     HorizontalDivider(color = Color(0xFFF0F0F0))
 
                     // Product row
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Box(
-                            modifier = Modifier
-                                .size(72.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(p.iconBg),
+                            modifier = Modifier.size(72.dp).clip(RoundedCornerShape(10.dp))
+                                .background(localProduct?.iconBg ?: Color(0xFFE8F5E9)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(p.icon, null, tint = p.iconTint, modifier = Modifier.size(38.dp))
+                            Icon(
+                                localProduct?.icon ?: Icons.Outlined.CardGiftcard,
+                                null,
+                                tint = localProduct?.iconTint ?: GreenTopRw,
+                                modifier = Modifier.size(38.dp)
+                            )
                         }
-                        Text(
-                            p.name,
-                            fontSize = 14.sp,
-                            color = Color(0xFF1A1A1A),
-                            lineHeight = 20.sp,
-                            modifier = Modifier.weight(1f)
-                        )
+                        Text(productName, fontSize = 14.sp, color = Color(0xFF1A1A1A),
+                            lineHeight = 20.sp, modifier = Modifier.weight(1f))
                     }
-
                     HorizontalDivider(color = Color(0xFFF0F0F0))
 
-                    // Quantity row
+                    // Quantity
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Số lượng:", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Surface(
-                                onClick = { if (quantity > 1) quantity-- },
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFFF0F0F0),
-                                modifier = Modifier.size(34.dp)
-                            ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Surface(onClick = { if (quantity > 1) quantity-- }, shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFF0F0F0), modifier = Modifier.size(34.dp)) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(Icons.Filled.Remove, null, tint = Color(0xFF333333), modifier = Modifier.size(18.dp))
                                 }
                             }
                             Text(quantity.toString(), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
-                            Surface(
-                                onClick = { quantity++ },
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFFF0F0F0),
-                                modifier = Modifier.size(34.dp)
-                            ) {
+                            Surface(onClick = { quantity++ }, shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFF0F0F0), modifier = Modifier.size(34.dp)) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(Icons.Filled.Add, null, tint = Color(0xFF333333), modifier = Modifier.size(18.dp))
                                 }
                             }
                         }
                     }
-
                     HorizontalDivider(color = Color(0xFFF0F0F0))
 
-                    // Points used row
+                    // Points used
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Điểm sử dụng:", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier.size(20.dp).clip(CircleShape).background(GoldColor),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("F", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
-                            }
-                            Text(
-                                "-${"%,d".format(totalCost).replace(",", ".")}",
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = GoldColor
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(Icons.Filled.EmojiEvents, null, tint = GoldColorRw, modifier = Modifier.size(20.dp))
+                            Text("-${totalCost.toLong().fmtPts()}", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = GoldColorRw)
                         }
                     }
 
-                    // Points available row
+                    // Points current
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp)
-                            .padding(bottom = 6.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -646,7 +1193,6 @@ fun RedeemBottomSheet(
                         Text(userPoints.toString(), fontSize = 15.sp, color = Color(0xFF555555))
                     }
 
-                    // Not enough warning
                     if (!hasEnough) {
                         Row(
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
@@ -662,25 +1208,25 @@ fun RedeemBottomSheet(
 
                     // Confirm button
                     Button(
-                        onClick = { if (hasEnough) onDismiss() },
-                        enabled = hasEnough,
+                        onClick = {
+                            val id = apiProduct?.id ?: localProduct?.id?.toString() ?: return@Button
+                            onConfirm(id, quantity)
+                        },
+                        enabled = hasEnough && !isLoading,
                         shape = RoundedCornerShape(50),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = GreenTop,
+                            containerColor = GreenTopRw,
                             disabledContainerColor = Color(0xFFDDDDDD)
                         ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp)
-                            .padding(bottom = 20.dp)
-                            .height(52.dp)
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(horizontal = 20.dp).padding(bottom = 20.dp).height(52.dp)
                     ) {
-                        Text(
-                            "Xác nhận",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (hasEnough) Color.White else Color(0xFF888888)
-                        )
+                        if (isLoading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Xác nhận", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                                color = if (hasEnough) Color.White else Color(0xFF888888))
+                        }
                     }
                 }
             }

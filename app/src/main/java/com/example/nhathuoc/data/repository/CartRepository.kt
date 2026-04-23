@@ -1,128 +1,33 @@
 package com.example.nhathuoc.data.repository
 
-import com.example.nhathuoc.data.model.*
-import com.example.nhathuoc.data.remote.ApiService
-import com.example.nhathuoc.data.remote.RetrofitClient
-import retrofit2.HttpException
-import java.io.IOException
+import com.example.nhathuoc.data.model.AddCartRequest
+import com.example.nhathuoc.data.model.CartDto
+import com.example.nhathuoc.data.model.DataMessageResponse
+import com.example.nhathuoc.data.model.MessageResponse
+import com.example.nhathuoc.data.model.NetworkResult
+import com.example.nhathuoc.data.model.UpdateCartItemRequest
+import com.example.nhathuoc.data.remote.AddCartItemResult
+import com.example.nhathuoc.data.remote.CartApiService
+import com.example.nhathuoc.util.ApiErrorHandler
+import javax.inject.Inject
+import javax.inject.Singleton
 
-/**
- * Repository for cart operations
- * Handles cart operations: get, add, update, remove items
- */
-class CartRepository {
+@Singleton
+class CartRepository @Inject constructor(
+    private val apiService: CartApiService
+) {
+    suspend fun getCart(): NetworkResult<DataMessageResponse<CartDto>> =
+        ApiErrorHandler.safeApiCall { apiService.getCart() }
 
-    private val apiService: ApiService by lazy {
-        RetrofitClient.createService<ApiService>()
-    }
+    suspend fun addToCart(request: AddCartRequest): NetworkResult<DataMessageResponse<AddCartItemResult>> =
+        ApiErrorHandler.safeApiCall { apiService.addToCart(request) }
 
-    // Get user cart
-    suspend fun getCart(): NetworkResult<CartDto> {
-        return try {
-            val response = apiService.getCart()
+    suspend fun updateCartItem(itemId: String, quantity: Int): NetworkResult<MessageResponse> =
+        ApiErrorHandler.safeApiCall { apiService.updateCartItem(itemId, UpdateCartItemRequest(quantity)) }
 
-            if (response.isSuccessful) {
-                NetworkResult.Success(response.body()!!)
-            } else {
-                val errorMessage = parseErrorMessage(response.errorBody()?.string())
-                NetworkResult.Error(response.code(), errorMessage)
-            }
-        } catch (e: HttpException) {
-            NetworkResult.Error(e.code(), e.message())
-        } catch (e: IOException) {
-            NetworkResult.Exception(e)
-        } catch (e: Exception) {
-            NetworkResult.Exception(e)
-        }
-    }
+    suspend fun removeCartItem(itemId: String): NetworkResult<MessageResponse> =
+        ApiErrorHandler.safeApiCall { apiService.removeCartItem(itemId) }
 
-    // Add product to cart
-    suspend fun addToCart(
-        productId: String, // Changed to String for UUID
-        quantity: Int = 1,
-        unit: String = "Hộp" // Added unit parameter
-    ): NetworkResult<AddCartResponse> {
-        return try {
-            val request = AddCartRequest(
-                productId = productId,
-                quantity = quantity,
-                unit = unit
-            )
-            val response = apiService.addToCart(request)
-
-            if (response.isSuccessful) {
-                NetworkResult.Success(response.body()!!)
-            } else {
-                val errorMessage = parseErrorMessage(response.errorBody()?.string())
-                NetworkResult.Error(response.code(), errorMessage)
-            }
-        } catch (e: HttpException) {
-            NetworkResult.Error(e.code(), e.message())
-        } catch (e: IOException) {
-            NetworkResult.Exception(e)
-        } catch (e: Exception) {
-            NetworkResult.Exception(e)
-        }
-    }
-
-    // Update cart item quantity
-    suspend fun updateCartItem(
-        itemId: String, // Changed to String for UUID
-        quantity: Int,
-        unit: String? = null // Added optional unit parameter
-    ): NetworkResult<CartResponse> {
-        return try {
-            val request = UpdateCartItemRequest(
-                quantity = quantity,
-                unit = unit
-            )
-            val response = apiService.updateCartItem(itemId, request)
-
-            if (response.isSuccessful) {
-                NetworkResult.Success(response.body()!!)
-            } else {
-                val errorMessage = parseErrorMessage(response.errorBody()?.string())
-                NetworkResult.Error(response.code(), errorMessage)
-            }
-        } catch (e: HttpException) {
-            NetworkResult.Error(e.code(), e.message())
-        } catch (e: IOException) {
-            NetworkResult.Exception(e)
-        } catch (e: Exception) {
-            NetworkResult.Exception(e)
-        }
-    }
-
-    // Remove item from cart
-    suspend fun removeCartItem(itemId: String): NetworkResult<CartResponse> { // Changed to String for UUID
-        return try {
-            val response = apiService.removeCartItem(itemId)
-
-            if (response.isSuccessful) {
-                NetworkResult.Success(response.body()!!)
-            } else {
-                val errorMessage = parseErrorMessage(response.errorBody()?.string())
-                NetworkResult.Error(response.code(), errorMessage)
-            }
-        } catch (e: HttpException) {
-            NetworkResult.Error(e.code(), e.message())
-        } catch (e: IOException) {
-            NetworkResult.Exception(e)
-        } catch (e: Exception) {
-            NetworkResult.Exception(e)
-        }
-    }
-
-    // Helper function to parse error messages
-    private fun parseErrorMessage(errorBody: String?): String {
-        return try {
-            if (errorBody != null) {
-                kotlinx.serialization.json.Json.decodeFromString<ApiError>(errorBody).message
-            } else {
-                "Có lỗi xảy ra, vui lòng thử lại"
-            }
-        } catch (e: Exception) {
-            errorBody ?: "Có lỗi xảy ra, vui lòng thử lại"
-        }
-    }
+    suspend fun clearCart(): NetworkResult<MessageResponse> =
+        ApiErrorHandler.safeApiCall { apiService.clearCart() }
 }

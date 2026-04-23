@@ -1,677 +1,632 @@
 package com.example.nhathuoc.ui.screen.miniscreen
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.nhathuoc.ui.theme.GreenLight
-private val GreenTop = Color(0xFF2E7D32)
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.nhathuoc.data.model.OrderDto
+import com.example.nhathuoc.data.model.OrderItemDto
+import com.example.nhathuoc.data.model.UiState
+import com.example.nhathuoc.data.model.UserAddress
+import com.example.nhathuoc.ui.theme.BgColor
+import com.example.nhathuoc.ui.theme.GreenTop
+import com.example.nhathuoc.viewmodel.OrderViewModel
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-private val GoldColor = Color(0xFFFFAB00)
-private val GreenOk   = Color(0xFF2E7D32)
-
-// ── Data ──────────────────────────────────────────────────────────────
-data class OrderProduct(
-    val name: String,
-    val price: String,
-    val quantity: Int,
-    val unit: String,
-    val icon: ImageVector,
-    val iconTint: Color,
-    val iconBg: Color
-)
-
-data class OrderDetail(
-    val orderId: String,
-    val date: String,
-    val status: String,                     // "Đã giao", "Đang giao", ...
-    val pickupMethod: String,               // "Nhận tại cửa hàng" / "Giao tận nơi"
-    val receiverName: String,
-    val receiverPhone: String,
-    val address: String,
-    val paymentMethod: String,
-    val isPaid: Boolean,
-    val products: List<OrderProduct>,
-    val subtotal: String,
-    val discount: String,
-    val voucher: String,
-    val shippingFee: String,
-    val total: String,
-    val rewardPoints: Int
-)
-
-// ── Sample ─────────────────────────────────────────────────────────────
-val sampleOrderDetail = OrderDetail(
-    orderId       = "4497026",
-    date          = "28/10/2025",
-    status        = "Đã giao",
-    pickupMethod  = "Nhận tại cửa hàng",
-    receiverName  = "b bào ngọc",
-    receiverPhone = "0329 645 776",
-    address       = "Nhà thuốc Long Châu 1-2-3-4 Chợ Yên Xá, Phường Thanh Liệt, TP. Hà Nội",
-    paymentMethod = "Thanh toán bằng tiền mặt",
-    isPaid        = true,
-    products      = listOf(
-        OrderProduct(
-            name     = "Kem bôi da Acyclovir Stella Cream (5g) điều trị nhiễm virus Herpes simplex",
-            price    = "17.000đ",
-            quantity = 1,
-            unit     = "Tuýp",
-            icon     = Icons.Outlined.MedicalServices,
-            iconTint = Color(0xFFC2185B),
-            iconBg   = Color(0xFFFCE4EC)
-        )
-    ),
-    subtotal      = "17.000đ",
-    discount      = "0đ",
-    voucher       = "0đ",
-    shippingFee   = "Miễn phí",
-    total         = "17.000đ",
-    rewardPoints  = 17
-)
-
-// ── Screen ────────────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderDetailScreen(
-    order: OrderDetail = sampleOrderDetail,
-    onBack: () -> Unit = {},
-    onSupport: (ChatProductContext) -> Unit = {},
-    onReorder: () -> Unit = {}
+    orderId: String,
+    onBack: () -> Unit,
+    viewModel: OrderViewModel = hiltViewModel()
 ) {
-    val listState = rememberLazyListState()
-    val clipboardManager = LocalClipboardManager.current
+    val orderState by viewModel.orderState.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    var showCancelDialog by rememberSaveable { mutableStateOf(false) }
 
-    // Collapse detection
-    val scrollOffset by remember {
-        derivedStateOf {
-            listState.firstVisibleItemIndex * 1000 + listState.firstVisibleItemScrollOffset
-        }
-    }
-    // 0f = top (expanded hero), 1f = collapsed (solid topbar)
-    val collapseProgress by remember {
-        derivedStateOf { (scrollOffset / 400f).coerceIn(0f, 1f) }
+    LaunchedEffect(orderId) {
+        viewModel.getOrderById(orderId)
     }
 
-    val topBarBgAlpha by animateFloatAsState(collapseProgress, tween(150))
-    val heroAlpha     by animateFloatAsState(1f - collapseProgress, tween(150))
-    val topBarHeight  by animateDpAsState(
-        if (collapseProgress > 0.5f) 56.dp else 0.dp, tween(150)
-    )
+    if (showCancelDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("Hủy đơn hàng") },
+            text = { Text("Bạn có chắc muốn hủy đơn hàng này không?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showCancelDialog = false
+                        viewModel.cancelOrder(orderId, "Người dùng hủy trên ứng dụng")
+                    }
+                ) {
+                    Text("Xác nhận")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showCancelDialog = false }) {
+                    Text("Đóng")
+                }
+            }
+        )
+    }
 
     Scaffold(
-        containerColor = Color(0xFFF0F2F5),
-        bottomBar = {
-            OrderBottomBar(
-                onSupport = {
-                    val first = order.products.firstOrNull()
-                    if (first != null) {
-                        onSupport(
-                            ChatProductContext(
-                                productName     = first.name,
-                                brand           = "Long Châu",
-                                origin          = "Việt Nam",
-                                price           = first.price,
-                                originalPrice   = first.price,
-                                discountPercent = 0,
-                                icon            = first.icon,
-                                iconTint        = first.iconTint,
-                                iconBg          = first.iconBg
-                            )
-                        )
+        containerColor = BgColor,
+        topBar = {
+            TopAppBar(
+                title = { Text("Chi tiết đơn hàng", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
                 },
-                onReorder = onReorder
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White,
+                    titleContentColor = Color(0xFF1A1A1A)
+                )
             )
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-
-                // ── Hero header (expands at top, fades on scroll) ──
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(260.dp)
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(Color(0xFFDEEAFF), Color(0xFFF0F4FF), Color(0xFFF0F2F5))
-                                )
-                            )
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .alpha(heroAlpha)
-                                .padding(top = 56.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            // Status title
-                            Text(
-                                text = order.status,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = GreenTop
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "Rất vui vì bạn đã tin tưởng và mua hàng.",
-                                fontSize = 13.sp,
-                                color = Color(0xFF555555)
-                            )
-                            Spacer(Modifier.height(16.dp))
-
-                            // Mascot illustration (icon-based)
-                            Box(
-                                modifier = Modifier
-                                    .size(110.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        Brush.radialGradient(listOf(Color(0xFFBDD8FF), Color(0xFFDEEAFF)))
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.LocalPharmacy,
-                                    contentDescription = null,
-                                    tint = GreenTop,
-                                    modifier = Modifier.size(60.dp)
-                                )
-                                // Thumbs-up badge
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .size(28.dp)
-                                        .clip(CircleShape)
-                                        .background(GreenTop),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Filled.ThumbUp,
-                                        null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        // Back button always visible
-                        IconButton(
-                            onClick = onBack,
-                            modifier = Modifier
-                                .statusBarsPadding()
-                                .padding(4.dp)
-                                .align(Alignment.TopStart)
-                        ) {
-                            Icon(
-                                Icons.Filled.ArrowBackIosNew,
-                                "Quay lại",
-                                tint = GreenTop,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
+        when (val state = orderState) {
+            UiState.Idle, UiState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = GreenTop)
                 }
-
-                // ── Order meta card ────────────────────────────────
-                item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = Color.White
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    "Đơn hàng ${order.date}",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1A1A1A)
-                                )
-                                Icon(
-                                    Icons.Outlined.Edit,
-                                    null,
-                                    tint = GreenTop,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    order.pickupMethod,
-                                    fontSize = 13.sp,
-                                    color = Color(0xFF555555)
-                                )
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(
-                                        "#${order.orderId}",
-                                        fontSize = 13.sp,
-                                        color = Color(0xFF333333),
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    TextButton(
-                                        onClick = {
-                                            clipboardManager.setText(AnnotatedString(order.orderId))
-                                        },
-                                        contentPadding = PaddingValues(0.dp)
-                                    ) {
-                                        Text(
-                                            "Sao chép",
-                                            color = GreenTop,
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ── Receiver info ──────────────────────────────────
-                item {
-                    Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                            SectionLabel("Thông tin nhận hàng")
-                            Spacer(Modifier.height(12.dp))
-
-                            InfoDetailRow(
-                                icon = Icons.Filled.Person,
-                                iconTint = GreenTop,
-                                label = "Thông tin người nhận",
-                                value = "${order.receiverName}  •  ${order.receiverPhone}"
-                            )
-
-                            Spacer(Modifier.height(14.dp))
-                            HorizontalDivider(color = Color(0xFFF0F0F0))
-                            Spacer(Modifier.height(14.dp))
-
-                            InfoDetailRow(
-                                icon = Icons.Filled.LocationOn,
-                                iconTint = GreenTop,
-                                label = "Nhận hàng tại",
-                                value = order.address
-                            )
-                        }
-                    }
-                }
-
-                // ── Payment method ─────────────────────────────────
-                item {
-                    Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                SectionLabel("Phương thức thanh toán")
-                                if (order.isPaid) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Filled.CheckCircle,
-                                            null,
-                                            tint = GreenOk,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Text(
-                                            "Đã thanh toán",
-                                            fontSize = 13.sp,
-                                            color = GreenOk,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.height(12.dp))
-
-                            // Payment icon + label
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFFF5F5F5),
-                                    modifier = Modifier.size(44.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            Icons.Outlined.Payments,
-                                            null,
-                                            tint = GreenTop,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-                                }
-                                Text(
-                                    order.paymentMethod,
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF1A1A1A)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // ── Product list ───────────────────────────────────
-                item {
-                    Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                            SectionLabel("Danh sách sản phẩm")
-                            Spacer(Modifier.height(12.dp))
-
-                            order.products.forEach { product ->
-                                OrderProductRow(product = product)
-                                if (product != order.products.last()) {
-                                    HorizontalDivider(
-                                        color = Color(0xFFF0F0F0),
-                                        modifier = Modifier.padding(vertical = 10.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ── Payment summary ────────────────────────────────
-                item {
-                    Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                            SectionLabel("Thông tin thanh toán")
-                            Spacer(Modifier.height(12.dp))
-
-                            PaymentRow("Tổng tiền",         order.subtotal,    Color(0xFF1A1A1A))
-                            PaymentRow("Giảm giá trực tiếp", order.discount,   Color(0xFFFF6D00))
-                            PaymentRow("Giảm giá voucher",   order.voucher,    Color(0xFFFF6D00))
-                            PaymentRow("Phí vận chuyển",     order.shippingFee, GreenTop)
-
-                            HorizontalDivider(
-                                color = Color(0xFFF0F0F0),
-                                modifier = Modifier.padding(vertical = 10.dp)
-                            )
-
-                            // Total
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Thành tiền",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1A1A1A)
-                                )
-                                Text(
-                                    order.total,
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = GreenTop
-                                )
-                            }
-
-                            Spacer(Modifier.height(8.dp))
-
-                            // Reward points
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Điểm thưởng",
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF555555)
-                                )
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(20.dp)
-                                            .clip(CircleShape)
-                                            .background(GoldColor),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            "F",
-                                            color = Color.White,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                    Text(
-                                        "+${order.rewardPoints}",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GoldColor
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                item { Spacer(Modifier.height(8.dp)) }
             }
 
-            // ── Collapsing solid TopBar (appears on scroll) ────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .alpha(topBarBgAlpha)
-                    .background(Brush.horizontalGradient(listOf(GreenTop, GreenLight)))
-                    .statusBarsPadding()
-                    .height(56.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = 4.dp)
-                ) {
-                    Icon(
-                        Icons.Filled.ArrowBackIosNew,
-                        "Quay lại",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Text(
-                    order.status,
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold
+            is UiState.Error -> {
+                ErrorState(
+                    message = state.message,
+                    onRetry = { viewModel.getOrderById(orderId) },
+                    modifier = Modifier.padding(innerPadding)
+                )
+            }
+
+            is UiState.Success -> {
+                val order = state.data
+                OrderDetailContent(
+                    order = order,
+                    isBusy = isLoading,
+                    onRetry = { viewModel.getOrderById(orderId) },
+                    onCancelOrder = { showCancelDialog = true },
+                    modifier = Modifier.padding(innerPadding)
                 )
             }
         }
     }
 }
 
-// ── Sub-composables ───────────────────────────────────────────────────
-
 @Composable
-private fun SectionLabel(text: String) {
-    Text(text, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
-}
-
-@Composable
-private fun InfoDetailRow(
-    icon: ImageVector,
-    iconTint: Color,
-    label: String,
-    value: String
+private fun OrderDetailContent(
+    order: OrderDto,
+    isBusy: Boolean,
+    onRetry: () -> Unit,
+    onCancelOrder: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Icon(icon, null, tint = iconTint, modifier = Modifier.size(22.dp).padding(top = 2.dp))
-        Column {
-            Text(label, fontSize = 12.sp, color = Color.Gray)
-            Spacer(Modifier.height(3.dp))
-            Text(value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1A1A1A))
+    val canCancel = order.status.uppercase() in setOf("PENDING", "PROCESSING")
+
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                HeaderCard(order = order)
+            }
+            item {
+                ShippingCard(order = order)
+            }
+            if (order.shippingAddress != null) {
+                item {
+                    AddressCard(address = order.shippingAddress)
+                }
+            }
+            item {
+                ItemsCard(items = order.items)
+            }
+            item {
+                PaymentCard(order = order)
+            }
+            item {
+                SummaryCard(order = order)
+            }
+            if (!order.note.isNullOrBlank() || !order.cancelReason.isNullOrBlank()) {
+                item {
+                    NoteCard(order = order)
+                }
+            }
+            item {
+                ActionCard(
+                    canCancel = canCancel,
+                    onRetry = onRetry,
+                    onCancelOrder = onCancelOrder
+                )
+            }
+            item { Spacer(Modifier.height(16.dp)) }
+        }
+
+        if (isBusy) {
+            Surface(
+                color = Color.Black.copy(alpha = 0.08f),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = GreenTop)
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun OrderProductRow(product: OrderProduct) {
+private fun HeaderCard(order: OrderDto) {
+    val (statusLabel, statusColor) = orderStatusPresentation(order.status)
+    val (paymentLabel, paymentColor) = paymentStatusPresentation(order.paymentStatus)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = order.orderCode,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = GreenTop
+                    )
+                    Text(
+                        text = "Đặt lúc ${formatDateTime(order.createdAt)}",
+                        color = Color(0xFF6B7280),
+                        fontSize = 13.sp
+                    )
+                }
+                Column(
+                    modifier = Modifier.padding(start = 12.dp),
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    StatusChip(label = statusLabel, color = statusColor)
+                    StatusChip(label = paymentLabel, color = paymentColor)
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AssistChip(label = pickupTypeLabel(order.pickupType), icon = if (order.pickupType.equals("PICKUP", true)) Icons.Filled.Storefront else Icons.Filled.LocalShipping)
+                AssistChip(label = paymentMethodLabel(order.paymentMethod), icon = Icons.Filled.Payments)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShippingCard(order: OrderDto) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Vận chuyển và tiến độ", fontWeight = FontWeight.Bold, color = GreenTop, fontSize = 18.sp)
+            DetailRow("Hình thức nhận hàng", pickupTypeLabel(order.pickupType))
+            order.estimatedDelivery?.takeIf { it.isNotBlank() }?.let {
+                DetailRow("Dự kiến giao", formatDateTime(it))
+            }
+            order.deliveredAt?.takeIf { it.isNotBlank() }?.let {
+                DetailRow("Đã giao lúc", formatDateTime(it))
+            }
+            order.cancelledAt?.takeIf { it.isNotBlank() }?.let {
+                DetailRow("Đã hủy lúc", formatDateTime(it))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddressCard(address: UserAddress) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Địa chỉ nhận hàng", fontWeight = FontWeight.Bold, color = GreenTop, fontSize = 18.sp)
+            DetailRow("Người nhận", address.recipientName)
+            DetailRow("Số điện thoại", address.recipientPhone, icon = Icons.Filled.Phone)
+            DetailRow("Địa chỉ", address.fullAddress, singleLine = false)
+        }
+    }
+}
+
+@Composable
+private fun ItemsCard(items: List<OrderItemDto>) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("Sản phẩm đã đặt", fontWeight = FontWeight.Bold, color = GreenTop, fontSize = 18.sp)
+            items.forEachIndexed { index, item ->
+                OrderItemRow(item = item)
+                if (index != items.lastIndex) {
+                    HorizontalDivider(color = Color(0xFFE5E7EB))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OrderItemRow(item: OrderItemDto) {
+    val lineTotal = item.totalPrice ?: item.price * item.quantity
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
     ) {
-        // Product icon
-        Box(
-            modifier = Modifier
-                .size(70.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(product.iconBg),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                product.icon,
-                null,
-                tint = product.iconTint,
-                modifier = Modifier.size(36.dp)
-            )
-        }
-
         Column(modifier = Modifier.weight(1f)) {
+            Text(item.name, fontWeight = FontWeight.SemiBold, color = Color(0xFF111827), fontSize = 16.sp)
+            Spacer(Modifier.height(4.dp))
             Text(
-                product.name,
-                fontSize = 13.sp,
-                color = Color(0xFF1A1A1A),
-                lineHeight = 18.sp
+                text = "${item.quantity} x ${item.unit} • ${formatCurrency(item.price)}",
+                color = Color(0xFF6B7280),
+                fontSize = 13.sp
             )
-            Spacer(Modifier.height(6.dp))
+            item.product?.brand?.takeIf { it.isNotBlank() }?.let {
+                Spacer(Modifier.height(2.dp))
+                Text(text = it, color = Color(0xFF9CA3AF), fontSize = 12.sp)
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = formatCurrency(lineTotal),
+            fontWeight = FontWeight.Bold,
+            color = GreenTop,
+            fontSize = 15.sp
+        )
+    }
+}
+
+@Composable
+private fun PaymentCard(order: OrderDto) {
+    val (paymentLabel, paymentColor) = paymentStatusPresentation(order.paymentStatus)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Thanh toán", fontWeight = FontWeight.Bold, color = GreenTop, fontSize = 18.sp)
+            DetailRow("Phương thức", paymentMethodLabel(order.paymentMethod))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    product.price,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1A1A1A)
-                )
-                Text(
-                    "x${product.quantity} ${product.unit}",
-                    fontSize = 13.sp,
-                    color = Color.Gray
-                )
-            }
-            Spacer(Modifier.height(6.dp))
-            TextButton(
-                onClick = {},
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text(
-                    "Xem cách dùng và bảo quản",
-                    fontSize = 13.sp,
-                    color = GreenTop,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(Modifier.width(2.dp))
-                Icon(
-                    Icons.Filled.ChevronRight,
-                    null,
-                    tint = GreenTop,
-                    modifier = Modifier.size(16.dp)
-                )
+                Text("Trạng thái thanh toán", color = Color(0xFF6B7280), fontSize = 14.sp)
+                StatusChip(label = paymentLabel, color = paymentColor)
             }
         }
     }
 }
 
 @Composable
-private fun PaymentRow(label: String, value: String, valueColor: Color) {
-    Row(
+private fun SummaryCard(order: OrderDto) {
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Text(label, fontSize = 14.sp, color = Color(0xFF555555))
-        Text(value, fontSize = 14.sp, color = valueColor, fontWeight = FontWeight.Medium)
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Tổng thanh toán", fontWeight = FontWeight.Bold, color = GreenTop, fontSize = 18.sp)
+            DetailRow("Tạm tính", formatCurrency(order.subtotal))
+            DetailRow("Phí vận chuyển", if (order.shippingFee == 0.0) "Miễn phí" else formatCurrency(order.shippingFee))
+            DetailRow("Giảm giá", formatCurrency(order.discount))
+            if (order.pointsUsed > 0) {
+                DetailRow("Điểm đã dùng", order.pointsUsed.toString())
+            }
+            if (order.pointsEarned > 0) {
+                DetailRow("Điểm nhận được", order.pointsEarned.toString())
+            }
+            HorizontalDivider(color = Color(0xFFE5E7EB))
+            DetailRow(
+                label = "Tổng cộng",
+                value = formatCurrency(order.total),
+                valueColor = GreenTop,
+                emphasized = true
+            )
+        }
     }
 }
 
 @Composable
-private fun OrderBottomBar(
-    onSupport: () -> Unit,
-    onReorder: () -> Unit
-) {
-    Surface(color = Color.White, shadowElevation = 8.dp) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            OutlinedButton(
-                onClick = onSupport,
-                modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop),
-                border = ButtonDefaults.outlinedButtonBorder
-            ) {
-                Text("Hỗ trợ", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+private fun NoteCard(order: OrderDto) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Ghi chú", fontWeight = FontWeight.Bold, color = GreenTop, fontSize = 18.sp)
+            order.note?.takeIf { it.isNotBlank() }?.let {
+                Text(text = it, color = Color(0xFF374151), fontSize = 14.sp)
             }
-            Button(
-                onClick = onReorder,
-                modifier = Modifier.weight(2f).height(50.dp),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
-            ) {
-                Text("Mua lại", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            order.cancelReason?.takeIf { it.isNotBlank() }?.let {
+                Text(text = "Lý do hủy: $it", color = Color(0xFFB45309), fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
         }
     }
+}
+
+@Composable
+private fun ActionCard(
+    canCancel: Boolean,
+    onRetry: () -> Unit,
+    onCancelOrder: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Button(
+                onClick = onRetry,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Tải lại đơn hàng")
+            }
+            if (canCancel) {
+                OutlinedButton(
+                    onClick = onCancelOrder,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = Color(0xFFB45309))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Hủy đơn hàng", color = Color(0xFFB45309))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ErrorState(
+    message: String,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Filled.WarningAmber,
+                contentDescription = null,
+                tint = Color(0xFFE57373)
+            )
+            Spacer(Modifier.height(12.dp))
+            Text("Không tải được chi tiết đơn hàng", fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            Text(message, color = Color(0xFF6B7280))
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = onRetry) {
+                Text("Thử lại")
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(
+    label: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    singleLine: Boolean = true,
+    emphasized: Boolean = false,
+    valueColor: Color = Color(0xFF111827)
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (icon != null) {
+                Icon(icon, contentDescription = null, tint = Color(0xFF9CA3AF))
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                text = label,
+                color = Color(0xFF6B7280),
+                fontSize = if (emphasized) 16.sp else 14.sp,
+                fontWeight = if (emphasized) FontWeight.Bold else FontWeight.Normal
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = value,
+            color = valueColor,
+            fontSize = if (emphasized) 18.sp else 14.sp,
+            fontWeight = if (emphasized) FontWeight.ExtraBold else FontWeight.SemiBold,
+            maxLines = if (singleLine) 1 else Int.MAX_VALUE,
+            overflow = if (singleLine) TextOverflow.Ellipsis else TextOverflow.Clip
+        )
+    }
+}
+
+@Composable
+private fun AssistChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Surface(
+        color = Color(0xFFF3F4F6),
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = GreenTop)
+            Text(text = label, color = GreenTop, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun StatusChip(label: String, color: Color) {
+    Surface(
+        color = color.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Text(
+            text = label,
+            color = color,
+            fontWeight = FontWeight.Bold,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+        )
+    }
+}
+
+private fun pickupTypeLabel(value: String): String = when (value.uppercase()) {
+    "PICKUP" -> "Nhận tại cửa hàng"
+    else -> "Giao tận nơi"
+}
+
+private fun paymentMethodLabel(value: String): String = when (value.uppercase()) {
+    "COD" -> "Thanh toán khi nhận hàng"
+    "MOMO" -> "Ví MoMo"
+    "VNPAY" -> "VNPay"
+    "ZALOPAY" -> "ZaloPay"
+    else -> value
+}
+
+private fun orderStatusPresentation(value: String): Pair<String, Color> = when (value.uppercase()) {
+    "PENDING" -> "Đơn chờ xác nhận" to Color(0xFFF59E0B)
+    "PROCESSING" -> "Đơn đang xử lý" to Color(0xFF2563EB)
+    "SHIPPING" -> "Đơn đang giao" to Color(0xFF7C3AED)
+    "DELIVERED" -> "Đơn đã giao" to Color(0xFF2E7D32)
+    "CANCELLED" -> "Đơn đã hủy" to Color(0xFFDC2626)
+    "RETURNED" -> "Đơn hoàn trả" to Color(0xFF6B7280)
+    else -> value to Color(0xFF6B7280)
+}
+
+private fun paymentStatusPresentation(value: String): Pair<String, Color> = when (value.uppercase()) {
+    "UNPAID" -> "Chưa thanh toán" to Color(0xFFB45309)
+    "PENDING" -> "Đang chờ" to Color(0xFFF59E0B)
+    "COMPLETED" -> "Đã thanh toán" to Color(0xFF2E7D32)
+    "FAILED" -> "Thất bại" to Color(0xFFDC2626)
+    "REFUNDED" -> "Đã hoàn tiền" to Color(0xFF7C3AED)
+    else -> value to Color(0xFF6B7280)
+}
+
+private fun formatCurrency(value: Double): String {
+    val symbols = DecimalFormatSymbols(Locale.US).apply {
+        groupingSeparator = '.'
+        decimalSeparator = ','
+    }
+    return DecimalFormat("#,###", symbols).format(value) + " đ"
+}
+
+private fun formatDateTime(raw: String): String {
+    val output = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+    return runCatching { OffsetDateTime.parse(raw).format(output) }
+        .recoverCatching { LocalDateTime.parse(raw).format(output) }
+        .recoverCatching { LocalDate.parse(raw).format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) }
+        .getOrElse { raw.replace('T', ' ').take(16) }
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder: Máy đo huyết áp OMRON – thay thế bằng ảnh thật (mock_omron.webp) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="400dp" android:height="400dp" android:viewportWidth="400" android:viewportHeight="400">
+    <path android:fillColor="#E1F5FE" android:pathData="M0,0 L400,0 L400,400 L0,400 Z"/>
+    <path android:fillColor="#0277BD" android:pathData="M200,80 A120,120,0,1,1,199.9,80 Z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M160,180 L240,180 L240,220 L230,220 L230,260 L170,260 L170,220 L160,220 Z"/>
+    <path android:fillColor="#E1F5FE" android:pathData="M185,195 L215,195 L215,245 L185,245 Z"/>
+</vector>

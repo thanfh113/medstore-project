@@ -1,4 +1,4 @@
-package com.example.nhathuoc.data.model
+﻿package com.example.nhathuoc.data.model
 
 import kotlinx.serialization.Serializable
 
@@ -21,6 +21,12 @@ data class ApiResponse<T>(
     val message: String,
     val data: T? = null,
     val error: ApiError? = null
+)
+
+@Serializable
+data class DataMessageResponse<T>(
+    val data: T,
+    val message: String
 )
 
 @Serializable
@@ -54,7 +60,6 @@ data class MessageResponse(
     val timestamp: String = ""
 )
 
-// UI State for ViewModels
 sealed class UiState<out T> {
     object Idle : UiState<Nothing>()
     object Loading : UiState<Nothing>()
@@ -62,14 +67,12 @@ sealed class UiState<out T> {
     data class Error(val message: String, val exception: Throwable? = null) : UiState<Nothing>()
 }
 
-// Network result wrapper
 sealed class NetworkResult<out T> {
     data class Success<T>(val data: T) : NetworkResult<T>()
     data class Error(val code: Int, val message: String) : NetworkResult<Nothing>()
     data class Exception(val e: Throwable) : NetworkResult<Nothing>()
 }
 
-// Common filter/sort options
 enum class SortOrder {
     ASC, DESC
 }

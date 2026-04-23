@@ -39,7 +39,7 @@ private val GreenTop = Color(0xFF2E7D32)
 private val GoldColor = Color(0xFFFFAB00)
 private val DrawerWidth = 300.dp
 
-// ── Data ─────────────────────────────────────────────────────────
+// -- Data ---------------------------------------------------------
 data class DrawerMenuItem(
     val label: String,
     val icon: ImageVector? = null,
@@ -49,11 +49,11 @@ data class DrawerMenuItem(
 
 val defaultDrawerMenuItems = listOf(
     DrawerMenuItem("Thông báo",             badge = 3),
-    DrawerMenuItem("Dụng cụ tiêm truyền",   children = listOf("Kim tiêm", "Ống xi lanh", "Dây truyền dịch", "Bướm tiêm")),
-    DrawerMenuItem("Băng gạc - Cầm máu",    children = listOf("Băng dính y tế", "Gạc vô trùng", "Băng cuộn", "Băng keo thông tấm kháng sinh")),
+    DrawerMenuItem("Dụng cụ tiêm truyền",   children = listOf("Kim tiêm", "Ống xi lanh", "Dây truyền dịch", "Bơm tiêm")),
+    DrawerMenuItem("Băng gạc - Cầm máu",    children = listOf("Băng dính y tế", "Gạc vô trùng", "Băng cuộn", "Băng keo thấm tẩm kháng sinh")),
     DrawerMenuItem("Thiết bị chẩn đoán",    children = listOf("Máy đo huyết áp", "Nhiệt kế y tế", "Máy đo SpO2", "Máy đo đường huyết")),
     DrawerMenuItem("Khẩu trang - PPE",      children = listOf("Khẩu trang y tế", "Khẩu trang N95", "Quần áo bảo hộ", "Kính bảo hộ")),
-    DrawerMenuItem("Thiết bị phẫu thuật",   children = listOf("Dụng cụ vi phẫu", "Kẹp phẫu thuật", "Dây khâu", "Van cầm máu")),
+    DrawerMenuItem("Thiết bị phẫu thuật",    children = listOf("Dụng cụ vi phẫu", "Kẹp phẫu thuật", "Dây khâu", "Van cầm máu")),
     DrawerMenuItem("Chống nhiễm khuẩn"),
     DrawerMenuItem("Phục hồi chức năng",    children = listOf("Nạng - Xe lăn", "Dụng cụ vật lý trị liệu", "Nẹp chỉnh hình")),
     DrawerMenuItem("Tin tức - Kiến thức",   children = listOf("Tin tức ngành", "Hướng dẫn sử dụng", "Tiêu chuẩn chất lượng")),
@@ -61,7 +61,7 @@ val defaultDrawerMenuItems = listOf(
 )
 
 
-// ── Drawer State ─────────────────────────────────────────────────
+// -- Drawer State -------------------------------------------------
 class DrawerState {
     var isOpen by mutableStateOf(false)
     // 0f = closed, 1f = fully open
@@ -75,11 +75,11 @@ class DrawerState {
 @Composable
 fun rememberDrawerState() = remember { DrawerState() }
 
-// ── Main composable ───────────────────────────────────────────────
+// -- Main composable -----------------------------------------------
 @Composable
 fun AppDrawer(
     drawerState: DrawerState,
-    userName: String = "bào ngọc",
+    userName: String = "Bảo Ngọc",
     rewardPoints: Int = 246,
     notificationCount: Int = 3,
     onMenuItemClick: (DrawerMenuItem) -> Unit = {},
@@ -106,7 +106,7 @@ fun AppDrawer(
     var isDragging by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // ── Main content ──────────────────────────────────────────
+        // -- Main content ------------------------------------------
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -144,7 +144,7 @@ fun AppDrawer(
             content()
         }
 
-        // ── Scrim ─────────────────────────────────────────────────
+        // -- Scrim -------------------------------------------------
         if (animatedProgress > 0f) {
             Box(
                 modifier = Modifier
@@ -159,7 +159,7 @@ fun AppDrawer(
             )
         }
 
-        // ── Drawer panel ──────────────────────────────────────────
+        // -- Drawer panel ------------------------------------------
         Box(
             modifier = Modifier
                 .width(DrawerWidth)
@@ -180,7 +180,7 @@ fun AppDrawer(
     }
 }
 
-// ── Drawer content ────────────────────────────────────────────────
+// -- Drawer content ------------------------------------------------
 @Composable
 private fun DrawerContent(
     userName: String,
@@ -193,7 +193,7 @@ private fun DrawerContent(
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
 
-        // ── Header: Logo + Close ──────────────────────────────────
+        // -- Header: Logo + Close ----------------------------------
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -213,7 +213,7 @@ private fun DrawerContent(
             }
         }
 
-        // ── User info banner ──────────────────────────────────────
+        // -- User info banner --------------------------------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -233,7 +233,7 @@ private fun DrawerContent(
                 }
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text("b $userName", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("Chào $userName", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     Spacer(Modifier.height(4.dp))
                     Surface(
                         shape = RoundedCornerShape(50),
@@ -252,7 +252,7 @@ private fun DrawerContent(
             }
         }
 
-        // ── Menu items ────────────────────────────────────────────
+        // -- Menu items --------------------------------------------
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -261,13 +261,13 @@ private fun DrawerContent(
             menuItems.forEach { item ->
                 DrawerMenuRow(
                     item = item,
-                    onClick = { onMenuItemClick(item) }
+                    onClick = onMenuItemClick
                 )
                 HorizontalDivider(color = Color(0xFFF0F0F0), thickness = 0.8.dp)
             }
         }
 
-        // ── Footer: Hotline + Version ─────────────────────────────
+        // -- Footer: Hotline + Version -----------------------------
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -299,11 +299,11 @@ private fun DrawerContent(
     }
 }
 
-// ── Single menu row (collapsible) ────────────────────────────────
+// -- Single menu row (collapsible) --------------------------------
 @Composable
 private fun DrawerMenuRow(
     item: DrawerMenuItem,
-    onClick: () -> Unit
+    onClick: (DrawerMenuItem) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val hasChildren = item.children.isNotEmpty()
@@ -314,7 +314,7 @@ private fun DrawerMenuRow(
                 .fillMaxWidth()
                 .clickable {
                     if (hasChildren) expanded = !expanded
-                    else onClick()
+                    else onClick(item)
                 }
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -348,7 +348,7 @@ private fun DrawerMenuRow(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onClick() }
+                        .clickable { onClick(item.copy(label = child, children = emptyList())) }
                         .padding(start = 36.dp, end = 20.dp, top = 10.dp, bottom = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

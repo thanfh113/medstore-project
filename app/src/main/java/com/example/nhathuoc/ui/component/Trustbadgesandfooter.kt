@@ -104,7 +104,7 @@ fun HomeFooter(
         HorizontalDivider(color = Color(0xFFEEEEEE))
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "© 2007 - 2026 Công ty Cổ Phần Vật Tư Y Tế Hà Tiến Thành",
+            text = "© 2007 - 2026 Công ty Cổ Phần Vật Tư Y Tế Hạ Tiến Thành",
             fontSize = 11.sp,
             color = Color.Gray,
             textAlign = TextAlign.Center
@@ -118,7 +118,7 @@ fun HomeFooter(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "Địa chỉ: 379-381 Hai Bà Trưng, P.8, Q.3,\nPhường Xuân Hoà, TP. HCM.",
+            text = "Địa chỉ: 379-381 Hai Bà Trưng, P.8, Q.3,\nPhường Xuân Hòa, TP. HCM.",
             fontSize = 11.sp,
             color = Color.Gray,
             textAlign = TextAlign.Center,

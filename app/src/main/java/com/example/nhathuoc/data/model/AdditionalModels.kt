@@ -26,7 +26,6 @@ data class ShopDto(
 @Serializable
 data class PharmacyDto(
     val id: String, // UUID from backend
-    val shopId: String, // UUID from backend - Added for shop relationship
     val name: String,
     val address: String,
     val ward: String,
@@ -56,7 +55,7 @@ data class NotificationDto(
     val id: String, // UUID from backend
     val userId: String? = null, // UUID from backend - Match schema (can be null for broadcast)
     val title: String,
-    val body: String, // Match schema field name (was message)
+    val body: String? = null, // Match schema field name (was message)
     val message: String? = null, // Keep for backward compatibility
     val type: String, // "ORDER", "PROMOTION", "SYSTEM", "REMINDER"
     val refId: String? = null, // Match schema field name (was data map)
@@ -94,32 +93,42 @@ data class BannerDto(
 
 @Serializable
 data class ChatSessionDto(
-    val id: String, // UUID from backend
-    val userId: String, // UUID from backend
-    val pharmacistId: String?, // UUID from backend
-    val pharmacist: PharmacistDto?,
-    val type: String, // "general", "product", "order", "prescription"
-    val subject: String?,
-    val status: String, // "active", "closed", "waiting"
-    val lastMessage: ChatMessageDto?,
-    val unreadCount: Int,
+    val id: String,
+    val userId: String,
+    val productId: String? = null,
+    val status: String,
     val createdAt: String,
-    val updatedAt: String
+    val lastMessage: ChatMessageDto? = null
 )
 
 @Serializable
 data class ChatMessageDto(
-    val id: String, // UUID from backend
-    val sessionId: String, // UUID from backend
-    val senderId: String, // UUID from backend
-    val senderType: String, // "user", "pharmacist", "system"
-    val message: String,
-    val messageType: String, // "text", "image", "file", "product"
-    val attachmentUrl: String? = null,
-    val metadata: Map<String, String> = emptyMap(),
-    val isRead: Boolean = false,
-    val readAt: String? = null,
+    val id: String,
+    val sessionId: String,
+    val senderId: String,
+    val senderName: String? = null,
+    val senderRole: String? = null,
+    val content: String? = null,
+    val type: String = "TEXT",
+    val metadata: String? = null,
     val createdAt: String
+)
+
+@Serializable
+data class CreateChatSessionRequest(
+    val productId: String? = null
+)
+
+@Serializable
+data class SendChatMessageRequest(
+    val content: String,
+    val type: String = "TEXT",
+    val metadata: String? = null
+)
+
+@Serializable
+data class UpdateChatSessionStatusRequest(
+    val status: String
 )
 
 @Serializable
@@ -199,8 +208,8 @@ data class PrescriptionDto(
 data class PaymentDto(
     val id: String, // UUID from backend
     val orderId: String, // UUID from backend
-    val method: String, // "COD", "VNPAY", "MOMO"
-    val status: String, // "PENDING", "SUCCESS", "FAILED", "REFUNDED"
+    val method: String, // "COD", "VNPAY", "MOMO", "ZALOPAY"
+    val status: String, // "UNPAID", "PENDING", "COMPLETED", "FAILED", "REFUNDED"
     val amount: Double,
     val transactionId: String? = null, // External transaction ID
     val gatewayResponse: String? = null, // JSON response from payment gateway

@@ -45,7 +45,7 @@ data class DiseaseProduct(
 val defaultDiseases = listOf(
     DiseaseSample(
         tabLabel = "Phẫu thuật",
-        description = "Vật tư phẫu thuật chính hãng, đảm bảo tiêu chuẩn vô trùng tuyệt đối. Từ kim chỉ khâu đến dụng cụ vi phẫu — đáp ứng mọi nhu cầu phòng mổ hiện đại.",
+        description = "Vật tư phẫu thuật chính hãng, đảm bảo tiêu chuẩn vô trùng tuyệt đối. Từ kim chỉ khâu đến dụng cụ vi phẫu đáp ứng mọi nhu cầu phòng mổ hiện đại.",
         products = listOf(
             DiseaseProduct(id=201, Icons.Outlined.MedicalServices, Color(0xFF1565C0), Color(0xFFE3F2FD), "Kim chỉ khâu Vicryl 2-0 (hộp 12 sợi)", "320.000đ", "380.000đ", 16, null),
             DiseaseProduct(id=202, Icons.Outlined.CleanHands, Color(0xFF00838F), Color(0xFFE0F7FA), "Găng tay phẫu thuật vô trùng (hộp 50 đôi)", "185.000đ", "220.000đ", 16, null),
@@ -54,7 +54,7 @@ val defaultDiseases = listOf(
     ),
     DiseaseSample(
         tabLabel = "Chẩn đoán",
-        description = "Thiết bị chẩn đoán chính xác, chuẩn WHO. Máy đo huyết áp, SpO2, đường huyết — hỗ trợ theo dõi sức khỏe tại bệnh viện và tại nhà.",
+        description = "Thiết bị chẩn đoán chính xác, chuẩn WHO. Máy đo huyết áp, SpO2, đường huyết hỗ trợ theo dõi sức khỏe tại bệnh viện và tại nhà.",
         products = listOf(
             DiseaseProduct(id=204, Icons.Outlined.MonitorHeart, Color(0xFFB71C1C), Color(0xFFFFEBEE), "Máy đo huyết áp điện tử Omron HEM-7156T", "1.250.000đ", "1.500.000đ", 17, null),
             DiseaseProduct(id=205, Icons.Outlined.Fingerprint, Color(0xFF00838F), Color(0xFFE0F7FA), "Máy đo SpO2 ngón tay CMS50D", "320.000đ", "400.000đ", 20, null),
@@ -70,7 +70,7 @@ val defaultDiseases = listOf(
     ),
     DiseaseSample(
         tabLabel = "Bảo hộ",
-        description = "Trang bị bảo hộ cá nhân (PPE) đạt chuẩn CE & ISO: khẩu trang N95, quần áo phòng dịch, kính bảo hộ — bảo vệ nhân viên y tế và bệnh nhân.",
+        description = "Trang bị bảo hộ cá nhân (PPE) đạt chuẩn CE & ISO: khẩu trang N95, quần áo phòng dịch, kính bảo hộ bảo vệ nhân viên y tế và bệnh nhân.",
         products = listOf(
             DiseaseProduct(id=208, Icons.Outlined.Masks, Color(0xFF00838F), Color(0xFFE0F7FA), "Khẩu trang N95 3M 1860 (hộp 20 cái)", "450.000đ", "520.000đ", 13, null),
         )

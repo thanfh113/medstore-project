@@ -13,12 +13,12 @@ data class RewardAccountDto(
     val totalPoints: Int,
     val availablePoints: Int,
     val usedPoints: Int,
-    val tier: String, // "BRONZE", "SILVER", "GOLD", "PLATINUM"
+    val tier: String = "BRONZE", // "BRONZE", "SILVER", "GOLD", "PLATINUM"
     val tierBenefits: List<String> = emptyList(), // Keep for client logic
     val nextTierPoints: Int? = null, // Keep for client logic
     val pointsHistory: List<PointTransactionDto> = emptyList(), // Keep for extended response
-    val createdAt: String,
-    val updatedAt: String
+    val createdAt: String = "",
+    val updatedAt: String = ""
 )
 
 @Serializable
@@ -28,7 +28,7 @@ data class PointTransactionDto(
     val userId: String? = null, // UUID from backend - Keep for backward compatibility
     val type: String, // "EARNED", "USED", "EXPIRED"
     val points: Int,
-    val description: String,
+    val description: String? = null,
     val orderId: String? = null, // UUID from backend
     val redemptionId: String? = null, // UUID from backend - Match schema field name
     val redeemId: String? = null, // Keep for backward compatibility
@@ -50,10 +50,10 @@ data class RewardProductDto(
     val termsConditions: String? = null, // Keep for detailed info
     val validFrom: String? = null, // Keep for validity period
     val validTo: String? = null, // Keep for validity period
-    val stock: Int,
+    val stock: Int = 0,
     val isActive: Boolean = true,
-    val createdAt: String,
-    val updatedAt: String
+    val createdAt: String = "",
+    val updatedAt: String = ""
 )
 
 @Serializable
@@ -67,6 +67,23 @@ data class RedeemResponse(
     val message: String,
     val redemption: RedemptionDto,
     val remainingPoints: Int
+)
+
+@Serializable
+data class RedeemRewardResultDto(
+    val redemptionId: String
+)
+
+@Serializable
+data class RewardRedemptionHistoryDto(
+    val id: String,
+    val userId: String,
+    val rewardProductId: String,
+    val productName: String,
+    val quantity: Int,
+    val pointsUsed: Int,
+    val status: String,
+    val createdAt: String
 )
 
 @Serializable

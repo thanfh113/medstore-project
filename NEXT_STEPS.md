@@ -1,7 +1,25 @@
 # 🚀 CÁC BƯỚC TIẾP THEO ĐỂ HOÀN THIỆN ỨNG DỤNG
 
 **Đề tài:** Ứng dụng bán vật tư y tế tích hợp ChatbotAI và thanh toán điện tử
-**Updated:** 01/04/2026 với Backend Analysis
+**Updated:** 09/04/2026 (đồng bộ với source code hiện tại)
+
+---
+
+## 🆕 UPDATE 09/04/2026 (ANDROID)
+
+### ✅ Hoàn thành
+- Checkout + Payment screens đã tồn tại và đã nối navigation flow
+- Chuẩn hóa build config và dọn dependencies trùng lặp
+- Chuẩn hóa DI/Hilt cho Checkout flow để tránh lỗi runtime injection
+
+### 🎯 Priority hiện tại (đã cập nhật)
+1. Hoàn thiện backend APIs còn thiếu cho Cart/Reward/Notification/Pharmacy
+2. Tích hợp payment gateway thực tế (callback/validation) thay cho mức simulation hiện tại
+3. Chuẩn hóa toàn bộ repository còn đang dùng singleton/manual client sang Hilt thống nhất
+4. Đồng bộ lại toàn bộ docs status theo trạng thái code thực tế
+
+### ❌ Không còn đúng ở tài liệu cũ
+- Mục "Checkout Flow = 0%" và "Payment Processing = 0%" phía frontend
 
 ---
 

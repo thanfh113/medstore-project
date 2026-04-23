@@ -10,7 +10,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ProductDto(
     val id: String, // UUID from backend
-    val shopId: String, // UUID from backend - Added for shop relationship
     val name: String,
     val slug: String? = null, // Added for SEO friendly URLs
     val brand: String,
@@ -53,14 +52,14 @@ data class CategoryDto(
     val id: String, // UUID from backend
     val parentId: String? = null, // Added for category hierarchy
     val name: String,
-    val slug: String,
-    val description: String?,
+    val slug: String? = null,
+    val description: String? = null,
     val productTypeDefault: String? = null, // Added for default product type
     val iconUrl: String? = null, // Keep only iconUrl to match database icon_url field
     val sortOrder: Int = 0, // Added for display order
     val isActive: Boolean = true,
-    val createdAt: String,
-    val updatedAt: String,
+    val createdAt: String = "",
+    val updatedAt: String = "",
     val deletedAt: String? = null // Added for soft delete
 )
 
@@ -114,6 +113,7 @@ data class BestSellersResponse(
 @Serializable
 data class ProductDetailResponse(
     val product: ProductDto,
+    val images: List<ProductImageDto> = emptyList(),
     val certificates: List<ProductCertificateDto>,
     val relatedProducts: List<ProductDto>
 )

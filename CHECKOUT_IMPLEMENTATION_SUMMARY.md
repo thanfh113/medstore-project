@@ -1,5 +1,25 @@
 # ✅ CHECKOUT & PAYMENT IMPLEMENTATION COMPLETED
 
+## 🆕 TECHNICAL STANDARDIZATION UPDATE (09/04/2026)
+
+### ✅ Build & Dependency cleanup
+- Loại bỏ dependencies trùng/đè version trong `app/build.gradle.kts`
+- Chuẩn hóa plugin qua version catalog (`libs.versions.toml`)
+- Bổ sung đầy đủ Hilt setup trong Gradle (plugin + compiler + navigation compose)
+
+### ✅ Hilt DI hardening cho Checkout flow
+- `CheckoutViewModel` chuyển sang `@HiltViewModel` + `@Inject constructor`
+- `CheckoutRepository` chuyển sang `@Inject constructor`
+- `CheckoutScreen` dùng `hiltViewModel()` thay cho `viewModel()` để tránh runtime DI mismatch
+- `NetworkModule` đã provide chuẩn: `ApiService`, `CartApiService`, `Retrofit`, `OkHttp`, `Json`
+- `AndroidManifest.xml` đã khai báo `android:name=".NhathuocApplication"`
+
+### ✅ Kết quả
+- Giảm rủi ro crash do Hilt không khởi tạo/không resolve được dependency trong luồng Checkout
+- Luồng checkout hiện tại bám đúng pattern DI của project
+
+---
+
 ## 🎯 **ĐÃ HOÀN THÀNH TRONG SESSION NÀY**
 
 ### **1. 🛒 CheckoutScreen.kt** - Complete Multi-step UI
