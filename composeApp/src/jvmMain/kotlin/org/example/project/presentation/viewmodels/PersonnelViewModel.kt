@@ -202,7 +202,9 @@ class PersonnelViewModel(
             val profile = employeeProfile ?: PersonnelEmployeeProfileRequest()
             profile.copy(
                 qualificationDocumentUrl = uploaded.url,
-                qualificationDocumentPublicId = uploaded.publicId
+                qualificationDocumentPublicId = uploaded.publicId,
+                qualificationDocumentType = uploaded.fileType,
+                qualificationDocumentResourceType = uploaded.resourceType
             )
         }
     }

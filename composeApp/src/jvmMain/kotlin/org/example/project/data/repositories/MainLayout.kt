@@ -93,6 +93,7 @@ fun MainLayout(
     menus.add(MenuItem("Đơn hàng", Icons.Default.ShoppingCart, "orders"))
     menus.add(MenuItem("Sản phẩm", Icons.Default.Inventory, "products"))
     menus.add(MenuItem("Chat", Icons.Default.Chat, "chat"))
+    menus.add(MenuItem("CSKH", Icons.Default.Warning, "ops"))
 
     if (userRole == "ADMIN") {
         menus.add(MenuItem("Mã giảm giá", Icons.Default.LocalOffer, "coupons"))

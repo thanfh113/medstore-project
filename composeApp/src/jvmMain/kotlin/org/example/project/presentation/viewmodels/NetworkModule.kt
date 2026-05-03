@@ -20,6 +20,7 @@ import org.example.project.data.repositories.CouponAdminRepository
 import org.example.project.data.repositories.DesktopDashboardRepository
 import org.example.project.data.repositories.DesktopOrderRepository
 import org.example.project.data.repositories.FinanceRepository
+import org.example.project.data.repositories.OperationsRepository
 import org.example.project.data.repositories.PersonnelRepository
 import org.example.project.data.repositories.PosRepository
 import org.example.project.data.repositories.ProductRepository
@@ -76,6 +77,7 @@ object NetworkModule {
     val posRepository: PosRepository by lazy { PosRepository(httpClient) }
     val couponRepository: CouponAdminRepository by lazy { CouponAdminRepository(httpClient) }
     val financeRepository: FinanceRepository by lazy { FinanceRepository(httpClient) }
+    val operationsRepository: OperationsRepository by lazy { OperationsRepository(httpClient) }
     val personnelRepository: PersonnelRepository by lazy { PersonnelRepository(httpClient) }
     val authRepository: AuthRepository by lazy { AuthRepository(httpClient) }
     val settingsRepository: SettingsRepository by lazy { 
@@ -90,7 +92,8 @@ object NetworkModule {
             couponRepository,
             financeRepository,
             syncRepository,
-            personnelRepository
+            personnelRepository,
+            operationsRepository
         )
     }
 
@@ -139,6 +142,7 @@ object NetworkModule {
             posRepository.setAuthRetryHandler(authRetryHandler)
             couponRepository.setAuthRetryHandler(authRetryHandler)
             financeRepository.setAuthRetryHandler(authRetryHandler)
+            operationsRepository.setAuthRetryHandler(authRetryHandler)
             syncRepository.setAuthRetryHandler(authRetryHandler)
             personnelRepository.setAuthRetryHandler(authRetryHandler)
             repositoriesConfigured = true
@@ -185,6 +189,11 @@ object NetworkModule {
     fun personnelViewModel(): PersonnelViewModel {
         ensureRepositoryAuthRetryConfigured()
         return PersonnelViewModel(personnelRepository)
+    }
+
+    fun operationsViewModel(): OperationsViewModel {
+        ensureRepositoryAuthRetryConfigured()
+        return OperationsViewModel(operationsRepository)
     }
 
     fun syncInventoryAuditViewModel(): SyncInventoryAuditViewModel {

@@ -5,6 +5,8 @@ import io.ktor.client.call.body
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -30,6 +32,7 @@ data class CouponDto(
     val id: String,
     val code: String,
     val name: String,
+    val description: String? = null,
     val discountType: String,
     val discountValue: Double,
     val minOrderTotal: Double? = null,
@@ -37,7 +40,8 @@ data class CouponDto(
     val usageLimit: Int? = null,
     val usagePerUserLimit: Int? = null,
     val usedCount: Int,
-    val isActive: Boolean
+    val isActive: Boolean,
+    val isRewardVoucherTemplate: Boolean = false
 )
 
 @Serializable
@@ -59,7 +63,44 @@ data class CouponCreateRequest(
     val maxDiscountAmount: Double? = null,
     val usageLimit: Int? = null,
     val usagePerUserLimit: Int? = null,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val isRewardVoucherTemplate: Boolean = false
+)
+
+@Serializable
+data class AdminRewardProductDto(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val imageUrl: String? = null,
+    val pointCost: Int,
+    val stock: Int,
+    val isActive: Boolean,
+    val rewardType: String,
+    val category: String? = null,
+    val couponId: String? = null,
+    val couponCode: String? = null,
+    val couponName: String? = null,
+    val terms: String? = null,
+    val priceText: String? = null,
+    val sortOrder: Int = 0,
+    val updatedAt: String? = null
+)
+
+@Serializable
+data class AdminRewardProductUpsertRequest(
+    val name: String,
+    val description: String? = null,
+    val imageUrl: String? = null,
+    val pointCost: Int,
+    val stock: Int,
+    val rewardType: String = "ITEM",
+    val category: String? = null,
+    val couponCode: String? = null,
+    val terms: String? = null,
+    val priceText: String? = null,
+    val isActive: Boolean = true,
+    val sortOrder: Int = 0
 )
 
 @Serializable
@@ -76,6 +117,7 @@ private data class IdPayload(
 
 class CouponAdminRepository(private val client: HttpClient) {
     private val baseUrl = "http://localhost:8080/api/v1/internal/coupons"
+    private val rewardProductsUrl = "http://localhost:8080/api/v1/internal/rewards/products"
     private val json = Json { ignoreUnknownKeys = true }
     private var authToken: String? = null
     private var authRetryHandler: AuthRetryHandler? = null
@@ -124,6 +166,25 @@ class CouponAdminRepository(private val client: HttpClient) {
         Result.failure(IllegalStateException(e.message ?: "Khong the tao coupon"))
     }
 
+    suspend fun updateCoupon(id: String, request: CouponCreateRequest): Result<CouponDto> = try {
+        val response = executeAuthorized { token ->
+            client.patch("$baseUrl/$id") {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        }
+
+        if (!response.status.isSuccess()) {
+            return Result.failure(IllegalStateException(extractErrorMessage(response.bodyAsText())))
+        }
+
+        val envelope = response.body<CouponEnvelope<CouponDto>>()
+        Result.success(envelope.data)
+    } catch (e: Exception) {
+        Result.failure(IllegalStateException(e.message ?: "Khong the cap nhat coupon"))
+    }
+
     suspend fun validateCoupon(code: String, orderTotal: Double, userId: String? = null): Result<CouponValidateData> = try {
         val response = executeAuthorized { token ->
             client.post("$baseUrl/validate") {
@@ -141,6 +202,62 @@ class CouponAdminRepository(private val client: HttpClient) {
         Result.success(payload.data)
     } catch (e: Exception) {
         Result.failure(IllegalStateException(e.message ?: "Khong the kiem tra coupon"))
+    }
+
+    suspend fun getRewardProducts(rewardType: String? = null): Result<List<AdminRewardProductDto>> = try {
+        val response = executeAuthorized { token ->
+            client.get(rewardProductsUrl) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                rewardType?.takeIf { it.isNotBlank() }?.let { parameter("rewardType", it) }
+            }
+        }
+
+        if (!response.status.isSuccess()) {
+            return Result.failure(IllegalStateException(extractErrorMessage(response.bodyAsText())))
+        }
+
+        val envelope = response.body<CouponEnvelope<List<AdminRewardProductDto>>>()
+        Result.success(envelope.data)
+    } catch (e: Exception) {
+        Result.failure(IllegalStateException(e.message ?: "Khong the tai reward products"))
+    }
+
+    suspend fun createRewardProduct(request: AdminRewardProductUpsertRequest): Result<AdminRewardProductDto> = try {
+        val response = executeAuthorized { token ->
+            client.post(rewardProductsUrl) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        }
+
+        if (!response.status.isSuccess()) {
+            return Result.failure(IllegalStateException(extractErrorMessage(response.bodyAsText())))
+        }
+
+        val envelope = response.body<CouponEnvelope<AdminRewardProductDto>>()
+        Result.success(envelope.data)
+    } catch (e: Exception) {
+        Result.failure(IllegalStateException(e.message ?: "Khong the tao reward product"))
+    }
+
+    suspend fun updateRewardProduct(id: String, request: AdminRewardProductUpsertRequest): Result<AdminRewardProductDto> = try {
+        val response = executeAuthorized { token ->
+            client.patch("$rewardProductsUrl/$id") {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        }
+
+        if (!response.status.isSuccess()) {
+            return Result.failure(IllegalStateException(extractErrorMessage(response.bodyAsText())))
+        }
+
+        val envelope = response.body<CouponEnvelope<AdminRewardProductDto>>()
+        Result.success(envelope.data)
+    } catch (e: Exception) {
+        Result.failure(IllegalStateException(e.message ?: "Khong the cap nhat reward product"))
     }
 
     private suspend fun executeAuthorized(request: suspend (String) -> HttpResponse): HttpResponse {

@@ -32,7 +32,12 @@ data class PersonnelEmployeeProfileDto(
     val qualificationInstitution: String? = null,
     val qualificationDocumentUrl: String? = null,
     val qualificationDocumentPublicId: String? = null,
+    val qualificationDocumentType: String? = null,
+    val qualificationDocumentResourceType: String? = null,
     val qualificationVerified: Boolean = false,
+    val qualificationSubmittedAt: String? = null,
+    val qualificationVerifiedBy: String? = null,
+    val qualificationVerifiedAt: String? = null,
     val qualificationNote: String? = null,
     val createdAt: String,
     val updatedAt: String
@@ -45,6 +50,8 @@ data class PersonnelEmployeeProfileRequest(
     val qualificationInstitution: String? = null,
     val qualificationDocumentUrl: String? = null,
     val qualificationDocumentPublicId: String? = null,
+    val qualificationDocumentType: String? = null,
+    val qualificationDocumentResourceType: String? = null,
     val qualificationVerified: Boolean? = null,
     val qualificationNote: String? = null
 )
@@ -52,6 +59,7 @@ data class PersonnelEmployeeProfileRequest(
 data class PersonnelUploadedDocument(
     val url: String,
     val publicId: String,
+    val fileType: String,
     val resourceType: String? = null
 )
 
@@ -235,6 +243,7 @@ class PersonnelRepository(private val client: HttpClient) {
             PersonnelUploadedDocument(
                 url = upload.url,
                 publicId = upload.publicId,
+                fileType = detectUploadedFileType(upload),
                 resourceType = upload.resourceType
             )
         )
@@ -279,6 +288,14 @@ class PersonnelRepository(private val client: HttpClient) {
             "heic" -> "image/heic"
             "pdf" -> "application/pdf"
             else -> "application/octet-stream"
+        }
+    }
+
+    private fun detectUploadedFileType(upload: PersonnelUploadResponse): String {
+        return when {
+            upload.resourceType.equals("raw", ignoreCase = true) -> "PDF"
+            upload.format.equals("pdf", ignoreCase = true) -> "PDF"
+            else -> "IMAGE"
         }
     }
 }

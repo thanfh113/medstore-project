@@ -25,14 +25,15 @@ import org.example.project.ui.screens.CouponManagementScreen
 import org.example.project.ui.screens.FinanceAdminScreen
 import org.example.project.ui.screens.LoginScreen
 import org.example.project.ui.screens.OrdersScreen
+import org.example.project.ui.screens.OperationsModerationScreen
 import org.example.project.ui.screens.PersonnelManagementScreen
 import org.example.project.ui.screens.PosWorkspaceScreen
 import org.example.project.ui.screens.ProductsScreen
 import org.example.project.ui.screens.StoreOverviewScreen
 import org.example.project.ui.screens.SyncAuditHistoryScreen
 
-private val adminRoutes = setOf("dashboard", "orders", "products", "pos", "coupons", "finance", "chat", "personnel", "sync-audit")
-private val employeeRoutes = setOf("orders", "products", "pos", "chat")
+private val adminRoutes = setOf("dashboard", "orders", "products", "pos", "coupons", "finance", "chat", "ops", "personnel", "sync-audit")
+private val employeeRoutes = setOf("orders", "products", "pos", "chat", "ops")
 
 private fun allowedRoutesForRole(role: String): Set<String> {
     return if (role == "ADMIN") adminRoutes else employeeRoutes
@@ -87,6 +88,7 @@ fun App() {
         val personnelViewModel = remember { NetworkModule.personnelViewModel() }
         val syncAuditViewModel = remember { NetworkModule.syncInventoryAuditViewModel() }
         val chatViewModel = remember { NetworkModule.chatViewModel() }
+        val operationsViewModel = remember { NetworkModule.operationsViewModel() }
         val session by NetworkModule.sessionManager.session.collectAsState()
         val syncUiState by NetworkModule.syncUiState.collectAsState()
         val pendingOutboxCount by NetworkModule.pendingOutboxCount.collectAsState()
@@ -142,6 +144,7 @@ fun App() {
                         "coupons" -> CouponManagementScreen(viewModel = couponAdminViewModel)
                         "finance" -> FinanceAdminScreen(viewModel = financeViewModel)
                         "chat" -> ChatScreen(viewModel = chatViewModel)
+                        "ops" -> OperationsModerationScreen(viewModel = operationsViewModel)
                         "personnel" -> PersonnelManagementScreen(viewModel = personnelViewModel)
                         "sync-audit" -> SyncAuditHistoryScreen(viewModel = syncAuditViewModel)
                         else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Tính năng đang phát triển") }

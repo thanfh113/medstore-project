@@ -9,6 +9,7 @@ import org.example.project.data.repositories.CouponAdminRepository
 import org.example.project.data.repositories.DesktopDashboardRepository
 import org.example.project.data.repositories.DesktopOrderRepository
 import org.example.project.data.repositories.FinanceRepository
+import org.example.project.data.repositories.OperationsRepository
 import org.example.project.data.repositories.PersonnelRepository
 import org.example.project.data.repositories.PosRepository
 import org.example.project.data.repositories.ProductRepository
@@ -32,7 +33,8 @@ class SessionManager(
     private val couponRepository: CouponAdminRepository,
     private val financeRepository: FinanceRepository,
     private val syncRepository: SyncRepository,
-    private val personnelRepository: PersonnelRepository
+    private val personnelRepository: PersonnelRepository,
+    private val operationsRepository: OperationsRepository
 ) {
     private val _session = MutableStateFlow<DesktopSession?>(null)
     val session: StateFlow<DesktopSession?> = _session.asStateFlow()
@@ -55,6 +57,7 @@ class SessionManager(
         financeRepository.setAuthToken(newSession.accessToken)
         syncRepository.setAuthToken(newSession.accessToken)
         personnelRepository.setAuthToken(newSession.accessToken)
+        operationsRepository.setAuthToken(newSession.accessToken)
         _session.value = newSession
     }
 
@@ -69,6 +72,7 @@ class SessionManager(
         financeRepository.setAuthToken(accessToken)
         syncRepository.setAuthToken(accessToken)
         personnelRepository.setAuthToken(accessToken)
+        operationsRepository.setAuthToken(accessToken)
         _session.value = updated
         return true
     }
@@ -82,6 +86,7 @@ class SessionManager(
         financeRepository.setAuthToken(null)
         syncRepository.setAuthToken(null)
         personnelRepository.setAuthToken(null)
+        operationsRepository.setAuthToken(null)
         _session.value = null
     }
 
