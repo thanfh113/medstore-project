@@ -48,6 +48,7 @@ data class RewardProductDto(
     val category: String? = null, // Keep for client categorization
     val value: String? = null, // Keep for display
     val termsConditions: String? = null, // Keep for detailed info
+    val rewardType: String = "ITEM",
     val validFrom: String? = null, // Keep for validity period
     val validTo: String? = null, // Keep for validity period
     val stock: Int = 0,
@@ -80,10 +81,33 @@ data class RewardRedemptionHistoryDto(
     val userId: String,
     val rewardProductId: String,
     val productName: String,
+    val rewardType: String = "ITEM",
     val quantity: Int,
     val pointsUsed: Int,
     val status: String,
+    val issuedVoucherCode: String? = null,
+    val voucherIssuedAt: String? = null,
+    val voucherUsedAt: String? = null,
+    val redeemedOrderId: String? = null,
     val createdAt: String
+)
+
+@Serializable
+data class RewardVoucherDto(
+    val redemptionId: String,
+    val rewardProductId: String,
+    val couponId: String,
+    val code: String,
+    val name: String,
+    val description: String? = null,
+    val terms: String? = null,
+    val discountType: String,
+    val discountValue: Double,
+    val minOrderTotal: Double? = null,
+    val maxDiscountAmount: Double? = null,
+    val expiresAt: String? = null,
+    val createdAt: String,
+    val status: String
 )
 
 @Serializable

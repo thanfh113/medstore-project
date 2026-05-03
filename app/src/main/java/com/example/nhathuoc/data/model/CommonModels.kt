@@ -47,11 +47,19 @@ data class PaginatedResponse<T>(
 
 @Serializable
 data class UploadResponse(
-    val message: String,
-    val fileUrl: String,
-    val fileName: String,
-    val fileSize: Long,
-    val mimeType: String
+    val url: String = "",
+    val publicId: String = "",
+    val format: String = "",
+    val resourceType: String = "",
+    val bytes: Long = 0,
+    val width: Int? = null,
+    val height: Int? = null,
+    val duration: Double? = null,
+    val message: String? = null,
+    val fileUrl: String? = null,
+    val fileName: String? = null,
+    val fileSize: Long? = null,
+    val mimeType: String? = null
 )
 
 @Serializable

@@ -62,6 +62,21 @@ interface ApiService {
     @GET(ApiConstants.PRODUCT_CERTIFICATES)
     suspend fun getProductCertificates(@Path("id") productId: String): Response<List<ProductCertificateDto>>
 
+    @GET(ApiConstants.PRODUCT_REVIEWS)
+    suspend fun getProductReviews(@Path("id") productId: String): Response<ProductReviewsResponse>
+
+    @POST(ApiConstants.PRODUCT_REVIEWS)
+    suspend fun createProductReview(
+        @Path("id") productId: String,
+        @Body request: CreateReviewRequest
+    ): Response<ReviewDto>
+
+    @POST(ApiConstants.REVIEW_REPORT)
+    suspend fun reportReview(
+        @Path("id") reviewId: String,
+        @Body request: ReportReviewRequest
+    ): Response<ReviewIdResponse>
+
     @GET(ApiConstants.CATEGORIES)
     suspend fun getCategories(
         @Query("parentId") parentId: String? = null,
@@ -123,6 +138,21 @@ interface ApiService {
         @Body request: CancelOrderRequest
     ): Response<MessageResponse>
 
+    @GET(ApiConstants.COMPLAINTS)
+    suspend fun getComplaints(): Response<DataMessageResponse<List<ComplaintDto>>>
+
+    @POST(ApiConstants.COMPLAINTS)
+    suspend fun createComplaint(@Body request: CreateComplaintRequest): Response<DataMessageResponse<ComplaintDto>>
+
+    @GET(ApiConstants.COMPLAINT_BY_ID)
+    suspend fun getComplaintById(@Path("id") complaintId: String): Response<DataMessageResponse<ComplaintDto>>
+
+    @POST(ApiConstants.COMPLAINT_MESSAGES)
+    suspend fun sendComplaintMessage(
+        @Path("id") complaintId: String,
+        @Body request: ComplaintMessageRequest
+    ): Response<DataMessageResponse<ComplaintMessageDto>>
+
     @GET(ApiConstants.REWARD_ACCOUNT)
     suspend fun getRewardAccount(): Response<DataMessageResponse<RewardAccountDto>>
 
@@ -140,6 +170,9 @@ interface ApiService {
 
     @GET(ApiConstants.REWARD_REDEMPTIONS)
     suspend fun getRewardRedemptions(): Response<DataMessageResponse<List<RewardRedemptionHistoryDto>>>
+
+    @GET(ApiConstants.REWARD_VOUCHERS)
+    suspend fun getRewardVouchers(): Response<DataMessageResponse<List<RewardVoucherDto>>>
 
     @POST(ApiConstants.REWARD_REDEEM)
     suspend fun redeem(@Body request: RedeemRequest): Response<DataMessageResponse<RedeemRewardResultDto>>
@@ -188,7 +221,7 @@ interface ApiService {
     @POST(ApiConstants.UPLOAD_FILE)
     suspend fun uploadFile(
         @Part file: MultipartBody.Part,
-        @Part("type") type: RequestBody
+        @Query("type") type: String
     ): Response<UploadResponse>
 
     @GET(ApiConstants.SHOPS)

@@ -57,6 +57,7 @@ private val accountMenuItems = listOf(
     MenuItem(Icons.Outlined.AccountCircle,   "Thông tin cá nhân"),
     MenuItem(Icons.Outlined.LocationOn,      "Quản lý sổ địa chỉ"),
     MenuItem(Icons.Outlined.CreditCard,      "Phương thức thanh toán"),
+    MenuItem(Icons.Outlined.SupportAgent,    "Khiếu nại của tôi"),
     MenuItem(Icons.Outlined.MedicalServices, "Thiết bị y tế của tôi"),
 )
 
@@ -293,7 +294,13 @@ private fun AuthenticatedAccountContent(
                     orderStatuses.forEach { item ->
                         OrderStatusItem(
                             item = item,
-                            onClick = { navController.navigate("MyOrdersScreen") }
+                            onClick = {
+                                if (item.label == "Đổi/Trả") {
+                                    navController.navigate("MyComplaintsScreen")
+                                } else {
+                                    navController.navigate("MyOrdersScreen")
+                                }
+                            }
                         )
                     }
                 }
@@ -426,6 +433,7 @@ private fun MenuGroup(items: List<MenuItem>, navController: NavController) {
                             "Thông tin cá nhân"    -> { /* TODO: ProfileScreen */ }
                             "Quản lý sổ địa chỉ"  -> { /* TODO: AddressScreen */ }
                             "Đơn hàng của tôi"     -> navController.navigate("MyOrdersScreen")
+                            "Khiếu nại của tôi"   -> navController.navigate("MyComplaintsScreen")
                             "Liên hệ & Hỗ trợ"    -> { /* TODO: Support */ }
                         }
                     }

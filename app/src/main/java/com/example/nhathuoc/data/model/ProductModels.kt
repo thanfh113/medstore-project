@@ -73,6 +73,10 @@ data class ProductCertificateDto(
     val issueDate: String,
     val expiryDate: String?,
     val documentUrl: String?,
+    val fileType: String? = null,
+    val cloudinaryPublicId: String? = null,
+    val cloudinaryResourceType: String? = null,
+    val thumbnailUrl: String? = null,
     val isActive: Boolean = true,
     val createdAt: String,
     val updatedAt: String

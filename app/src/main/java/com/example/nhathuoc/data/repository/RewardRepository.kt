@@ -99,6 +99,23 @@ class RewardRepository @Inject constructor(
         }
     }
 
+    suspend fun getRewardVouchers(): NetworkResult<List<RewardVoucherDto>> {
+        return try {
+            val response = apiService.getRewardVouchers()
+            if (response.isSuccessful) {
+                NetworkResult.Success(response.body()!!.data)
+            } else {
+                NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+            }
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
     suspend fun redeem(request: RedeemRequest): NetworkResult<DataMessageResponse<RedeemRewardResultDto>> {
         return try {
             val response = apiService.redeem(request)

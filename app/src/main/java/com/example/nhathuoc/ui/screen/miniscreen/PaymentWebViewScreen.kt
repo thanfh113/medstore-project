@@ -109,14 +109,14 @@ fun PaymentWebViewScreen(
                     IconButton(onClick = onClose) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Dong",
+                            contentDescription = "Đóng",
                             tint = GreenTop
                         )
                     }
                 },
                 actions = {
                     TextButton(onClick = onCheckStatus) {
-                        Text("Kiem tra", color = GreenTop, fontWeight = FontWeight.SemiBold)
+                        Text("Kiểm tra", color = GreenTop, fontWeight = FontWeight.SemiBold)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -151,17 +151,17 @@ private fun PaymentStatusBanner(orderId: String, paymentStatus: PaymentStatusDto
         "COMPLETED" -> Triple(
             Color(0xFFE8F5E9),
             Icons.Filled.CheckCircle,
-            "Thanh toan da hoan tat"
+            "Đã thanh toán. Đơn hàng đang được xử lý."
         )
         "PENDING" -> Triple(
             Color(0xFFFFF8E1),
             Icons.Filled.HourglassFull,
-            "Dang cho xac nhan thanh toan"
+            "Đang chờ xác nhận thanh toán từ cổng thanh toán."
         )
         else -> Triple(
             Color(0xFFF5F7FA),
             Icons.Filled.Info,
-            "Hoan tat thanh toan roi quay lai ung dung"
+            "Hoàn tất thanh toán rồi quay lại ứng dụng."
         )
     }
 
@@ -182,7 +182,7 @@ private fun PaymentStatusBanner(orderId: String, paymentStatus: PaymentStatusDto
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "Don hang: $orderId",
+                "Đơn hàng: $orderId",
                 color = GreenTop,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp,

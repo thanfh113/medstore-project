@@ -50,6 +50,58 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun getComplaints(): NetworkResult<List<ComplaintDto>> {
+        return try {
+            val response = apiService.getComplaints()
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!.data) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
+    suspend fun createComplaint(request: CreateComplaintRequest): NetworkResult<ComplaintDto> {
+        return try {
+            val response = apiService.createComplaint(request)
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!.data) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
+    suspend fun getComplaintById(complaintId: String): NetworkResult<ComplaintDto> {
+        return try {
+            val response = apiService.getComplaintById(complaintId)
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!.data) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
+    suspend fun sendComplaintMessage(complaintId: String, message: String): NetworkResult<ComplaintMessageDto> {
+        return try {
+            val response = apiService.sendComplaintMessage(complaintId, ComplaintMessageRequest(message = message))
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!.data) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
     private fun parseErrorMessage(errorBody: String?): String {
         return try {
             if (errorBody != null) {

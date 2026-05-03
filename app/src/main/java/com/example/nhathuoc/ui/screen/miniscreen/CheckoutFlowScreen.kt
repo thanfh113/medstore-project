@@ -1,6 +1,7 @@
 package com.example.nhathuoc.ui.screen.miniscreen
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Redeem
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.AssistChip
@@ -33,10 +35,11 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -66,6 +69,7 @@ import androidx.navigation.NavController
 import com.example.nhathuoc.PaymentReturnBus
 import coil.compose.AsyncImage
 import com.example.nhathuoc.data.model.CartItemDto
+import com.example.nhathuoc.data.model.RewardVoucherDto
 import com.example.nhathuoc.data.model.UserAddress
 import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.viewmodel.CheckoutViewModel
@@ -94,8 +98,12 @@ fun CheckoutFlowScreen(
     var activeOrderId by rememberSaveable { mutableStateOf<String?>(null) }
     var activeOrderPaymentMethod by rememberSaveable { mutableStateOf<String?>(null) }
     var checkoutNotice by rememberSaveable { mutableStateOf<String?>(null) }
+    var showVoucherSheet by rememberSaveable { mutableStateOf(false) }
 
     val selectedAddress = state.addresses.firstOrNull { it.id == state.selectedAddressId }
+    val selectedVoucher = state.availableVouchers.firstOrNull {
+        it.code.equals(state.selectedVoucherCode, ignoreCase = true)
+    }
     val hasPendingGatewayOrder = activeOrderId != null &&
         activeOrderPaymentMethod == state.paymentMethod &&
         state.paymentMethod != "COD" &&
@@ -189,6 +197,19 @@ fun CheckoutFlowScreen(
             onReturnUrlDetected = { viewModel.refreshPaymentStatus(activeOrderId!!, showErrorOnFailure = true) }
         )
         return
+    }
+
+    if (showVoucherSheet) {
+        VoucherBottomSheet(
+            vouchers = state.availableVouchers,
+            selectedVoucherCode = state.selectedVoucherCode,
+            subtotal = state.subtotal,
+            onDismiss = { showVoucherSheet = false },
+            onSelectVoucher = { code ->
+                viewModel.selectVoucher(code)
+                showVoucherSheet = false
+            }
+        )
     }
 
     Scaffold(
@@ -326,6 +347,14 @@ fun CheckoutFlowScreen(
                         singleLine = true,
                         label = { Text("Mã giảm giá") },
                         shape = RoundedCornerShape(14.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    VoucherPickerSection(
+                        vouchers = state.availableVouchers,
+                        selectedVoucher = selectedVoucher,
+                        selectedVoucherCode = state.selectedVoucherCode,
+                        onOpenVoucherSheet = { showVoucherSheet = true },
+                        onClearVoucher = { viewModel.selectVoucher(null) }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     RewardInfoCard(
@@ -494,20 +523,300 @@ private fun PaymentMethodSection(
     onSelected: (String) -> Unit
 ) {
     val methods = listOf(
-        "COD" to "Thanh toán khi nhận hàng",
-        "MOMO" to "MoMo",
-        "VNPAY" to "VNPay",
-        "ZALOPAY" to "ZaloPay"
+        Triple("COD", "Thanh toán khi nhận hàng", "Trả tiền mặt khi nhận hàng. Đơn sẽ được nhân viên xác nhận."),
+        Triple("MOMO", "Ví MoMo", "Mở app MoMo UAT hoặc web thanh toán để hoàn tất."),
+        Triple("ZALOPAY", "ZaloPay", "Mở ZaloPay sandbox hoặc trang thanh toán ZaloPay."),
+        Triple("VNPAY", "VNPay", "Thanh toán bằng thẻ/ngân hàng qua cổng VNPay.")
     )
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        methods.forEach { (value, label) ->
-            FilterChip(
+        methods.forEach { (value, title, description) ->
+            PaymentMethodItem(
+                title = title,
+                description = description,
                 selected = selectedMethod == value,
-                onClick = { onSelected(value) },
-                label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                onClick = { onSelected(value) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun PaymentMethodItem(
+    title: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        color = if (selected) Color(0xFFF0F9F1) else Color(0xFFF8FAFC),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(
+            1.dp,
+            if (selected) GreenTop else Color(0xFFE2E8F0)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                color = if (selected) GreenTop else Color.White,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, if (selected) GreenTop else Color(0xFFE2E8F0))
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Payments,
+                    contentDescription = null,
+                    tint = if (selected) Color.White else GreenTop,
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .size(22.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = title,
+                    color = GreenTop,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = description,
+                    color = Color(0xFF6B7280),
+                    fontSize = 12.sp
+                )
+            }
+            RadioButton(selected = selected, onClick = null)
+        }
+    }
+}
+
+@Composable
+private fun VoucherPickerSection(
+    vouchers: List<RewardVoucherDto>,
+    selectedVoucher: RewardVoucherDto?,
+    selectedVoucherCode: String?,
+    onOpenVoucherSheet: () -> Unit,
+    onClearVoucher: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFF8FAFC),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.Redeem, contentDescription = null, tint = GreenTop)
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Column {
+                        Text("Voucher của tôi", color = GreenTop, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "${vouchers.size} voucher khả dụng",
+                            color = Color(0xFF6B7280),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+                TextButton(onClick = onOpenVoucherSheet) {
+                    Text(if (selectedVoucherCode.isNullOrBlank()) "Chọn" else "Đổi")
+                }
+            }
+
+            if (selectedVoucher != null) {
+                Surface(
+                    color = Color(0xFFF0F9F1),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, GreenTop)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(selectedVoucher.name, color = GreenTop, fontWeight = FontWeight.SemiBold)
+                                Text(selectedVoucher.code, color = Color(0xFF6B7280), fontSize = 12.sp)
+                            }
+                            TextButton(onClick = onClearVoucher) {
+                                Text("Bỏ chọn")
+                            }
+                        }
+                        Text(buildVoucherRuleText(selectedVoucher), color = Color(0xFF374151), fontSize = 13.sp)
+                    }
+                }
+            } else {
+                Text(
+                    text = if (vouchers.isEmpty()) {
+                        "Bạn chưa có voucher đổi điểm đã được duyệt. Có thể nhập mã coupon thường ở ô phía trên."
+                    } else {
+                        "Chọn voucher đã đổi để app tự áp mã vào đơn hàng."
+                    },
+                    color = Color(0xFF6B7280),
+                    fontSize = 12.sp
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VoucherBottomSheet(
+    vouchers: List<RewardVoucherDto>,
+    selectedVoucherCode: String?,
+    subtotal: Double,
+    onDismiss: () -> Unit,
+    onSelectVoucher: (String?) -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Voucher của tôi",
+                color = GreenTop,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Chọn voucher đã đổi bằng điểm. App sẽ tự dùng mã voucher này khi tạo đơn.",
+                color = Color(0xFF6B7280),
+                fontSize = 13.sp
+            )
+
+            if (!selectedVoucherCode.isNullOrBlank()) {
+                TextButton(onClick = { onSelectVoucher(null) }) {
+                    Text("Bỏ chọn voucher hiện tại")
+                }
+            }
+
+            if (vouchers.isEmpty()) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFF8FAFC),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Text(
+                        text = "Chưa có voucher nào khả dụng. Sau khi đổi điểm và được duyệt, voucher sẽ xuất hiện ở đây.",
+                        modifier = Modifier.padding(16.dp),
+                        color = Color(0xFF6B7280)
+                    )
+                }
+            } else {
+                vouchers.forEach { voucher ->
+                    VoucherBottomSheetItem(
+                        voucher = voucher,
+                        selected = selectedVoucherCode.equals(voucher.code, ignoreCase = true),
+                        qualified = subtotal >= (voucher.minOrderTotal ?: 0.0),
+                        subtotal = subtotal,
+                        onClick = { onSelectVoucher(voucher.code) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun VoucherBottomSheetItem(
+    voucher: RewardVoucherDto,
+    selected: Boolean,
+    qualified: Boolean,
+    subtotal: Double,
+    onClick: () -> Unit
+) {
+    val previewDiscount = estimateVoucherPreviewDiscount(voucher, subtotal)
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = qualified, onClick = onClick),
+        color = when {
+            selected -> Color(0xFFF0F9F1)
+            qualified -> Color.White
+            else -> Color(0xFFF8FAFC)
+        },
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            1.dp,
+            when {
+                selected -> GreenTop
+                qualified -> Color(0xFFE2E8F0)
+                else -> Color(0xFFF1F5F9)
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(voucher.name, color = GreenTop, fontWeight = FontWeight.Bold)
+                    Text(voucher.code, color = Color(0xFF6B7280), fontSize = 12.sp)
+                }
+                Text(
+                    text = when {
+                        selected -> "Đã chọn"
+                        qualified -> "Chọn"
+                        else -> "Chưa đủ điều kiện"
+                    },
+                    color = when {
+                        selected -> GreenTop
+                        qualified -> Color(0xFF374151)
+                        else -> Color(0xFFD97706)
+                    },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Text(buildVoucherRuleText(voucher), color = Color(0xFF374151), fontSize = 13.sp)
+            voucher.minOrderTotal?.let {
+                Text("Đơn tối thiểu: ${formatCurrency(it)}", color = Color(0xFF6B7280), fontSize = 12.sp)
+            }
+            Text(
+                text = if (qualified) {
+                    "Ước tính giảm: ${formatCurrency(previewDiscount)}"
+                } else {
+                    "Đơn hiện tại chưa đạt điều kiện áp dụng voucher này."
+                },
+                color = if (qualified) GreenTop else Color(0xFFD97706),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
@@ -683,6 +992,33 @@ private fun RewardSummaryRow(label: String, value: String) {
         Text(label, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Color(0xFF374151))
         Text(value, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFFF8F00))
     }
+}
+
+private fun buildVoucherRuleText(voucher: RewardVoucherDto): String {
+    return when (voucher.discountType.uppercase()) {
+        "PERCENT" -> {
+            val cap = voucher.maxDiscountAmount?.takeIf { it > 0.0 }?.let {
+                " tối đa ${formatCurrency(it)}"
+            }.orEmpty()
+            "Giảm ${voucher.discountValue}%$cap"
+        }
+        else -> "Giảm ${formatCurrency(voucher.discountValue)}"
+    }
+}
+
+private fun estimateVoucherPreviewDiscount(voucher: RewardVoucherDto, subtotal: Double): Double {
+    if (subtotal <= 0.0) return 0.0
+    val minOrderTotal = voucher.minOrderTotal ?: 0.0
+    if (subtotal < minOrderTotal) return 0.0
+
+    val rawDiscount = when (voucher.discountType.uppercase()) {
+        "PERCENT" -> subtotal * (voucher.discountValue / 100.0)
+        else -> voucher.discountValue
+    }
+    val cappedDiscount = voucher.maxDiscountAmount?.let { maxAmount ->
+        kotlin.math.min(rawDiscount, maxAmount)
+    } ?: rawDiscount
+    return cappedDiscount.coerceIn(0.0, subtotal)
 }
 
 private fun paymentTitleFor(method: String): String = when (method) {

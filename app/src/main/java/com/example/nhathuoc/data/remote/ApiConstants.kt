@@ -5,7 +5,7 @@
  * Base URL for Android emulator pointing to localhost BE
  */
 object ApiConstants {
-    const val BASE_URL = "http://10.196.200.29:8080"
+    const val BASE_URL = "http://10.196.200.132:8080"
 
     const val AUTH_REGISTER = "/api/v1/auth/register"
     const val AUTH_LOGIN = "/api/v1/auth/login"
@@ -22,6 +22,8 @@ object ApiConstants {
     const val PRODUCTS_BEST_SELLERS = "/api/v1/products/best-sellers"
     const val PRODUCT_BY_ID = "/api/v1/products/{id}"
     const val PRODUCT_CERTIFICATES = "/api/v1/products/{id}/certificates"
+    const val PRODUCT_REVIEWS = "/api/v1/products/{id}/reviews"
+    const val REVIEW_REPORT = "/api/v1/reviews/{id}/report"
 
     const val CATEGORIES = "/api/v1/categories"
     const val CATEGORY_BY_ID = "/api/v1/categories/{id}"
@@ -34,6 +36,9 @@ object ApiConstants {
     const val ORDERS = "/api/v1/orders"
     const val ORDER_BY_ID = "/api/v1/orders/{orderId}"
     const val ORDER_CANCEL = "/api/v1/orders/{orderId}/cancel"
+    const val COMPLAINTS = "/api/v1/complaints"
+    const val COMPLAINT_BY_ID = "/api/v1/complaints/{id}"
+    const val COMPLAINT_MESSAGES = "/api/v1/complaints/{id}/messages"
     const val CHECKOUT = "/api/v1/checkout"
 
     const val PAYMENTS_MOMO_INIT = "/api/v1/payments/momo/init"
@@ -46,6 +51,7 @@ object ApiConstants {
     const val REWARD_PRODUCTS = "/api/v1/rewards/products"
     const val REWARD_TRANSACTIONS = "/api/v1/rewards/transactions"
     const val REWARD_REDEMPTIONS = "/api/v1/rewards/redemptions"
+    const val REWARD_VOUCHERS = "/api/v1/rewards/vouchers"
     const val REWARD_REDEEM = "/api/v1/rewards/redeem"
 
     const val CHAT_SESSIONS = "/api/v1/chat/sessions"

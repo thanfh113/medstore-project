@@ -57,7 +57,7 @@ data class NotificationDto(
     val title: String,
     val body: String? = null, // Match schema field name (was message)
     val message: String? = null, // Keep for backward compatibility
-    val type: String, // "ORDER", "PROMOTION", "SYSTEM", "REMINDER"
+    val type: String, // ORDER, PROMOTION, REWARD, COMPLAINT, REFUND, CHAT, REVIEW, SYSTEM
     val refId: String? = null, // Match schema field name (was data map)
     val data: Map<String, String> = emptyMap(), // Keep for additional data
     val imageUrl: String? = null,

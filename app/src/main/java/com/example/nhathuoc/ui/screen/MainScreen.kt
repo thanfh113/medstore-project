@@ -100,7 +100,10 @@ fun MainScreen(navController: NavController) {
             Box(Modifier.fillMaxSize().padding(innerPadding)) {
                 when (selectedTab) {
                     0 -> HomeScreen(navController = navController)
-                    1 -> RewardScreen(onShopNow = { selectedTab = 0 })
+                    1 -> RewardScreen(
+                        onShopNow = { selectedTab = 0 },
+                        onUseVoucher = { navController.navigate("CheckoutScreen") }
+                    )
                     3 -> CartScreen(navController = navController)
                     4 -> AccountScreen(navController = navController, mainNavController = navController)
                 }

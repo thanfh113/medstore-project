@@ -1,5 +1,10 @@
 package com.example.nhathuoc.ui.screen.miniscreen
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,11 +49,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.nhathuoc.data.model.OrderDto
 import com.example.nhathuoc.data.model.OrderItemDto
+import com.example.nhathuoc.data.model.ComplaintDto
 import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.data.model.UserAddress
 import com.example.nhathuoc.ui.theme.BgColor
@@ -68,6 +77,12 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+private data class PickedComplaintAttachment(
+    val uri: Uri,
+    val name: String,
+    val fileType: String
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderDetailScreen(
@@ -77,10 +92,18 @@ fun OrderDetailScreen(
 ) {
     val orderState by viewModel.orderState.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val complaintState by viewModel.complaintState.collectAsState()
     var showCancelDialog by rememberSaveable { mutableStateOf(false) }
+    var showComplaintDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(orderId) {
         viewModel.getOrderById(orderId)
+    }
+
+    LaunchedEffect(complaintState) {
+        if (complaintState is UiState.Success) {
+            showComplaintDialog = false
+        }
     }
 
     if (showCancelDialog) {
@@ -102,6 +125,26 @@ fun OrderDetailScreen(
                 OutlinedButton(onClick = { showCancelDialog = false }) {
                     Text("Đóng")
                 }
+            }
+        )
+    }
+
+    if (showComplaintDialog && orderState is UiState.Success) {
+        ComplaintDialog(
+            order = (orderState as UiState.Success<OrderDto>).data,
+            state = complaintState,
+            onDismiss = {
+                showComplaintDialog = false
+                viewModel.clearComplaintState()
+            },
+            onSubmit = { type, title, description, attachments ->
+                viewModel.createComplaint(
+                    orderId = orderId,
+                    type = type,
+                    title = title,
+                    description = description,
+                    attachmentUris = attachments
+                )
             }
         )
     }
@@ -150,6 +193,7 @@ fun OrderDetailScreen(
                     isBusy = isLoading,
                     onRetry = { viewModel.getOrderById(orderId) },
                     onCancelOrder = { showCancelDialog = true },
+                    onOpenComplaint = { showComplaintDialog = true },
                     modifier = Modifier.padding(innerPadding)
                 )
             }
@@ -163,9 +207,11 @@ private fun OrderDetailContent(
     isBusy: Boolean,
     onRetry: () -> Unit,
     onCancelOrder: () -> Unit,
+    onOpenComplaint: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val canCancel = order.status.uppercase() in setOf("PENDING", "PROCESSING")
+    val canComplaint = order.status.uppercase() !in setOf("CANCELLED", "RETURNED")
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -200,8 +246,10 @@ private fun OrderDetailContent(
             item {
                 ActionCard(
                     canCancel = canCancel,
+                    canComplaint = canComplaint,
                     onRetry = onRetry,
-                    onCancelOrder = onCancelOrder
+                    onCancelOrder = onCancelOrder,
+                    onOpenComplaint = onOpenComplaint
                 )
             }
             item { Spacer(Modifier.height(16.dp)) }
@@ -263,6 +311,22 @@ private fun HeaderCard(order: OrderDto) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(label = pickupTypeLabel(order.pickupType), icon = if (order.pickupType.equals("PICKUP", true)) Icons.Filled.Storefront else Icons.Filled.LocalShipping)
                 AssistChip(label = paymentMethodLabel(order.paymentMethod), icon = Icons.Filled.Payments)
+            }
+
+            orderProgressMessage(order)?.let { message ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFE8F5E9),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        text = message,
+                        modifier = Modifier.padding(12.dp),
+                        color = GreenTop,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    )
+                }
             }
         }
     }
@@ -384,6 +448,14 @@ private fun PaymentCard(order: OrderDto) {
                 Text("Trạng thái thanh toán", color = Color(0xFF6B7280), fontSize = 14.sp)
                 StatusChip(label = paymentLabel, color = paymentColor)
             }
+            orderProgressMessage(order)?.let {
+                Text(
+                    text = it,
+                    color = Color(0xFF2E7D32),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
@@ -443,8 +515,10 @@ private fun NoteCard(order: OrderDto) {
 @Composable
 private fun ActionCard(
     canCancel: Boolean,
+    canComplaint: Boolean,
     onRetry: () -> Unit,
-    onCancelOrder: () -> Unit
+    onCancelOrder: () -> Unit,
+    onOpenComplaint: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -466,6 +540,17 @@ private fun ActionCard(
                 Spacer(Modifier.width(8.dp))
                 Text("Tải lại đơn hàng")
             }
+            if (canComplaint) {
+                OutlinedButton(
+                    onClick = onOpenComplaint,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = Color(0xFF2563EB))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Khiếu nại đơn hàng", color = Color(0xFF2563EB))
+                }
+            }
             if (canCancel) {
                 OutlinedButton(
                     onClick = onCancelOrder,
@@ -478,6 +563,154 @@ private fun ActionCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ComplaintDialog(
+    order: OrderDto,
+    state: UiState<ComplaintDto>,
+    onDismiss: () -> Unit,
+    onSubmit: (String, String, String, List<Uri>) -> Unit
+) {
+    val context = LocalContext.current
+    val options = listOf(
+        "DAMAGED" to "Hàng hỏng/vỡ",
+        "WRONG_ITEM" to "Giao sai hàng",
+        "MISSING_ITEM" to "Thiếu sản phẩm",
+        "PAYMENT" to "Thanh toán",
+        "OTHER" to "Khác"
+    )
+    var selectedType by rememberSaveable { mutableStateOf(options.first().first) }
+    var title by rememberSaveable { mutableStateOf("") }
+    var description by rememberSaveable { mutableStateOf("") }
+    var attachments by remember { mutableStateOf<List<PickedComplaintAttachment>>(emptyList()) }
+    val isSubmitting = state is UiState.Loading
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        val picked = uris.map { uri ->
+            val name = context.displayName(uri).ifBlank { "file_dinh_kem" }
+            PickedComplaintAttachment(
+                uri = uri,
+                name = name,
+                fileType = detectComplaintFileType(context.contentResolver.getType(uri), name)
+            )
+        }
+        attachments = (attachments + picked).distinctBy { it.uri }.take(5)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Tạo khiếu nại ${order.orderCode}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Loại khiếu nại", fontWeight = FontWeight.SemiBold)
+                options.forEach { (value, label) ->
+                    if (selectedType == value) {
+                        Button(
+                            onClick = { selectedType = value },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(label)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { selectedType = value },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(label)
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Tiêu đề") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Mô tả chi tiết") },
+                    minLines = 4,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedButton(
+                    onClick = { filePicker.launch(arrayOf("image/*", "application/pdf")) },
+                    enabled = !isSubmitting,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Thêm ảnh/PDF minh chứng (${attachments.size}/5)")
+                }
+                attachments.forEach { attachment ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "${attachment.fileType} • ${attachment.name}",
+                            fontSize = 12.sp,
+                            color = Color(0xFF4B5563),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedButton(
+                            onClick = { attachments = attachments.filterNot { it.uri == attachment.uri } },
+                            enabled = !isSubmitting,
+                            shape = RoundedCornerShape(999.dp)
+                        ) {
+                            Text("Xóa", fontSize = 12.sp)
+                        }
+                    }
+                }
+                if (state is UiState.Error) {
+                    Text(state.message, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSubmit(selectedType, title, description, attachments.map { it.uri }) },
+                enabled = !isSubmitting && title.isNotBlank() && description.isNotBlank()
+            ) {
+                Text(if (isSubmitting) "Đang gửi..." else "Gửi khiếu nại")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, enabled = !isSubmitting) {
+                Text("Đóng")
+            }
+        }
+    )
+}
+
+private fun Context.displayName(uri: Uri): String {
+    return contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+        ?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0) cursor.getString(index).orEmpty() else ""
+            } else {
+                ""
+            }
+        }
+        .orEmpty()
+        .ifBlank { uri.lastPathSegment.orEmpty().substringAfterLast('/') }
+}
+
+private fun detectComplaintFileType(mimeType: String?, name: String): String {
+    val lowerName = name.lowercase()
+    return when {
+        mimeType == "application/pdf" || lowerName.endsWith(".pdf") -> "PDF"
+        mimeType?.startsWith("image/") == true -> "IMAGE"
+        else -> "FILE"
     }
 }
 
@@ -608,11 +841,30 @@ private fun orderStatusPresentation(value: String): Pair<String, Color> = when (
 
 private fun paymentStatusPresentation(value: String): Pair<String, Color> = when (value.uppercase()) {
     "UNPAID" -> "Chưa thanh toán" to Color(0xFFB45309)
-    "PENDING" -> "Đang chờ" to Color(0xFFF59E0B)
+    "PENDING" -> "Chờ thanh toán" to Color(0xFFF59E0B)
     "COMPLETED" -> "Đã thanh toán" to Color(0xFF2E7D32)
     "FAILED" -> "Thất bại" to Color(0xFFDC2626)
+    "PARTIALLY_REFUNDED" -> "Hoàn tiền một phần" to Color(0xFF7C3AED)
     "REFUNDED" -> "Đã hoàn tiền" to Color(0xFF7C3AED)
     else -> value to Color(0xFF6B7280)
+}
+
+private fun orderProgressMessage(order: OrderDto): String? {
+    val paymentStatus = order.paymentStatus.uppercase()
+    val orderStatus = order.status.uppercase()
+    return when {
+        paymentStatus == "COMPLETED" && orderStatus == "PROCESSING" ->
+            "Đã thanh toán, đơn đang được nhà thuốc xử lý."
+        paymentStatus == "COMPLETED" && orderStatus == "PENDING" ->
+            "Đã thanh toán, đơn đang chờ nhà thuốc xác nhận."
+        paymentStatus == "COMPLETED" && orderStatus == "SHIPPING" ->
+            "Đã thanh toán, đơn đang được giao."
+        paymentStatus == "COMPLETED" && orderStatus == "DELIVERED" ->
+            "Đã thanh toán, đơn đã giao thành công."
+        paymentStatus == "PENDING" ->
+            "Thanh toán đang chờ xác nhận từ cổng thanh toán."
+        else -> null
+    }
 }
 
 private fun formatCurrency(value: Double): String {

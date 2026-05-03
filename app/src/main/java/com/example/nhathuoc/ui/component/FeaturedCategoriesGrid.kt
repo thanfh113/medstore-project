@@ -1,5 +1,6 @@
 package com.example.nhathuoc.ui.component
 
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -69,7 +70,7 @@ fun FeaturedCategoriesGrid(
                         category = cat,
                         onClick = {
                             onCategoryClick(cat)
-                            navController?.navigate("CategoryProductScreen/${cat.name.replace(" ", "_")}")
+                            navController?.navigate("CategoryProductScreen/${Uri.encode(cat.name)}")
                         },
                         modifier = Modifier.weight(1f)
                     )

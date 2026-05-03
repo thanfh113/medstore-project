@@ -84,6 +84,45 @@ class ProductRepository @Inject constructor(
         }
     }
 
+    suspend fun getProductReviews(productId: String): NetworkResult<ProductReviewsResponse> {
+        return try {
+            val response = apiService.getProductReviews(productId)
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
+    suspend fun createProductReview(productId: String, request: CreateReviewRequest): NetworkResult<ReviewDto> {
+        return try {
+            val response = apiService.createProductReview(productId, request)
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
+    suspend fun reportReview(reviewId: String, request: ReportReviewRequest): NetworkResult<ReviewIdResponse> {
+        return try {
+            val response = apiService.reportReview(reviewId, request)
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
     private fun parseErrorMessage(errorBody: String?): String {
         return try {
             if (errorBody != null) kotlinx.serialization.json.Json.decodeFromString<ApiError>(errorBody).message else "Co loi xay ra, vui long thu lai"

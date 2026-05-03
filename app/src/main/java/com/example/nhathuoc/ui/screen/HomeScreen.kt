@@ -40,6 +40,12 @@ import kotlinx.coroutines.launch
 private val HEADER_FULL = 160.dp
 private val HEADER_MID = 110.dp
 private val HEADER_COLLAPSED = 72.dp
+private val nonProductDrawerLabels = setOf(
+    "Tin tức - Kiến thức",
+    "Tin tức ngành",
+    "Hướng dẫn sử dụng",
+    "Tiêu chuẩn chất lượng"
+)
 
 @Composable
 fun HomeScreen(modifier: Modifier = Modifier, navController: NavController? = null) {
@@ -55,7 +61,7 @@ fun HomeScreen(modifier: Modifier = Modifier, navController: NavController? = nu
                 drawerState.close()
                 when (item.label) {
                     "Hệ thống cửa hàng" -> navController?.navigate("FindPharmacyScreen")
-                    "Tin tức - Kiến thức" -> Unit
+                    in nonProductDrawerLabels -> Unit
                     else -> navController?.navigate("CategoryProductScreen/${Uri.encode(item.label)}")
                 }
             }

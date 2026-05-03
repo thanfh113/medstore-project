@@ -47,12 +47,20 @@ private val notifCategories = listOf(
     NotifCategory("ALL", "Tất cả"),
     NotifCategory("PROMOTION", "Khuyến mãi"),
     NotifCategory("ORDER", "Đơn hàng"),
+    NotifCategory("REWARD", "Điểm thưởng"),
+    NotifCategory("COMPLAINT", "Khiếu nại"),
+    NotifCategory("REFUND", "Hoàn tiền"),
+    NotifCategory("CHAT", "Tư vấn"),
+    NotifCategory("REVIEW", "Đánh giá"),
     NotifCategory("SYSTEM", "Hệ thống")
 )
 
 // ── Screen ─────────────────────────────────────────────────────────────────
 @Composable
-fun NotificationScreen(onBack: () -> Unit = {}) {
+fun NotificationScreen(
+    onBack: () -> Unit = {},
+    onNotificationClick: (NotificationDto) -> Unit = {}
+) {
     val viewModel: NotificationViewModel = hiltViewModel()
     val state by viewModel.state.collectAsState()
     val notifications by viewModel.notifications.collectAsState()
@@ -61,16 +69,17 @@ fun NotificationScreen(onBack: () -> Unit = {}) {
 
     val filtered = remember(notifications, selectedCategoryKey) {
         if (selectedCategoryKey == "ALL") notifications
-        else notifications.filter { it.type == selectedCategoryKey }
+        else notifications.filter { it.type.uppercase() == selectedCategoryKey }
     }
 
     val unreadCounts = remember(notifications) {
-        mapOf(
-            "ALL"       to notifications.count { !it.isRead },
-            "PROMOTION" to notifications.count { !it.isRead && it.type == "PROMOTION" },
-            "ORDER"     to notifications.count { !it.isRead && it.type == "ORDER" },
-            "SYSTEM"    to notifications.count { !it.isRead && it.type == "SYSTEM" }
-        )
+        notifCategories.associate { cat ->
+            cat.key to if (cat.key == "ALL") {
+                notifications.count { !it.isRead }
+            } else {
+                notifications.count { !it.isRead && it.type.uppercase() == cat.key }
+            }
+        }
     }
 
     Scaffold(
@@ -237,6 +246,7 @@ fun NotificationScreen(onBack: () -> Unit = {}) {
                                     onDismiss = { viewModel.dismissNotification(notif.id) },
                                     onClick = {
                                         if (!notif.isRead) viewModel.markAsRead(notif.id)
+                                        onNotificationClick(notif)
                                     }
                                 )
                                 HorizontalDivider(
@@ -304,11 +314,13 @@ private fun NotificationCard(
     onDismiss: () -> Unit,
     onClick: () -> Unit
 ) {
-    val (iconVec, iconColor) = when (item.type) {
-        "ORDER"     -> Pair(Icons.Filled.LocalShipping, Color(0xFF1565C0))
-        "PROMOTION" -> Pair(Icons.Filled.Campaign,      Color(0xFFE53935))
-        "REMINDER"  -> Pair(Icons.Filled.ShoppingBag,   Color(0xFFEF6C00))
-        else        -> Pair(Icons.Filled.SystemUpdate,  Color(0xFF2E7D32))
+    val (iconVec, iconColor) = when (item.type.uppercase()) {
+        "ORDER", "ORDER_STATUS" -> Pair(Icons.Filled.LocalShipping, Color(0xFF1565C0))
+        "PROMOTION" -> Pair(Icons.Filled.Campaign, Color(0xFFE53935))
+        "REWARD" -> Pair(Icons.Filled.ShoppingBag, Color(0xFFEF6C00))
+        "CHAT" -> Pair(Icons.Filled.Notifications, Color(0xFF00897B))
+        "COMPLAINT", "REFUND", "REVIEW" -> Pair(Icons.Filled.SystemUpdate, Color(0xFF6A1B9A))
+        else -> Pair(Icons.Filled.SystemUpdate, Color(0xFF2E7D32))
     }
 
     Surface(

@@ -507,6 +507,7 @@ private fun labelForPaymentStatus(status: String): String {
         "PENDING" -> "Đang xử lý"
         "COMPLETED" -> "Đã thanh toán"
         "FAILED" -> "Thất bại"
+        "PARTIALLY_REFUNDED" -> "Hoàn tiền một phần"
         "REFUNDED" -> "Đã hoàn tiền"
         else -> status
     }

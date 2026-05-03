@@ -32,9 +32,12 @@ import com.example.nhathuoc.data.local.findMockProduct
 import com.example.nhathuoc.data.local.mockProducts
 import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.ui.screen.CartScreen
+import com.example.nhathuoc.ui.screen.ComplaintDetailScreen
 import com.example.nhathuoc.ui.screen.HomeScreen
 import com.example.nhathuoc.ui.screen.MainScreen
+import com.example.nhathuoc.ui.screen.MyComplaintsScreen
 import com.example.nhathuoc.ui.screen.MyOrdersScreen
+import com.example.nhathuoc.ui.screen.RewardScreen
 import com.example.nhathuoc.ui.screen.miniscreen.AddressBookScreen
 import com.example.nhathuoc.ui.screen.miniscreen.CategoryProductScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ChatScreen
@@ -87,6 +90,12 @@ fun AppnavHost(navController: NavHostController) {
         composable("MainScreen") {
             MainScreen(navController)
         }
+        composable("RewardScreen") {
+            RewardScreen(
+                onShopNow = { navController.navigate("HomeScreen") },
+                onUseVoucher = { navController.navigate("CheckoutScreen") }
+            )
+        }
         composable("HomeScreen") {
             HomeScreen(navController = navController)
         }
@@ -113,13 +122,51 @@ fun AppnavHost(navController: NavHostController) {
             MedicalSuppliesQuoteScreen(onBack = { navController.popBackStack() })
         }
         composable("MyOrdersScreen") {
-            MyOrdersScreen(onBack = { navController.popBackStack() })
+            MyOrdersScreen(
+                onBack = { navController.popBackStack() },
+                navController = navController
+            )
+        }
+        composable("MyComplaintsScreen") {
+            MyComplaintsScreen(
+                onBack = { navController.popBackStack() },
+                navController = navController
+            )
+        }
+        composable(
+            route = "ComplaintDetailScreen/{complaintId}",
+            arguments = listOf(navArgument("complaintId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val complaintId = backStackEntry.arguments?.getString("complaintId") ?: ""
+            ComplaintDetailScreen(
+                complaintId = complaintId,
+                onBack = { navController.popBackStack() }
+            )
         }
         composable("FindPharmacyScreen") {
             FindPharmacyScreen(onBack = { navController.popBackStack() })
         }
         composable("NotificationScreen") {
-            NotificationScreen(onBack = { navController.popBackStack() })
+            NotificationScreen(
+                onBack = { navController.popBackStack() },
+                onNotificationClick = { notification ->
+                    val refId = notification.refId
+                    when (notification.type.uppercase()) {
+                        "ORDER", "ORDER_STATUS" -> {
+                            if (!refId.isNullOrBlank()) navController.navigate("OrderDetailScreen/$refId")
+                        }
+                        "COMPLAINT", "REFUND" -> {
+                            if (!refId.isNullOrBlank()) navController.navigate("ComplaintDetailScreen/$refId")
+                        }
+                        "CHAT" -> navController.navigate("ChatScreen")
+                        "REWARD" -> navController.navigate("RewardScreen")
+                        "REVIEW" -> {
+                            if (!refId.isNullOrBlank()) navController.navigate("ProductDetailScreen/$refId")
+                        }
+                        else -> Unit
+                    }
+                }
+            )
         }
 
         // â”€â”€ Product Detail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -185,6 +232,10 @@ fun AppnavHost(navController: NavHostController) {
                 val product by detailViewModel.product.collectAsState()
                 val images by detailViewModel.images.collectAsState()
                 val certificates by detailViewModel.certificates.collectAsState()
+                val reviewSummary by detailViewModel.reviewSummary.collectAsState()
+                val reviews by detailViewModel.reviews.collectAsState()
+                val reviewSubmitState by detailViewModel.reviewSubmitState.collectAsState()
+                val reviewFeedbackMessage by detailViewModel.reviewFeedbackMessage.collectAsState()
 
                 LaunchedEffect(productId) {
                     detailViewModel.loadProduct(productId)
@@ -317,6 +368,19 @@ fun AppnavHost(navController: NavHostController) {
                             onBuyNow = {
                                 addToCartAction()
                                 navController.navigate("CheckoutScreen")
+                            },
+                            reviewSummary = reviewSummary,
+                            reviews = reviews,
+                            reviewSubmitting = reviewSubmitState is UiState.Loading,
+                            reviewSubmitMessage = reviewFeedbackMessage ?: when (val submitState = reviewSubmitState) {
+                                is UiState.Error -> submitState.message
+                                else -> null
+                            },
+                            onSubmitReview = { rating, title, comment, attachments ->
+                                detailViewModel.submitReview(dto.id, rating, title, comment, attachments)
+                            },
+                            onReportReview = { reviewId ->
+                                detailViewModel.reportReview(reviewId)
                             }
                         )
                     }
@@ -339,7 +403,7 @@ fun AppnavHost(navController: NavHostController) {
             arguments = listOf(navArgument("categoryName") { type = NavType.StringType })
         ) { backStackEntry ->
             val rawName = backStackEntry.arguments?.getString("categoryName") ?: ""
-            val categoryName = rawName.replace("_", " ")
+            val categoryName = Uri.decode(rawName).replace("_", " ")
             CategoryProductScreen(
                 categoryName = categoryName,
                 navController = navController,

@@ -7,7 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
+import android.provider.OpenableColumns
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -42,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import com.example.nhathuoc.data.model.ProductReviewSummaryDto
+import com.example.nhathuoc.data.model.ReviewDto
 import com.example.nhathuoc.ui.theme.GreenLight
 private val GreenTop = Color(0xFF2E7D32)
 
@@ -57,6 +62,12 @@ data class ProductCertificate(
     val issuedBy: String? = null,          // Co quan c?p
     val issuedAt: String? = null,          // Ng�y c?p
     val expiresAt: String? = null          // Ng�y h?t h?n
+)
+
+private data class PickedAttachment(
+    val uri: Uri,
+    val name: String,
+    val fileType: String
 )
 
 // -- Product model passed via nav (simplified) ---------------------------------
@@ -95,7 +106,13 @@ fun ProductDetailScreen(
     onChat: () -> Unit = {},
     onFindPharmacy: () -> Unit = {},
     onAddToCart: () -> Unit = {},
-    onBuyNow: () -> Unit = onAddToCart
+    onBuyNow: () -> Unit = onAddToCart,
+    reviewSummary: ProductReviewSummaryDto? = null,
+    reviews: List<ReviewDto> = emptyList(),
+    reviewSubmitting: Boolean = false,
+    reviewSubmitMessage: String? = null,
+    onSubmitReview: ((Int, String, String, List<Uri>) -> Unit)? = null,
+    onReportReview: ((String) -> Unit)? = null
 ) {
     val remoteImageUrls = remember(product.imageUrls, product.imageUrl) {
         product.imageUrls.ifEmpty {
@@ -569,12 +586,295 @@ fun ProductDetailScreen(
                 }
             }
 
+            Spacer(Modifier.height(8.dp))
+
+            ReviewsSection(
+                summary = reviewSummary,
+                reviews = reviews,
+                isSubmitting = reviewSubmitting,
+                submitMessage = reviewSubmitMessage,
+                onSubmitReview = onSubmitReview,
+                onReportReview = onReportReview
+            )
+
             Spacer(Modifier.height(24.dp))
         }
     }
 }
 
 // -- Sub-composables ---------------------------------------------------
+
+@Composable
+private fun ReviewsSection(
+    summary: ProductReviewSummaryDto?,
+    reviews: List<ReviewDto>,
+    isSubmitting: Boolean,
+    submitMessage: String?,
+    onSubmitReview: ((Int, String, String, List<Uri>) -> Unit)?,
+    onReportReview: ((String) -> Unit)?
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    val averageRating = summary?.averageRating ?: 0.0
+    val totalReviews = summary?.totalReviews ?: reviews.size
+
+    if (showDialog && onSubmitReview != null) {
+        ReviewInputDialog(
+            isSubmitting = isSubmitting,
+            errorMessage = submitMessage,
+            onDismiss = { showDialog = false },
+            onSubmit = { rating, title, comment, attachments ->
+                onSubmitReview(rating, title, comment, attachments)
+            }
+        )
+    }
+
+    Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Đánh giá sản phẩm", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        RatingStars(averageRating.toFloat())
+                        Text(
+                            if (totalReviews > 0) String.format("%.1f/5 • %d đánh giá", averageRating, totalReviews)
+                            else "Chưa có đánh giá",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+                if (onSubmitReview != null) {
+                    OutlinedButton(
+                        onClick = { showDialog = true },
+                        shape = RoundedCornerShape(999.dp)
+                    ) {
+                        Text("Viết đánh giá", color = GreenTop, fontSize = 12.sp)
+                    }
+                }
+            }
+
+            if (!submitMessage.isNullOrBlank() && !showDialog) {
+                Text(submitMessage, color = GreenTop, fontSize = 12.sp)
+            }
+
+            if (reviews.isEmpty()) {
+                Text("Khách đã mua có thể đánh giá sản phẩm tại đây.", fontSize = 12.sp, color = Color.Gray)
+            } else {
+                reviews.take(5).forEach { review ->
+                    ReviewRow(review, onReportReview)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReviewInputDialog(
+    isSubmitting: Boolean,
+    errorMessage: String?,
+    onDismiss: () -> Unit,
+    onSubmit: (Int, String, String, List<Uri>) -> Unit
+) {
+    val context = LocalContext.current
+    var rating by remember { mutableStateOf(5) }
+    var title by remember { mutableStateOf("") }
+    var comment by remember { mutableStateOf("") }
+    var attachments by remember { mutableStateOf<List<PickedAttachment>>(emptyList()) }
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        val picked = uris.map { uri ->
+            val name = context.displayName(uri).ifBlank { "file_dinh_kem" }
+            PickedAttachment(
+                uri = uri,
+                name = name,
+                fileType = detectPickedFileType(context.contentResolver.getType(uri), name)
+            )
+        }
+        attachments = (attachments + picked).distinctBy { it.uri }.take(5)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Viết đánh giá") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Chọn số sao", fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (1..5).forEach { value ->
+                        FilterChip(
+                            selected = rating == value,
+                            onClick = { rating = value },
+                            label = { Text("$value") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.Star,
+                                    contentDescription = null,
+                                    tint = GoldColor,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Tiêu đề") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it },
+                    label = { Text("Nội dung đánh giá") },
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedButton(
+                    onClick = { filePicker.launch(arrayOf("image/*", "application/pdf")) },
+                    enabled = !isSubmitting,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Outlined.AttachFile, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Thêm ảnh/PDF (${attachments.size}/5)")
+                }
+                attachments.forEach { attachment ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "${attachment.fileType} • ${attachment.name}",
+                            fontSize = 12.sp,
+                            color = Color(0xFF555555),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            onClick = { attachments = attachments.filterNot { it.uri == attachment.uri } },
+                            enabled = !isSubmitting
+                        ) {
+                            Text("Xóa")
+                        }
+                    }
+                }
+                if (!errorMessage.isNullOrBlank()) {
+                    Text(errorMessage, color = Color(0xFFB45309), fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSubmit(rating, title, comment, attachments.map { it.uri }) },
+                enabled = !isSubmitting && comment.isNotBlank()
+            ) {
+                Text(if (isSubmitting) "Đang gửi..." else "Gửi")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, enabled = !isSubmitting) {
+                Text("Đóng")
+            }
+        }
+    )
+}
+
+@Composable
+private fun ReviewRow(
+    review: ReviewDto,
+    onReportReview: ((String) -> Unit)?
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFFF8FAF8))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                review.userName ?: "Khách hàng",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1A1A1A)
+            )
+            RatingStars(review.rating.toFloat())
+        }
+        if (!review.title.isNullOrBlank()) {
+            Text(review.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = GreenTop)
+        }
+        if (!review.comment.isNullOrBlank()) {
+            Text(review.comment, fontSize = 13.sp, color = Color(0xFF444444), lineHeight = 18.sp)
+        }
+        if (review.attachments.isNotEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                itemsIndexed(review.attachments) { _, attachment ->
+                    if (attachment.fileType.equals("IMAGE", ignoreCase = true)) {
+                        AsyncImage(
+                            model = attachment.fileUrl,
+                            contentDescription = "Review attachment",
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFEFF6FF)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    Icons.Outlined.PictureAsPdf,
+                                    contentDescription = null,
+                                    tint = GreenTop,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text("PDF", color = GreenTop, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (review.isVerifiedPurchase) {
+                Text("Đã mua hàng", fontSize = 11.sp, color = GreenTop, fontWeight = FontWeight.SemiBold)
+            }
+            Text(review.createdAt.take(10), fontSize = 11.sp, color = Color.Gray)
+            if (onReportReview != null) {
+                Text(
+                    "Báo cáo",
+                    fontSize = 11.sp,
+                    color = Color(0xFFB45309),
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { onReportReview(review.id) }
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun AuthenticBadge(modifier: Modifier = Modifier, onTraceClick: () -> Unit) {
@@ -722,6 +1022,29 @@ private fun CertificatePreviewRow(cert: ProductCertificate) {
         } else if (!cert.expiresAt.isNullOrBlank()) {
             Text("Hết hạn: ${cert.expiresAt}", fontSize = 10.sp, color = Color(0xFFE65100))
         }
+    }
+}
+
+private fun Context.displayName(uri: Uri): String {
+    return contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+        ?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0) cursor.getString(index).orEmpty() else ""
+            } else {
+                ""
+            }
+        }
+        .orEmpty()
+        .ifBlank { uri.lastPathSegment.orEmpty().substringAfterLast('/') }
+}
+
+private fun detectPickedFileType(mimeType: String?, name: String): String {
+    val lowerName = name.lowercase()
+    return when {
+        mimeType == "application/pdf" || lowerName.endsWith(".pdf") -> "PDF"
+        mimeType?.startsWith("image/") == true -> "IMAGE"
+        else -> "FILE"
     }
 }
 

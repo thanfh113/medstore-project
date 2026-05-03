@@ -38,6 +38,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.nhathuoc.data.model.PointTransactionDto
 import com.example.nhathuoc.data.model.RewardProductDto
 import com.example.nhathuoc.data.model.RewardRedemptionHistoryDto
+import com.example.nhathuoc.data.model.RewardVoucherDto
 import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.ui.theme.GreenLight
 import com.example.nhathuoc.viewmodel.RewardViewModel
@@ -77,12 +78,17 @@ private enum class RewardScreenTab {
 
 // ── Screen ────────────────────────────────────────────────────────────────
 @Composable
-fun RewardScreen(modifier: Modifier = Modifier, onShopNow: () -> Unit = {}) {
+fun RewardScreen(
+    modifier: Modifier = Modifier,
+    onShopNow: () -> Unit = {},
+    onUseVoucher: () -> Unit = {}
+) {
     val viewModel: RewardViewModel = hiltViewModel()
     val accountState   by viewModel.accountState.collectAsState()
     val productsState  by viewModel.productsState.collectAsState()
     val transactionsState by viewModel.transactionsState.collectAsState()
     val redemptionsState by viewModel.redemptionsState.collectAsState()
+    val vouchersState by viewModel.vouchersState.collectAsState()
     val redeemState    by viewModel.redeemState.collectAsState()
 
     var selectedTab       by remember { mutableStateOf(RewardScreenTab.REWARDS) }
@@ -111,6 +117,10 @@ fun RewardScreen(modifier: Modifier = Modifier, onShopNow: () -> Unit = {}) {
         is UiState.Success -> s.data
         else -> emptyList()
     }
+    val vouchers: List<RewardVoucherDto> = when (val s = vouchersState) {
+        is UiState.Success -> s.data
+        else -> emptyList()
+    }
 
     // Tier filter
     val tierPts = selectedFilter.replace(".", "").replace(" điểm", "").trim().toIntOrNull() ?: 0
@@ -128,6 +138,7 @@ fun RewardScreen(modifier: Modifier = Modifier, onShopNow: () -> Unit = {}) {
         viewModel.loadRewardProducts()
         viewModel.loadRewardTransactions()
         viewModel.loadRewardRedemptions()
+        viewModel.loadRewardVouchers()
     }
 
     LaunchedEffect(redeemState) {
@@ -442,6 +453,14 @@ fun RewardScreen(modifier: Modifier = Modifier, onShopNow: () -> Unit = {}) {
                             modifier = Modifier
                                 .padding(horizontal = 16.dp)
                                 .offset(y = (-16).dp)
+                        )
+                    }
+
+                    item {
+                        MyRewardVouchersSection(
+                            vouchersState = vouchersState,
+                            vouchers = vouchers,
+                            onUseVoucher = onUseVoucher
                         )
                     }
 
@@ -769,6 +788,94 @@ private fun RewardHistorySection(
             }
         )
     }
+}
+
+@Composable
+private fun MyRewardVouchersSection(
+    vouchersState: UiState<List<RewardVoucherDto>>,
+    vouchers: List<RewardVoucherDto>,
+    onUseVoucher: () -> Unit
+) {
+    RewardHistorySection(
+        title = "Voucher cua toi",
+        subtitle = "Ma da doi bang diem se hien o day va co the chon lai trong man thanh toan."
+    ) {
+        when (vouchersState) {
+            is UiState.Loading -> HistoryLoadingState("Dang tai voucher da doi...")
+            is UiState.Error -> HistoryErrorState(vouchersState.message)
+            is UiState.Success -> {
+                if (vouchers.isEmpty()) {
+                    EmptyHistoryState("Chua co voucher nao. Doi voucher trong catalog diem thuong de dung khi checkout.")
+                } else {
+                    vouchers.forEachIndexed { index, voucher ->
+                        RewardVoucherCard(voucher = voucher, onUseVoucher = onUseVoucher)
+                        if (index != vouchers.lastIndex) Spacer(Modifier.height(10.dp))
+                    }
+                }
+            }
+            else -> EmptyHistoryState("Chua co du lieu voucher.")
+        }
+    }
+}
+
+@Composable
+private fun RewardVoucherCard(voucher: RewardVoucherDto, onUseVoucher: () -> Unit) {
+    val used = voucher.status.uppercase() == "USED"
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = if (used) Color(0xFFF3F4F6) else Color(0xFFFFFBEB)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(voucher.name, color = Color(0xFF1A1A1A), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(voucher.code, color = GreenTopRw, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(formatRewardVoucherValue(voucher), color = Color(0xFF4B5563), fontSize = 12.sp)
+                }
+                RedemptionStatusChip(if (used) "USED" else "APPROVED")
+            }
+            voucher.terms?.takeIf { it.isNotBlank() }?.let {
+                Text(it, color = Color(0xFF6B7280), fontSize = 12.sp, lineHeight = 18.sp)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Nhan ngay: ${formatRewardDateTime(voucher.createdAt)}",
+                    color = Color(0xFF9CA3AF),
+                    fontSize = 11.sp
+                )
+                Button(
+                    onClick = onUseVoucher,
+                    enabled = !used,
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenTopRw),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Text(if (used) "Da dung" else "Dung voucher", color = Color.White, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+private fun formatRewardVoucherValue(voucher: RewardVoucherDto): String {
+    val value = if (voucher.discountType.uppercase() == "PERCENT") {
+        "Giam ${voucher.discountValue.toLong()}%"
+    } else {
+        "Giam ${voucher.discountValue.toLong().fmtPts()} d"
+    }
+    val minOrder = voucher.minOrderTotal?.let { " | Don toi thieu ${it.toLong().fmtPts()} d" }.orEmpty()
+    val maxDiscount = voucher.maxDiscountAmount?.let { " | Giam toi da ${it.toLong().fmtPts()} d" }.orEmpty()
+    return value + minOrder + maxDiscount
 }
 
 @Composable

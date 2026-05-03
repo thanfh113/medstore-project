@@ -10,6 +10,7 @@ import com.example.nhathuoc.data.model.CodPaymentRequest
 import com.example.nhathuoc.data.model.NetworkResult
 import com.example.nhathuoc.data.model.PaymentInitRequest
 import com.example.nhathuoc.data.model.PaymentStatusDto
+import com.example.nhathuoc.data.model.RewardVoucherDto
 import com.example.nhathuoc.data.model.UserAddress
 import com.example.nhathuoc.data.repository.AddressRepository
 import com.example.nhathuoc.data.repository.CartRepository
@@ -35,10 +36,14 @@ data class CheckoutState(
     val totalItems: Int = 0,
     val paymentMethod: String = "COD",
     val promoCode: String = "",
+    val selectedVoucherCode: String? = null,
+    val availableVouchers: List<RewardVoucherDto> = emptyList(),
     val note: String = "",
     val pointsInput: String = "",
     val useRewardPoints: Boolean = false,
     val subtotal: Double = 0.0,
+    val cartDiscount: Double = 0.0,
+    val promoDiscount: Double = 0.0,
     val discount: Double = 0.0,
     val shipping: Double = 0.0,
     val tax: Double = 0.0,
@@ -111,6 +116,7 @@ class CheckoutViewModel @Inject constructor(
                             cartItems = cart.items,
                             totalItems = cart.totalItems,
                             subtotal = cart.subtotal,
+                            cartDiscount = cart.discount,
                             discount = cart.discount,
                             estimatedRewardPoints = estimatedRewardPoints,
                             pointsInput = "",
@@ -146,6 +152,32 @@ class CheckoutViewModel @Inject constructor(
                 is NetworkResult.Exception -> {
                     if (firstError == null) {
                         firstError = result.e.localizedMessage ?: "Không thể tải điểm thưởng"
+                    }
+                }
+            }
+
+            when (val result = rewardRepository.getRewardVouchers()) {
+                is NetworkResult.Success -> {
+                    _checkoutState.update { state ->
+                        val vouchers = result.data
+                        val selectedVoucherCode = state.selectedVoucherCode
+                            ?.takeIf { selected -> vouchers.any { it.code.equals(selected, ignoreCase = true) } }
+                            ?: state.promoCode.trim()
+                                .takeIf { it.isNotBlank() && vouchers.any { voucher -> voucher.code.equals(it, ignoreCase = true) } }
+                        state.copy(
+                            availableVouchers = vouchers,
+                            selectedVoucherCode = selectedVoucherCode
+                        )
+                    }
+                }
+                is NetworkResult.Error -> {
+                    if (firstError == null) {
+                        firstError = result.message
+                    }
+                }
+                is NetworkResult.Exception -> {
+                    if (firstError == null) {
+                        firstError = result.e.localizedMessage ?: "Không thể tải voucher đã đổi"
                     }
                 }
             }
@@ -195,7 +227,36 @@ class CheckoutViewModel @Inject constructor(
     }
 
     fun setPromoCode(promoCode: String) {
-        _checkoutState.update { it.copy(promoCode = promoCode) }
+        _checkoutState.update { state ->
+            val normalized = promoCode.trim()
+            val matchedVoucherCode = state.availableVouchers
+                .firstOrNull { it.code.equals(normalized, ignoreCase = true) }
+                ?.code
+            state.copy(
+                promoCode = promoCode,
+                selectedVoucherCode = matchedVoucherCode
+            )
+        }
+        recalculateTotals()
+    }
+
+    fun selectVoucher(code: String?) {
+        _checkoutState.update { state ->
+            val normalized = code?.trim()?.takeIf { it.isNotBlank() }
+            val nextSelected = if (
+                normalized != null &&
+                state.selectedVoucherCode.equals(normalized, ignoreCase = true)
+            ) {
+                null
+            } else {
+                normalized
+            }
+            state.copy(
+                selectedVoucherCode = nextSelected,
+                promoCode = nextSelected.orEmpty()
+            )
+        }
+        recalculateTotals()
     }
 
     fun setNote(note: String) {
@@ -241,9 +302,14 @@ class CheckoutViewModel @Inject constructor(
 
     private fun recalculateTotals() {
         _checkoutState.update { state ->
+            val selectedVoucher = findSelectedVoucher(state)
+            val promoDiscount = selectedVoucher
+                ?.let { estimateVoucherDiscount(it, state.subtotal) }
+                ?: 0.0
+            val combinedDiscount = state.cartDiscount + promoDiscount
             val maxUsableRewardPoints = calculateMaxUsableRewardPoints(
                 subtotal = state.subtotal,
-                discount = state.discount,
+                discount = combinedDiscount,
                 availablePoints = state.availableRewardPoints
             )
             val requestedPoints = state.pointsInput.toIntOrNull()?.coerceAtLeast(0) ?: 0
@@ -254,10 +320,12 @@ class CheckoutViewModel @Inject constructor(
             }
             val pointsValue = appliedPoints * 1000.0
             val shipping = if (state.subtotal >= 500_000.0 || state.subtotal <= 0.0) 0.0 else 30_000.0
-            val taxableAmount = (state.subtotal - state.discount - pointsValue).coerceAtLeast(0.0)
+            val taxableAmount = (state.subtotal - combinedDiscount - pointsValue).coerceAtLeast(0.0)
             val tax = taxableAmount * 0.10
             state.copy(
                 pointsInput = if (state.useRewardPoints && appliedPoints > 0) appliedPoints.toString() else state.pointsInput,
+                promoDiscount = promoDiscount,
+                discount = combinedDiscount,
                 shipping = shipping,
                 tax = tax,
                 pointsToUse = appliedPoints,
@@ -296,7 +364,7 @@ class CheckoutViewModel @Inject constructor(
                 pickupType = "DELIVERY",
                 paymentMethod = currentState.paymentMethod,
                 rewardPointsToUse = currentState.pointsToUse,
-                promoCode = currentState.promoCode.ifBlank { null },
+                promoCode = resolveActivePromoCode(currentState),
                 notes = currentState.note.ifBlank { null }
             )
 
@@ -445,5 +513,32 @@ class CheckoutViewModel @Inject constructor(
         val cleanBase = baseReturnUrl.ifBlank { PAYMENT_RETURN_URL }
         val separator = if (cleanBase.contains("?")) "&" else "?"
         return "${cleanBase}${separator}orderId=$orderId"
+    }
+
+    private fun resolveActivePromoCode(state: CheckoutState): String? {
+        return findSelectedVoucher(state)?.code ?: state.promoCode.trim().ifBlank { null }
+    }
+
+    private fun findSelectedVoucher(state: CheckoutState): RewardVoucherDto? {
+        val activeCode = state.selectedVoucherCode?.takeIf { it.isNotBlank() }
+            ?: state.promoCode.trim().ifBlank { null }
+        return activeCode?.let { code ->
+            state.availableVouchers.firstOrNull { it.code.equals(code, ignoreCase = true) }
+        }
+    }
+
+    private fun estimateVoucherDiscount(voucher: RewardVoucherDto, subtotal: Double): Double {
+        if (subtotal <= 0.0) return 0.0
+        val minOrderTotal = voucher.minOrderTotal ?: 0.0
+        if (subtotal < minOrderTotal) return 0.0
+
+        val rawDiscount = when (voucher.discountType.uppercase()) {
+            "PERCENT" -> subtotal * (voucher.discountValue / 100.0)
+            else -> voucher.discountValue
+        }
+        val cappedDiscount = voucher.maxDiscountAmount?.let { maxAmount ->
+            min(rawDiscount, maxAmount)
+        } ?: rawDiscount
+        return cappedDiscount.coerceIn(0.0, subtotal)
     }
 }

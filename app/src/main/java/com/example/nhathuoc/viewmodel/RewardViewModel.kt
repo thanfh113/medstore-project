@@ -8,6 +8,7 @@ import com.example.nhathuoc.data.model.PointTransactionDto
 import com.example.nhathuoc.data.model.RewardAccountDto
 import com.example.nhathuoc.data.model.RewardRedemptionHistoryDto
 import com.example.nhathuoc.data.model.RewardProductDto
+import com.example.nhathuoc.data.model.RewardVoucherDto
 import com.example.nhathuoc.data.model.RedeemRequest
 import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.data.repository.RewardRepository
@@ -33,6 +34,9 @@ class RewardViewModel @Inject constructor(
 
     private val _redemptionsState = MutableStateFlow<UiState<List<RewardRedemptionHistoryDto>>>(UiState.Idle)
     val redemptionsState: StateFlow<UiState<List<RewardRedemptionHistoryDto>>> = _redemptionsState.asStateFlow()
+
+    private val _vouchersState = MutableStateFlow<UiState<List<RewardVoucherDto>>>(UiState.Idle)
+    val vouchersState: StateFlow<UiState<List<RewardVoucherDto>>> = _vouchersState.asStateFlow()
 
     private val _redeemState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val redeemState: StateFlow<UiState<String>> = _redeemState.asStateFlow()
@@ -88,6 +92,17 @@ class RewardViewModel @Inject constructor(
         }
     }
 
+    fun loadRewardVouchers() {
+        viewModelScope.launch {
+            _vouchersState.value = UiState.Loading
+            when (val result = rewardRepository.getRewardVouchers()) {
+                is NetworkResult.Success -> _vouchersState.value = UiState.Success(result.data)
+                is NetworkResult.Error -> _vouchersState.value = UiState.Error(result.message)
+                is NetworkResult.Exception -> _vouchersState.value = UiState.Error(result.e.message ?: "Unknown error")
+            }
+        }
+    }
+
     fun redeemProduct(rewardProductId: String, quantity: Int = 1) {
         viewModelScope.launch {
             _redeemState.value = UiState.Loading
@@ -97,6 +112,7 @@ class RewardViewModel @Inject constructor(
                     loadRewardAccount()
                     loadRewardTransactions()
                     loadRewardRedemptions()
+                    loadRewardVouchers()
                 }
                 is NetworkResult.Error -> _redeemState.value = UiState.Error(result.message)
                 is NetworkResult.Exception -> _redeemState.value = UiState.Error(result.e.message ?: "Unknown error")

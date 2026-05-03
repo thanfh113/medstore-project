@@ -1,8 +1,10 @@
 package com.example.nhathuoc.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nhathuoc.data.model.*
+import com.example.nhathuoc.data.repository.FileUploadRepository
 import com.example.nhathuoc.data.repository.OrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -13,7 +15,8 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class OrderViewModel @Inject constructor(
-    private val orderRepository: OrderRepository
+    private val orderRepository: OrderRepository,
+    private val fileUploadRepository: FileUploadRepository
 ) : ViewModel() {
     private val _orderState = MutableStateFlow<UiState<OrderDto>>(UiState.Idle)
     val orderState: StateFlow<UiState<OrderDto>> = _orderState.asStateFlow()
@@ -23,6 +26,18 @@ class OrderViewModel @Inject constructor(
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _complaintState = MutableStateFlow<UiState<ComplaintDto>>(UiState.Idle)
+    val complaintState: StateFlow<UiState<ComplaintDto>> = _complaintState.asStateFlow()
+
+    private val _complaintsListState = MutableStateFlow<UiState<List<ComplaintDto>>>(UiState.Idle)
+    val complaintsListState: StateFlow<UiState<List<ComplaintDto>>> = _complaintsListState.asStateFlow()
+
+    private val _complaintDetailState = MutableStateFlow<UiState<ComplaintDto>>(UiState.Idle)
+    val complaintDetailState: StateFlow<UiState<ComplaintDto>> = _complaintDetailState.asStateFlow()
+
+    private val _complaintMessageState = MutableStateFlow<UiState<Unit>>(UiState.Idle)
+    val complaintMessageState: StateFlow<UiState<Unit>> = _complaintMessageState.asStateFlow()
 
     fun getOrderById(orderId: String) {
         viewModelScope.launch {
@@ -68,8 +83,108 @@ class OrderViewModel @Inject constructor(
         }
     }
 
+    fun createComplaint(
+        orderId: String,
+        type: String,
+        title: String,
+        description: String,
+        orderItemId: String? = null,
+        productId: String? = null,
+        attachmentUris: List<Uri> = emptyList()
+    ) {
+        viewModelScope.launch {
+            _complaintState.value = UiState.Loading
+            val attachments = if (attachmentUris.isNotEmpty()) {
+                when (val uploadResult = fileUploadRepository.uploadEvidenceFiles(attachmentUris)) {
+                    is NetworkResult.Success -> uploadResult.data.map { file ->
+                        ComplaintAttachmentInput(
+                            fileUrl = file.fileUrl,
+                            fileType = file.fileType,
+                            publicId = file.publicId
+                        )
+                    }
+                    is NetworkResult.Error -> {
+                        _complaintState.value = UiState.Error("Loi upload file: ${uploadResult.message}")
+                        return@launch
+                    }
+                    is NetworkResult.Exception -> {
+                        _complaintState.value = UiState.Error(uploadResult.e.message ?: "Khong the upload file")
+                        return@launch
+                    }
+                }
+            } else {
+                emptyList()
+            }
+            val request = CreateComplaintRequest(
+                orderId = orderId,
+                orderItemId = orderItemId,
+                productId = productId,
+                type = type,
+                title = title.trim(),
+                description = description.trim(),
+                attachments = attachments
+            )
+            when (val result = orderRepository.createComplaint(request)) {
+                is NetworkResult.Success -> {
+                    _complaintState.value = UiState.Success(result.data)
+                    getComplaints()
+                }
+                is NetworkResult.Error -> _complaintState.value = UiState.Error("Loi: ${result.message}")
+                is NetworkResult.Exception -> _complaintState.value = UiState.Error("Loi ket noi")
+            }
+        }
+    }
+
+    fun getComplaints() {
+        viewModelScope.launch {
+            _complaintsListState.value = UiState.Loading
+            when (val result = orderRepository.getComplaints()) {
+                is NetworkResult.Success -> _complaintsListState.value = UiState.Success(result.data)
+                is NetworkResult.Error -> _complaintsListState.value = UiState.Error("Loi: ${result.message}")
+                is NetworkResult.Exception -> _complaintsListState.value = UiState.Error("Loi ket noi")
+            }
+        }
+    }
+
+    fun getComplaintById(complaintId: String) {
+        viewModelScope.launch {
+            _complaintDetailState.value = UiState.Loading
+            when (val result = orderRepository.getComplaintById(complaintId)) {
+                is NetworkResult.Success -> _complaintDetailState.value = UiState.Success(result.data)
+                is NetworkResult.Error -> _complaintDetailState.value = UiState.Error("Loi: ${result.message}")
+                is NetworkResult.Exception -> _complaintDetailState.value = UiState.Error("Loi ket noi")
+            }
+        }
+    }
+
+    fun sendComplaintMessage(complaintId: String, message: String) {
+        viewModelScope.launch {
+            _complaintMessageState.value = UiState.Loading
+            when (val result = orderRepository.sendComplaintMessage(complaintId, message)) {
+                is NetworkResult.Success -> {
+                    _complaintMessageState.value = UiState.Success(Unit)
+                    getComplaintById(complaintId)
+                }
+                is NetworkResult.Error -> _complaintMessageState.value = UiState.Error("Loi: ${result.message}")
+                is NetworkResult.Exception -> _complaintMessageState.value = UiState.Error("Loi ket noi")
+            }
+        }
+    }
+
+    fun clearComplaintMessageState() {
+        _complaintMessageState.value = UiState.Idle
+    }
+
+    fun clearComplaintState() {
+        _complaintState.value = UiState.Idle
+    }
+
     fun clearState() {
         _orderState.value = UiState.Idle
         _ordersListState.value = UiState.Idle
+        _complaintState.value = UiState.Idle
+        _complaintsListState.value = UiState.Idle
+        _complaintDetailState.value = UiState.Idle
+        _complaintMessageState.value = UiState.Idle
     }
 }
