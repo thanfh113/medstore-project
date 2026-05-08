@@ -29,6 +29,7 @@ import org.example.project.data.models.ChatConversation
 import org.example.project.data.models.ChatMessage
 import org.example.project.data.models.ChatStatus
 import org.example.project.data.models.MessageType
+import org.example.project.data.models.ProductRecommendation
 import org.example.project.data.models.SenderType
 
 @Serializable
@@ -41,10 +42,26 @@ private data class ChatDataEnvelope<T>(
 private data class ChatSessionResponseDto(
     val id: String,
     val userId: String,
+    val userName: String? = null,
+    val userPhone: String? = null,
+    val userEmail: String? = null,
     val productId: String? = null,
     val status: String,
     val createdAt: String,
-    val lastMessage: ChatMessageResponseDto? = null
+    val lastMessage: ChatMessageResponseDto? = null,
+    val productName: String? = null,
+    val productImageUrl: String? = null,
+    val productPrice: Double? = null,
+    val productUnit: String? = null,
+    val consultantId: String? = null,
+    val consultantName: String? = null,
+    val consultantRole: String? = null,
+    val consultantQualificationTitle: String? = null,
+    val consultantQualificationSpecialty: String? = null,
+    val consultantQualificationInstitution: String? = null,
+    val consultantQualificationDocumentUrl: String? = null,
+    val consultantQualificationDocumentType: String? = null,
+    val consultantVerified: Boolean? = null
 )
 
 @Serializable
@@ -105,11 +122,23 @@ class ChatRepository(private val client: HttpClient) {
         Result.failure(IllegalStateException(e.message ?: "Không thể tải tin nhắn"))
     }
 
-    suspend fun sendMessage(token: String, sessionId: String, content: String): Result<ChatMessage> = try {
+    suspend fun sendMessage(
+        token: String,
+        sessionId: String,
+        content: String,
+        type: String = MessageType.TEXT.value,
+        metadata: String? = null
+    ): Result<ChatMessage> = try {
         val response = client.post("$restBaseUrl/sessions/$sessionId/messages") {
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
-            setBody(SendChatMessageRequestDto(content = content.trim()))
+            setBody(
+                SendChatMessageRequestDto(
+                    content = content.trim(),
+                    type = type,
+                    metadata = metadata
+                )
+            )
         }
 
         if (!response.status.isSuccess()) {
@@ -193,20 +222,38 @@ class ChatRepository(private val client: HttpClient) {
     private fun mapSession(dto: ChatSessionResponseDto): ChatConversation {
         val lastMessage = dto.lastMessage?.let(::mapMessage)
         val consultantMessage = lastMessage?.takeIf { it.senderType == SenderType.PHARMACIST }
-        val subtitle = dto.productId?.let { "Vật tư: $it" } ?: "Mã khách: ${dto.userId.takeLast(8)}"
+        val customerName = dto.userName?.takeIf { it.isNotBlank() }
+            ?: lastMessage?.takeIf { it.senderType == SenderType.CUSTOMER }?.senderName?.takeIf { it.isNotBlank() }
+            ?: buildCustomerLabel(dto.userId)
+        val productLabel = dto.productName?.takeIf { it.isNotBlank() }
+            ?: dto.productId?.let { "Mã vật tư: ${it.takeLast(8)}" }
+        val subtitle = productLabel
+            ?: dto.userPhone?.takeIf { it.isNotBlank() }
+            ?: dto.userEmail?.takeIf { it.isNotBlank() }
+            ?: "Mã khách: ${dto.userId.takeLast(8)}"
         return ChatConversation(
             id = dto.id,
             customerId = dto.userId,
-            customerName = buildCustomerLabel(dto.userId),
+            customerName = customerName,
             customerPhone = subtitle,
-            pharmacistId = consultantMessage?.senderId,
-            pharmacistName = consultantMessage?.senderName,
+            pharmacistId = dto.consultantId ?: consultantMessage?.senderId,
+            pharmacistName = dto.consultantName ?: consultantMessage?.senderName,
             status = ChatStatus.fromValue(dto.status),
             lastMessage = lastMessage,
             lastMessageAt = lastMessage?.timestamp ?: dto.createdAt,
             createdAt = dto.createdAt,
             updatedAt = lastMessage?.timestamp ?: dto.createdAt,
-            productId = dto.productId
+            productId = dto.productId,
+            productName = dto.productName,
+            productImageUrl = dto.productImageUrl,
+            productPrice = dto.productPrice,
+            productUnit = dto.productUnit,
+            consultantQualificationTitle = dto.consultantQualificationTitle,
+            consultantQualificationSpecialty = dto.consultantQualificationSpecialty,
+            consultantQualificationInstitution = dto.consultantQualificationInstitution,
+            consultantQualificationDocumentUrl = dto.consultantQualificationDocumentUrl,
+            consultantQualificationDocumentType = dto.consultantQualificationDocumentType,
+            consultantVerified = dto.consultantVerified
         )
     }
 
@@ -220,8 +267,16 @@ class ChatRepository(private val client: HttpClient) {
             content = dto.content.orEmpty(),
             messageType = mapMessageType(dto.type),
             timestamp = dto.createdAt,
+            productRecommendation = decodeProductRecommendation(dto.metadata),
             metadata = dto.metadata
         )
+    }
+
+    private fun decodeProductRecommendation(metadata: String?): ProductRecommendation? {
+        if (metadata.isNullOrBlank()) return null
+        return runCatching {
+            json.decodeFromString(ProductRecommendation.serializer(), metadata)
+        }.getOrNull()
     }
 
     private fun mapSenderType(senderRole: String?): SenderType {
@@ -244,7 +299,10 @@ class ChatRepository(private val client: HttpClient) {
 
     private fun mapMessageType(type: String?): MessageType {
         val normalized = type?.trim()?.uppercase()
-        return MessageType.entries.firstOrNull { it.value == normalized } ?: MessageType.TEXT
+        return when (normalized) {
+            "PRODUCT_CARD", "PRODUCT_RECOMMENDATION" -> MessageType.PRODUCT_RECOMMENDATION
+            else -> MessageType.entries.firstOrNull { it.value == normalized } ?: MessageType.TEXT
+        }
     }
 
     private fun buildCustomerLabel(userId: String): String = "Khách hàng ${userId.takeLast(6)}"

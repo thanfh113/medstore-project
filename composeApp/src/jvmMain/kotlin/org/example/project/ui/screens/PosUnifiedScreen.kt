@@ -553,7 +553,7 @@ private fun PaymentMethodSelector(selectedMethod: String, onSelect: (String) -> 
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            listOf("CASH", "MOMO", "VNPAY", "ZALOPAY").forEach { method ->
+            listOf("CASH", "MOMO", "ZALOPAY").forEach { method ->
                 DropdownMenuItem(
                     text = { Text(paymentMethodLabel(method)) },
                     onClick = {
@@ -704,7 +704,6 @@ private fun PosUnifiedProcessContent(state: PosUiState, viewModel: PosViewModel)
 private fun paymentMethodLabel(method: String): String = when (method.uppercase()) {
     "CASH" -> "Tiền mặt"
     "MOMO" -> "MoMo"
-    "VNPAY" -> "VNPay"
     "ZALOPAY" -> "ZaloPay"
     else -> method
 }

@@ -4,9 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -20,7 +18,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.example.project.data.models.ProductCategory
-import org.example.project.data.models.DiseaseCategory
 import org.example.project.data.repositories.UploadedProductAsset
 import org.example.project.utils.openFileChooser
 import kotlinx.coroutines.launch
@@ -31,15 +28,14 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberDatePickerState
+import org.example.project.data.models.categoryDisplayPath
+import org.example.project.data.models.childProductCategories
+import org.example.project.data.models.selectedCategoryGroupId
+import org.example.project.data.models.topLevelProductCategories
 
 /**
- * Data class for collecting product form data across all 5 groups
- * Mapped to 5 main database tables:
- * Group 1 -> products table
- * Group 2 -> products + product_diseases tables
- * Group 3 -> products + product_images tables
- * Group 4 -> product_batches table
- * Group 5 -> product_certificates table
+ * Data class keeps the full payload expected by backend, while the desktop
+ * wizard only exposes the fields needed for the DATN e-commerce flow.
  */
 data class CompleteProductFormData(
     // Group 1: Basic Information (Thông tin cơ bản)
@@ -59,7 +55,6 @@ data class CompleteProductFormData(
     val riskClassification: String = "A",
     val requiresConsultation: Boolean = false,
     val requiresCertification: Boolean = false,
-    val diseaseIds: List<String> = emptyList(),
     
     // Group 3: Pricing & Images (Giá bán & Hình ảnh)
     val price: Double = 0.0,
@@ -68,8 +63,8 @@ data class CompleteProductFormData(
     val rewardPoints: Int = 0,
     val productImages: List<ProductImageData> = emptyList(),
     
-    // Group 4: Batch & Inventory (Quản lý Lô hàng & Tồn kho)
-    val firstBatchData: BatchData? = null,
+    // Group 4: Inventory
+    val firstStockData: StockData? = null,
     
     // Group 5: Certificates (Chứng từ kèm theo)
     val certificates: List<CertificateData> = emptyList()
@@ -82,8 +77,7 @@ data class ProductImageData(
     val sortOrder: Int = 0
 )
 
-data class BatchData(
-    val lotNumber: String = "",
+data class StockData(
     val mfgDate: String = "",
     val expDate: String = "",
     val quantityOnHand: Int = 0,
@@ -95,6 +89,9 @@ data class CertificateData(
     val name: String = "",
     val fileUrl: String = "",
     val publicId: String? = null,
+    val fileType: String = "IMAGE",
+    val resourceType: String = "image",
+    val thumbnailUrl: String? = null,
     val issuer: String = "",
     val issueDate: String = "",
     val expireDate: String = ""
@@ -103,7 +100,6 @@ data class CertificateData(
 @Composable
 fun CompleteProductFormStepper(
     categories: List<ProductCategory> = emptyList(),
-    diseases: List<DiseaseCategory> = emptyList(),
     onUploadProductMedia: suspend (File, String) -> Result<UploadedProductAsset>,
     onUploadCertificate: suspend (File) -> Result<UploadedProductAsset>,
     onDeleteUploadedAsset: suspend (String, String) -> Result<Unit>,
@@ -117,20 +113,10 @@ fun CompleteProductFormStepper(
     var isCleaningUp by remember { mutableStateOf(false) }
     var cleanupError by remember { mutableStateOf<String?>(null) }
     val wizardSteps = listOf(
-        "Thông tin chung",
-        "Pháp ly y tế",
-        "Giá và hình ảnh",
-        "Khởi tạo lô"
+        "Thông tin bán hàng",
+        "Giá & hình ảnh",
+        "Kho & giấy tờ"
     )
-
-    val legacySteps = listOf(
-        "Thông tin cơ bản",
-        "Đặc thù Y tế",
-        "Giá & Hình ảnh",
-        "Lô hàng & Tồn kho",
-        "Chứng chỉ"
-    )
-    val steps = wizardSteps
 
     Column(
         modifier = Modifier
@@ -163,25 +149,16 @@ fun CompleteProductFormStepper(
                     categories = categories,
                     onUpdate = { formData = it }
                 )
-                1 -> Step2HealthcareSpecific(
-                    data = formData,
-                    diseases = diseases,
-                    onUploadCertificate = onUploadCertificate,
-                    onDeleteUploadedAsset = onDeleteUploadedAsset,
-                    onUpdate = { formData = it }
-                )
-                2 -> Step3PricingImages(
+                1 -> Step3PricingImages(
                     data = formData,
                     onUploadProductMedia = onUploadProductMedia,
                     onDeleteUploadedAsset = onDeleteUploadedAsset,
                     onUpdate = { formData = it }
                 )
-                3 -> Step4BatchInventory(
+                2 -> Step2HealthcareSpecific(
                     data = formData,
-                    onUpdate = { formData = it }
-                )
-                4 -> Step5Certificates(
-                    data = formData,
+                    onUploadCertificate = onUploadCertificate,
+                    onDeleteUploadedAsset = onDeleteUploadedAsset,
                     onUpdate = { formData = it }
                 )
             }
@@ -247,7 +224,7 @@ fun CompleteProductFormStepper(
                     ),
                     enabled = !isCleaningUp
                 ) {
-                    Text(if (currentStep == steps.size - 1) "Lưu sản phẩm" else "Tiếp theo")
+                    Text(if (currentStep == wizardSteps.size - 1) "Lưu sản phẩm" else "Tiếp theo")
                     if (currentStep < wizardSteps.size - 1) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(Icons.Default.ArrowForward, contentDescription = null)
@@ -351,6 +328,14 @@ private fun Step1BasicInfo(
     categories: List<ProductCategory>,
     onUpdate: (CompleteProductFormData) -> Unit
 ) {
+    val groups = remember(categories) { topLevelProductCategories(categories) }
+    val selectedGroupId = selectedCategoryGroupId(categories, data.categoryId)
+    val selectedGroup = groups.firstOrNull { it.id == selectedGroupId }
+    val children = remember(categories, selectedGroupId) {
+        childProductCategories(categories, selectedGroupId)
+    }
+    val selectedChild = children.firstOrNull { it.id == data.categoryId }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -376,25 +361,39 @@ private fun Step1BasicInfo(
             )
         }
         
-        // SKU
-        item {
-            FormField(
-                label = "Mã sản phẩm (SKU)",
-                value = data.sku,
-                onValueChange = { onUpdate(data.copy(sku = it)) },
-                placeholder = "VD: OMR-HEM-7120",
-                singleLine = true
-            )
-        }
-        
         // Category
         item {
             DropdownField(
-                label = "Danh mục *",
-                value = categories.find { it.id == data.categoryId }?.displayName ?: "Chọn danh mục",
-                options = categories.map { it.displayName to it.id },
-                onSelect = { selectedId -> onUpdate(data.copy(categoryId = selectedId)) }
+                label = "Nhóm danh mục *",
+                value = selectedGroup?.displayName ?: "Chọn nhóm danh mục",
+                options = groups.map { it.displayName to it.id },
+                onSelect = { selectedId ->
+                    val firstChild = childProductCategories(categories, selectedId).firstOrNull()
+                    onUpdate(data.copy(categoryId = firstChild?.id ?: selectedId))
+                }
             )
+        }
+
+        if (selectedGroup != null && children.isNotEmpty()) {
+            item {
+                DropdownField(
+                    label = "Danh mục con",
+                    value = selectedChild?.displayName
+                        ?: if (data.categoryId == selectedGroup.id) "Nhóm chung: ${selectedGroup.displayName}" else "Chọn danh mục con",
+                    options = listOf("Nhóm chung: ${selectedGroup.displayName}" to selectedGroup.id) +
+                        children.map { it.displayName to it.id },
+                    onSelect = { selectedId -> onUpdate(data.copy(categoryId = selectedId)) }
+                )
+                val path = categoryDisplayPath(categories, data.categoryId)
+                if (path.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        path,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
         
         // Unit (Required)
@@ -426,17 +425,6 @@ private fun Step1BasicInfo(
             )
         }
         
-        // Manufacturer
-        item {
-            FormField(
-                label = "Nhà sản xuất",
-                value = data.manufacturer,
-                onValueChange = { onUpdate(data.copy(manufacturer = it)) },
-                placeholder = "VD: OMRON Healthcare Co., Ltd",
-                singleLine = true
-            )
-        }
-        
         // Origin
         item {
             FormField(
@@ -448,171 +436,21 @@ private fun Step1BasicInfo(
             )
         }
         
-        // Short Description
         item {
             FormField(
-                label = "Mô tả ngắn",
+                label = "Mô tả sản phẩm",
                 value = data.shortDescription,
-                onValueChange = { onUpdate(data.copy(shortDescription = it)) },
-                placeholder = "Mô tả ngắn gọn về sản phẩm (tối đa 500 ký tự)",
-                maxLines = 2
-            )
-        }
-        
-        // Full Description
-        item {
-            FormField(
-                label = "Mô tả chi tiết",
-                value = data.fullDescription,
-                onValueChange = { onUpdate(data.copy(fullDescription = it)) },
-                placeholder = "Mô tả chi tiết, đặc điểm, lợi ích của sản phẩm",
+                onValueChange = { onUpdate(data.copy(shortDescription = it, fullDescription = it)) },
+                placeholder = "Mô tả ngắn gọn đặc điểm, công dụng, lưu ý",
                 maxLines = 4
             )
         }
-        
-        // Target Audience
-        item {
-            DropdownField(
-                label = "Đối tượng sử dụng",
-                value = when (data.targetAudience) {
-                    "ALL" -> "Tất cả (Mặc định)"
-                    "CHILDREN" -> "Trẻ em"
-                    "ELDERLY" -> "Người già"
-                    else -> data.targetAudience
-                },
-                options = listOf(
-                    "Tất cả (Mặc định)" to "ALL",
-                    "Trẻ em" to "CHILDREN",
-                    "Người lớn" to "ADULT",
-                    "Người già" to "ELDERLY"
-                ),
-                onSelect = { onUpdate(data.copy(targetAudience = it)) }
-            )
-        }
     }
 }
 
-// ============================================================================
-// STEP 2: HEALTHCARE SPECIFIC (Đặc thù Y tế)
-// ============================================================================
-@Composable
-private fun LegacyStep2HealthcareSpecific(
-    data: CompleteProductFormData,
-    diseases: List<DiseaseCategory>,
-    onUpdate: (CompleteProductFormData) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Text(
-                "Bước 2: Đặc thù Y tế",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        
-        // Registration Number
-        item {
-            FormField(
-                label = "Số đăng ký lưu hành",
-                value = data.registrationNumber,
-                onValueChange = { onUpdate(data.copy(registrationNumber = it)) },
-                placeholder = "VD: MD-001-2024",
-                singleLine = true
-            )
-        }
-        
-        // Risk Classification
-        item {
-            DropdownField(
-                label = "Phân loại rủi ro",
-                value = data.riskClassification,
-                options = listOf(
-                    "A - Rủi ro thấp" to "A",
-                    "B - Rủi ro trung bình" to "B",
-                    "C - Rủi ro cao" to "C",
-                    "D - Rủi ro rất cao" to "D"
-                ),
-                onSelect = { onUpdate(data.copy(riskClassification = it)) }
-            )
-        }
-        
-        // Requires Consultation
-        item {
-            CheckboxField(
-                label = "Cần tư vấn trước khi mua",
-                checked = data.requiresConsultation,
-                onCheckedChange = { onUpdate(data.copy(requiresConsultation = it)) },
-                description = "Khách hàng cần tư vấn với Dược sĩ hoặc AI chatbot"
-            )
-        }
-        
-        // Requires Certification
-        item {
-            CheckboxField(
-                label = "Yêu cầu chứng chỉ/Giấy phép",
-                checked = data.requiresCertification,
-                onCheckedChange = { onUpdate(data.copy(requiresCertification = it)) },
-                description = "Cần cung cấp chứng chỉ/giấy phép hành nghề khi mua"
-            )
-        }
-        
-        // Disease Categories (Multi-select)
-        item {
-            Text(
-                "Nhóm bệnh lý liên quan",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-        
-        items(diseases.size) { index ->
-            val disease = diseases[index]
-            val isSelected = data.diseaseIds.contains(disease.id)
-            
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        val newList = if (isSelected) {
-                            data.diseaseIds.filterNot { it == disease.id }
-                        } else {
-                            data.diseaseIds + disease.id
-                        }
-                        onUpdate(data.copy(diseaseIds = newList))
-                    }
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Checkbox(
-                    checked = isSelected,
-                    onCheckedChange = { checked ->
-                        val newList = if (checked) {
-                            data.diseaseIds + disease.id
-                        } else {
-                            data.diseaseIds.filterNot { it == disease.id }
-                        }
-                        onUpdate(data.copy(diseaseIds = newList))
-                    }
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(disease.name)
-            }
-        }
-    }
-}
-
-// ============================================================================
-// STEP 3: PRICING & IMAGES (Giá bán & Hình ảnh)
-// ============================================================================
 @Composable
 private fun Step2HealthcareSpecific(
     data: CompleteProductFormData,
-    diseases: List<DiseaseCategory>,
     onUploadCertificate: suspend (File) -> Result<UploadedProductAsset>,
     onDeleteUploadedAsset: suspend (String, String) -> Result<Unit>,
     onUpdate: (CompleteProductFormData) -> Unit
@@ -620,9 +458,11 @@ private fun Step2HealthcareSpecific(
     val scope = rememberCoroutineScope()
     val latestData by rememberUpdatedState(data)
     val license = data.certificates.firstOrNull()
+    val stockData = data.firstStockData ?: StockData()
     var isUploading by remember { mutableStateOf(false) }
     var isDeletingFile by remember { mutableStateOf(false) }
     var uploadError by remember { mutableStateOf<String?>(null) }
+    var showAdvanced by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -632,33 +472,9 @@ private fun Step2HealthcareSpecific(
     ) {
         item {
             Text(
-                "Buoc 2: Phap ly y te va chung tu",
+                "Bước 3: Kho & giấy tờ",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
-            )
-        }
-
-        item {
-            FormField(
-                label = "So DKLH / So cong bo",
-                value = data.registrationNumber,
-                onValueChange = { onUpdate(data.copy(registrationNumber = it)) },
-                placeholder = "VD: 220001234/PCBA-HN",
-                singleLine = true
-            )
-        }
-
-        item {
-            DropdownField(
-                label = "Phan loai rui ro",
-                value = data.riskClassification,
-                options = listOf(
-                    "Loai A" to "A",
-                    "Loai B" to "B",
-                    "Loai C" to "C",
-                    "Loai D" to "D"
-                ),
-                onSelect = { onUpdate(data.copy(riskClassification = it)) }
             )
         }
 
@@ -670,7 +486,7 @@ private fun Step2HealthcareSpecific(
                 )
             ) {
                 Text(
-                    "Giay phep Bo Y Te se duoc luu voi type co dinh la MOH_LICENSE.",
+                    "Phần này có thể bỏ trống khi tạo nhanh. Có thể cập nhật tồn kho, hạn dùng và giấy tờ sau.",
                     modifier = Modifier.padding(12.dp),
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -678,134 +494,224 @@ private fun Step2HealthcareSpecific(
         }
 
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Button(
-                    onClick = {
-                        val file = openFileChooser(
-                            title = "Chon giay phep Bo Y Te",
-                            allowedExtensions = listOf(".jpg", ".jpeg", ".png", ".pdf", ".heic"),
-                            allowMultiple = false
-                        ).firstOrNull() ?: return@Button
+            FormField(
+                label = "Số lượng nhập ban đầu",
+                value = if (stockData.quantityOnHand == 0) "" else stockData.quantityOnHand.toString(),
+                onValueChange = {
+                    onUpdate(data.copy(firstStockData = stockData.copy(quantityOnHand = it.toIntOrNull() ?: 0)))
+                },
+                placeholder = "VD: 100",
+                keyboardType = KeyboardType.Number,
+                singleLine = true
+            )
+        }
 
-                        scope.launch {
-                            isUploading = true
-                            uploadError = null
-                            val previousLicense = latestData.certificates.firstOrNull()
-                            onUploadCertificate(file).fold(
-                                onSuccess = { uploaded ->
-                                    val previousPublicId = previousLicense?.publicId
-                                        ?.takeIf { it.isNotBlank() && it != uploaded.publicId }
-                                    previousPublicId?.let { publicId ->
-                                        onDeleteUploadedAsset(publicId, "image").onFailure { error ->
-                                            uploadError = error.message ?: "Da thay file moi nhung khong the xoa file cu"
-                                        }
-                                    }
-
-                                    val currentData = latestData
-                                    val currentLicense = currentData.certificates.firstOrNull()
-                                    onUpdate(
-                                        currentData.withPrimaryCertificate(
-                                            (currentLicense ?: CertificateData(type = "MOH_LICENSE")).copy(
-                                                type = "MOH_LICENSE",
-                                                name = (currentLicense?.name?.takeIf { it.isNotBlank() } ?: file.nameWithoutExtension),
-                                                fileUrl = uploaded.url,
-                                                publicId = uploaded.publicId
-                                            )
-                                        )
-                                    )
-                                },
-                                onFailure = { error ->
-                                    uploadError = error.message ?: "Khong the upload giay phep"
-                                }
-                            )
-                            isUploading = false
-                        }
-                    },
-                    enabled = !isUploading && !isDeletingFile
-                ) {
-                    Text(if (isUploading) "Dang upload..." else "Chon file giay phep")
+        item {
+            DatePickerField(
+                label = "Hạn sử dụng",
+                value = stockData.expDate,
+                onValueChange = {
+                    onUpdate(data.copy(firstStockData = stockData.copy(expDate = it)))
                 }
+            )
+        }
 
-                if (!license?.fileUrl.isNullOrBlank()) {
-                    TextButton(
-                        onClick = {
-                            scope.launch {
-                                val currentData = latestData
-                                val currentLicense = currentData.certificates.firstOrNull() ?: return@launch
-                                isDeletingFile = true
-                                uploadError = null
+        item {
+            FormField(
+                label = "Số đăng ký lưu hành / số công bố",
+                value = data.registrationNumber,
+                onValueChange = { onUpdate(data.copy(registrationNumber = it)) },
+                placeholder = "VD: 220001234/PCBA-HN",
+                singleLine = true
+            )
+        }
 
-                                val cleanupResult = currentLicense.publicId
-                                    ?.takeIf { it.isNotBlank() }
-                                    ?.let { onDeleteUploadedAsset(it, "image") }
-                                    ?: Result.success(Unit)
+        item {
+            Surface(
+                color = Color(0xFFF7FBF4),
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Giấy tờ sản phẩm", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        license?.takeIf { it.fileUrl.isNotBlank() }?.let {
+                            "Đã chọn: ${it.name.ifBlank { "File chứng nhận" }}"
+                        } ?: "Có thể chọn ảnh/PDF giấy đăng ký, công bố hoặc chứng nhận chất lượng.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                val file = openFileChooser(
+                                    title = "Chọn giấy tờ sản phẩm",
+                                    allowedExtensions = listOf(".jpg", ".jpeg", ".png", ".pdf", ".heic"),
+                                    allowMultiple = false
+                                ).firstOrNull() ?: return@Button
 
-                                isDeletingFile = false
-                                cleanupResult.fold(
-                                    onSuccess = {
-                                        onUpdate(
-                                            currentData.withPrimaryCertificate(
-                                                currentLicense.copy(
-                                                    fileUrl = "",
-                                                    publicId = null
+                                scope.launch {
+                                    isUploading = true
+                                    uploadError = null
+                                    val previousLicense = latestData.certificates.firstOrNull()
+                                    onUploadCertificate(file).fold(
+                                        onSuccess = { uploaded ->
+                                            val previousPublicId = previousLicense?.publicId
+                                                ?.takeIf { it.isNotBlank() && it != uploaded.publicId }
+                                            previousPublicId?.let { publicId ->
+                                                onDeleteUploadedAsset(publicId, "image").onFailure { error ->
+                                                    uploadError = error.message ?: "Đã thay file mới nhưng không thể xóa file cũ"
+                                                }
+                                            }
+
+                                            val currentData = latestData
+                                            val currentLicense = currentData.certificates.firstOrNull()
+                                            onUpdate(
+                                                currentData.withPrimaryCertificate(
+                                                    (currentLicense ?: CertificateData(type = "MOH_LICENSE")).copy(
+                                                        type = "MOH_LICENSE",
+                                                        name = file.nameWithoutExtension,
+                                                        fileUrl = uploaded.url,
+                                                        publicId = uploaded.publicId,
+                                                        fileType = uploaded.mediaType.ifBlank { "IMAGE" },
+                                                        resourceType = uploaded.resourceType.ifBlank { "image" },
+                                                        thumbnailUrl = if (uploaded.mediaType.equals("IMAGE", ignoreCase = true)) uploaded.url else null
+                                                    )
                                                 )
                                             )
+                                        },
+                                        onFailure = { error ->
+                                            uploadError = error.message ?: "Không thể upload giấy tờ"
+                                        }
+                                    )
+                                    isUploading = false
+                                }
+                            },
+                            enabled = !isUploading && !isDeletingFile
+                        ) {
+                            Text(if (isUploading) "Đang upload..." else if (license?.fileUrl.isNullOrBlank()) "Chọn file" else "Đổi file")
+                        }
+
+                        if (!license?.fileUrl.isNullOrBlank()) {
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        val currentData = latestData
+                                        val currentLicense = currentData.certificates.firstOrNull() ?: return@launch
+                                        isDeletingFile = true
+                                        uploadError = null
+
+                                        val cleanupResult = currentLicense.publicId
+                                            ?.takeIf { it.isNotBlank() }
+                                            ?.let { onDeleteUploadedAsset(it, currentLicense.resourceType.ifBlank { "image" }) }
+                                            ?: Result.success(Unit)
+
+                                        isDeletingFile = false
+                                        cleanupResult.fold(
+                                            onSuccess = {
+                                                onUpdate(
+                                                    currentData.copy(
+                                                        certificates = currentData.certificates.drop(1)
+                                                    )
+                                                )
+                                            },
+                                            onFailure = { error ->
+                                                uploadError = error.message ?: "Không thể xóa file đã tải lên"
+                                            }
                                         )
-                                    },
-                                    onFailure = { error ->
-                                        uploadError = error.message ?: "Khong the xoa file giay phep da tai len"
                                     }
-                                )
+                                },
+                                enabled = !isUploading && !isDeletingFile
+                            ) {
+                                Text(if (isDeletingFile) "Đang xóa..." else "Xóa file")
                             }
-                        },
-                        enabled = !isUploading && !isDeletingFile
-                    ) {
-                        Text(if (isDeletingFile) "Dang xoa..." else "Xoa file")
+                        }
                     }
                 }
             }
         }
 
         item {
-            FormField(
-                label = "Ten giay phep Bo Y Te",
-                value = license?.name.orEmpty(),
-                onValueChange = { value ->
-                    onUpdate(
-                        data.withPrimaryCertificate(
-                            (license ?: CertificateData(type = "MOH_LICENSE")).copy(
-                                type = "MOH_LICENSE",
-                                name = value
-                            )
-                        )
-                    )
-                },
-                placeholder = "VD: Ban cong bo tieu chuan loai A",
-                singleLine = true
-            )
+            OutlinedButton(onClick = { showAdvanced = !showAdvanced }) {
+                Text(if (showAdvanced) "Ẩn thông tin nâng cao" else "Thông tin nâng cao")
+            }
         }
 
-        item {
-            FormField(
-                label = "File dinh kem giay phep (URL)",
-                value = license?.fileUrl.orEmpty(),
-                onValueChange = { value ->
-                    onUpdate(
-                        data.withPrimaryCertificate(
-                            (license ?: CertificateData(type = "MOH_LICENSE")).copy(
-                                type = "MOH_LICENSE",
-                                fileUrl = value
+        if (showAdvanced) {
+            item {
+                DropdownField(
+                    label = "Phân loại rủi ro",
+                    value = data.riskClassification,
+                    options = listOf(
+                        "Loại A" to "A",
+                        "Loại B" to "B",
+                        "Loại C" to "C",
+                        "Loại D" to "D"
+                    ),
+                    onSelect = { selectedRisk ->
+                        val restrictedOnline = selectedRisk == "C" || selectedRisk == "D"
+                        onUpdate(
+                            data.copy(
+                                riskClassification = selectedRisk,
+                                requiresCertification = data.requiresCertification || restrictedOnline,
+                                requiresConsultation = data.requiresConsultation || restrictedOnline
                             )
                         )
-                    )
-                },
-                placeholder = "https://.../giay-phep.pdf",
-                singleLine = true
-            )
+                    }
+                )
+            }
+
+            if (data.riskClassification == "C" || data.riskClassification == "D") {
+                item {
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "Loại ${data.riskClassification} chỉ tư vấn/ký kết tại nhà thuốc, không bán online.",
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    }
+                }
+            }
+
+            item {
+                DatePickerField(
+                    label = "Ngày sản xuất",
+                    value = stockData.mfgDate,
+                    onValueChange = {
+                        onUpdate(data.copy(firstStockData = stockData.copy(mfgDate = it)))
+                    }
+                )
+            }
+
+            item {
+                FormField(
+                    label = "Giá nhập (VND)",
+                    value = if (stockData.importPrice == 0.0) "" else stockData.importPrice.toString(),
+                    onValueChange = {
+                        onUpdate(data.copy(firstStockData = stockData.copy(importPrice = it.toDoubleOrNull() ?: 0.0)))
+                    },
+                    placeholder = "VD: 750000",
+                    keyboardType = KeyboardType.Decimal,
+                    singleLine = true
+                )
+            }
+
+            item {
+                CheckboxField(
+                    label = "Cần tư vấn trước khi mua",
+                    checked = data.requiresConsultation,
+                    onCheckedChange = { onUpdate(data.copy(requiresConsultation = it)) },
+                    description = "Chỉ bật với sản phẩm cần nhân viên tư vấn thêm."
+                )
+            }
         }
 
         uploadError?.let { message ->
@@ -820,135 +726,6 @@ private fun Step2HealthcareSpecific(
     }
 }
 
-@Composable
-private fun LegacyStep3PricingImages(
-    data: CompleteProductFormData,
-    onUpdate: (CompleteProductFormData) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Text(
-                "Bước 3: Giá bán & Hình ảnh",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        
-        // Price (Required)
-        item {
-            FormField(
-                label = "Giá bán (VND) *",
-                value = if (data.price == 0.0) "" else data.price.toString(),
-                onValueChange = {
-                    onUpdate(data.copy(price = it.toDoubleOrNull() ?: 0.0))
-                },
-                placeholder = "VD: 850000",
-                keyboardType = KeyboardType.Decimal,
-                singleLine = true
-            )
-        }
-        
-        // Original Price
-        item {
-            FormField(
-                label = "Giá gốc (VND)",
-                value = data.originalPrice?.toString() ?: "",
-                onValueChange = {
-                    onUpdate(data.copy(originalPrice = it.toDoubleOrNull()))
-                },
-                placeholder = "VD: 950000",
-                keyboardType = KeyboardType.Decimal,
-                singleLine = true
-            )
-        }
-        
-        // Discount Percentage
-        item {
-            FormField(
-                label = "Tỉ lệ giảm giá (%)",
-                value = if (data.discountPct == 0) "" else data.discountPct.toString(),
-                onValueChange = {
-                    onUpdate(data.copy(discountPct = it.toIntOrNull() ?: 0))
-                },
-                placeholder = "VD: 10",
-                keyboardType = KeyboardType.Number,
-                singleLine = true
-            )
-        }
-        
-        // Reward Points
-        item {
-            FormField(
-                label = "Điểm thưởng (Points)",
-                value = if (data.rewardPoints == 0) "" else data.rewardPoints.toString(),
-                onValueChange = {
-                    onUpdate(data.copy(rewardPoints = it.toIntOrNull() ?: 0))
-                },
-                placeholder = "VD: 50",
-                keyboardType = KeyboardType.Number,
-                singleLine = true
-            )
-        }
-        
-        item {
-            Divider()
-        }
-        
-        // Images section
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    "Hình ảnh/Video",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Button(
-                    onClick = { /* TODO: Add image upload */ },
-                    modifier = Modifier.height(32.dp),
-                    contentPadding = PaddingValues(8.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Thêm ảnh")
-                }
-            }
-        }
-        
-        if (data.productImages.isEmpty()) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Text(
-                        "Chưa có ảnh. Click nút 'Thêm ảnh' để tải lên",
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        } else {
-            items(data.productImages.size) { index ->
-                Text("Ảnh ${index + 1}: ${data.productImages[index].mediaType}")
-            }
-        }
-    }
-}
-
-// ============================================================================
-// STEP 4: BATCH & INVENTORY (Quản lý Lô hàng & Tồn kho)
-// ============================================================================
 @Composable
 private fun Step3PricingImages(
     data: CompleteProductFormData,
@@ -970,7 +747,7 @@ private fun Step3PricingImages(
     ) {
         item {
             Text(
-                "Buoc 3: Gia ban va hinh anh",
+                "Bước 2: Giá & hình ảnh",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -978,7 +755,7 @@ private fun Step3PricingImages(
 
         item {
             FormField(
-                label = "Gia ban thuc te (VND) *",
+                label = "Giá bán (VND) *",
                 value = if (data.price == 0.0) "" else data.price.toString(),
                 onValueChange = { onUpdate(data.copy(price = it.toDoubleOrNull() ?: 0.0)) },
                 placeholder = "VD: 850000",
@@ -989,33 +766,11 @@ private fun Step3PricingImages(
 
         item {
             FormField(
-                label = "Gia goc (VND)",
+                label = "Giá gốc / giá niêm yết (VND)",
                 value = data.originalPrice?.toString() ?: "",
                 onValueChange = { onUpdate(data.copy(originalPrice = it.toDoubleOrNull())) },
                 placeholder = "VD: 950000",
                 keyboardType = KeyboardType.Decimal,
-                singleLine = true
-            )
-        }
-
-        item {
-            FormField(
-                label = "Ti le giam gia (%)",
-                value = if (data.discountPct == 0) "" else data.discountPct.toString(),
-                onValueChange = { onUpdate(data.copy(discountPct = it.toIntOrNull() ?: 0)) },
-                placeholder = "VD: 10",
-                keyboardType = KeyboardType.Number,
-                singleLine = true
-            )
-        }
-
-        item {
-            FormField(
-                label = "Diem thuong tich luy",
-                value = if (data.rewardPoints == 0) "" else data.rewardPoints.toString(),
-                onValueChange = { onUpdate(data.copy(rewardPoints = it.toIntOrNull() ?: 0)) },
-                placeholder = "VD: 50",
-                keyboardType = KeyboardType.Number,
                 singleLine = true
             )
         }
@@ -1031,37 +786,16 @@ private fun Step3PricingImages(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    "Danh sach hinh anh / video",
+                    "Hình ảnh sản phẩm",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = {
-                            onUpdate(
-                                data.copy(
-                                    productImages = reindexProductImages(
-                                        data.productImages + ProductImageData(
-                                            url = "",
-                                            mediaType = "IMAGE",
-                                            sortOrder = data.productImages.size
-                                        )
-                                    )
-                                )
-                            )
-                        },
-                        enabled = deletingImageIndex == null,
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Text("Them URL")
-                    }
-
                     Button(
                         onClick = {
                             val files = openFileChooser(
-                                title = "Chon anh / video san pham",
-                                allowedExtensions = listOf(".jpg", ".jpeg", ".png", ".webp", ".heic", ".mp4", ".mov", ".avi", ".webm"),
+                                title = "Chọn ảnh sản phẩm",
+                                allowedExtensions = listOf(".jpg", ".jpeg", ".png", ".webp", ".heic"),
                                 allowMultiple = true
                             )
                             if (files.isEmpty()) return@Button
@@ -1084,7 +818,7 @@ private fun Step3PricingImages(
                                         },
                                         onFailure = { error ->
                                             if (uploadError == null) {
-                                                uploadError = error.message ?: "Khong the upload tep ${file.name}"
+                                                uploadError = error.message ?: "Không thể upload tệp ${file.name}"
                                             }
                                         }
                                     )
@@ -1107,7 +841,7 @@ private fun Step3PricingImages(
                     ) {
                         Icon(Icons.Default.Upload, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (isUploading) "Dang tai..." else "Tai tep")
+                        Text(if (isUploading) "Đang tải..." else "Tải ảnh")
                     }
                 }
             }
@@ -1132,7 +866,7 @@ private fun Step3PricingImages(
                     )
                 ) {
                     Text(
-                        "Chua co hinh anh nao. Them URL cho anh bia va cac anh phu neu can.",
+                        "Chưa có hình ảnh. Tải ít nhất một ảnh để sản phẩm hiển thị đẹp trên app.",
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -1158,7 +892,7 @@ private fun Step3PricingImages(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                if (index == 0) "Anh bia" else "Anh phu ${index + 1}",
+                                if (index == 0) "Ảnh bìa" else "Ảnh phụ ${index + 1}",
                                 fontWeight = FontWeight.Bold
                             )
                             TextButton(
@@ -1200,41 +934,21 @@ private fun Step3PricingImages(
                                                 }
                                             },
                                             onFailure = { error ->
-                                                uploadError = error.message ?: "Khong the xoa tep da tai len"
+                                                uploadError = error.message ?: "Không thể xóa tệp đã tải lên"
                                             }
                                         )
                                     }
                                 },
                                 enabled = !isUploading && deletingImageIndex == null
                             ) {
-                                Text(if (isDeletingThisImage) "Dang xoa..." else "Xoa")
+                                Text(if (isDeletingThisImage) "Đang xóa..." else "Xóa")
                             }
                         }
 
-                        FormField(
-                            label = "Link tep",
-                            value = image.url,
-                            onValueChange = { value ->
-                                val updated = data.productImages.toMutableList()
-                                updated[index] = updated[index].copy(url = value)
-                                onUpdate(data.copy(productImages = reindexProductImages(updated)))
-                            },
-                            placeholder = "https://.../image.jpg",
-                            singleLine = true
-                        )
-
-                        DropdownField(
-                            label = "Loai tep",
-                            value = image.mediaType,
-                            options = listOf(
-                                "IMAGE" to "IMAGE",
-                                "VIDEO" to "VIDEO"
-                            ),
-                            onSelect = { value ->
-                                val updated = data.productImages.toMutableList()
-                                updated[index] = updated[index].copy(mediaType = value)
-                                onUpdate(data.copy(productImages = reindexProductImages(updated)))
-                            }
+                        Text(
+                            text = image.url.ifBlank { "Chưa có URL ảnh" },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         if (index > 0) {
@@ -1247,236 +961,12 @@ private fun Step3PricingImages(
                                 },
                                 enabled = deletingImageIndex == null
                             ) {
-                                Text("Dat lam anh bia")
+                                Text("Đặt làm ảnh bìa")
                             }
                         }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun Step4BatchInventory(
-    data: CompleteProductFormData,
-    onUpdate: (CompleteProductFormData) -> Unit
-) {
-    val batchData = data.firstBatchData ?: BatchData()
-    
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Text(
-                "Bước 4: Nhập lô hàng đầu tiên",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Text(
-                    "💡 Thay vì nhập tồn kho chung, bạn sẽ nhập theo từng Lô (Batch) của lần nhập hàng. Số lượng sẽ được cộng dồn vào tồn kho sản phẩm.",
-                    modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
-        
-        // Lot Number
-        item {
-            FormField(
-                label = "Số lô",
-                value = batchData.lotNumber,
-                onValueChange = {
-                    onUpdate(data.copy(firstBatchData = batchData.copy(lotNumber = it)))
-                },
-                placeholder = "VD: LOT202404001",
-                singleLine = true
-            )
-        }
-        
-        // Manufacturing Date - Using DatePickerField
-        item {
-            DatePickerField(
-                label = "Ngày sản xuất",
-                value = batchData.mfgDate,
-                onValueChange = {
-                    onUpdate(data.copy(firstBatchData = batchData.copy(mfgDate = it)))
-                }
-            )
-        }
-        
-        // Expiry Date - Using DatePickerField
-        item {
-            DatePickerField(
-                label = "Hạn sử dụng",
-                value = batchData.expDate,
-                onValueChange = {
-                    onUpdate(data.copy(firstBatchData = batchData.copy(expDate = it)))
-                }
-            )
-        }
-        
-        // Quantity (Required)
-        item {
-            FormField(
-                label = "Số lượng nhập *",
-                value = if (batchData.quantityOnHand == 0) "" else batchData.quantityOnHand.toString(),
-                onValueChange = {
-                    onUpdate(data.copy(
-                        firstBatchData = batchData.copy(
-                            quantityOnHand = it.toIntOrNull() ?: 0
-                        )
-                    ))
-                },
-                placeholder = "VD: 100",
-                keyboardType = KeyboardType.Number,
-                singleLine = true
-            )
-        }
-        
-        // Import Price
-        item {
-            FormField(
-                label = "Giá nhập (VND)",
-                value = if (batchData.importPrice == 0.0) "" else batchData.importPrice.toString(),
-                onValueChange = {
-                    onUpdate(data.copy(
-                        firstBatchData = batchData.copy(
-                            importPrice = it.toDoubleOrNull() ?: 0.0
-                        )
-                    ))
-                },
-                placeholder = "VD: 750000",
-                keyboardType = KeyboardType.Decimal,
-                singleLine = true
-            )
-        }
-    }
-}
-
-// ============================================================================
-// STEP 5: CERTIFICATES (Chứng từ kèm theo)
-// ============================================================================
-@Composable
-private fun Step5Certificates(
-    data: CompleteProductFormData,
-    onUpdate: (CompleteProductFormData) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Text(
-                "Bước 5: Chứng từ kèm theo (Tùy chọn)",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        
-        if (!data.requiresCertification) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                    )
-                ) {
-                    Text(
-                        "✓ Sản phẩm này không yêu cầu chứng chỉ. Phần này là tùy chọn.",
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        } else {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                    )
-                ) {
-                    Text(
-                        "⚠️ Sản phẩm yêu cầu chứng chỉ. Vui lòng cung cấp giấy tờ liên quan.",
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        }
-        
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    "Các chứng chỉ đã thêm: ${data.certificates.size}",
-                    style = MaterialTheme.typography.labelMedium
-                )
-                Button(
-                    onClick = { /* TODO: Add certificate */ },
-                    modifier = Modifier.height(32.dp),
-                    contentPadding = PaddingValues(8.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Thêm chứng chỉ")
-                }
-            }
-        }
-        
-        if (data.certificates.isEmpty()) {
-            item {
-                Text(
-                    "Chưa có chứng chỉ nào",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
-            }
-        } else {
-            items(data.certificates.size) { index ->
-                CertificateListItem(data.certificates[index])
-            }
-        }
-    }
-}
-
-@Composable
-private fun CertificateListItem(cert: CertificateData) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                cert.name,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.labelMedium
-            )
-            Text(
-                "Loại: ${cert.type} | Cấp bởi: ${cert.issuer}",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
-            )
         }
     }
 }
@@ -1546,7 +1036,9 @@ private fun DropdownField(
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                modifier = Modifier.fillMaxWidth(0.9f)
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .heightIn(max = 320.dp)
             ) {
                 options.forEach { (displayText, value) ->
                     DropdownMenuItem(
@@ -1671,14 +1163,13 @@ private fun resourceTypeForMedia(mediaType: String): String {
 private fun isStepValid(step: Int, formData: CompleteProductFormData): Boolean {
     return when (step) {
         0 -> formData.productName.isNotBlank() && formData.categoryId.isNotBlank() && formData.unit.isNotBlank()
-        1 -> {
+        1 -> formData.price > 0.0
+        2 -> {
             val certificate = formData.certificates.firstOrNull()
             val hasPartialCertificate = certificate != null &&
                 (certificate.name.isNotBlank() xor certificate.fileUrl.isNotBlank())
             !hasPartialCertificate
         }
-        2 -> formData.price > 0.0
-        3 -> formData.firstBatchData?.quantityOnHand ?: 0 > 0
         else -> true
     }
 }
@@ -1687,8 +1178,7 @@ private fun isFormComplete(formData: CompleteProductFormData): Boolean {
     return formData.productName.isNotBlank() &&
             formData.categoryId.isNotBlank() &&
             formData.unit.isNotBlank() &&
-            formData.price > 0.0 &&
-            (formData.firstBatchData?.quantityOnHand ?: 0) > 0
+            formData.price > 0.0
 }
 
 // ============================================================================

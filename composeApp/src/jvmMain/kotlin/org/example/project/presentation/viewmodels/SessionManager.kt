@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import org.example.project.data.repositories.AuthResponseDto
+import org.example.project.data.repositories.BannerRepository
 import org.example.project.data.repositories.CouponAdminRepository
 import org.example.project.data.repositories.DesktopDashboardRepository
 import org.example.project.data.repositories.DesktopOrderRepository
@@ -13,7 +14,6 @@ import org.example.project.data.repositories.OperationsRepository
 import org.example.project.data.repositories.PersonnelRepository
 import org.example.project.data.repositories.PosRepository
 import org.example.project.data.repositories.ProductRepository
-import org.example.project.data.repositories.SyncRepository
 
 data class DesktopSession(
     val accessToken: String,
@@ -32,9 +32,9 @@ class SessionManager(
     private val posRepository: PosRepository,
     private val couponRepository: CouponAdminRepository,
     private val financeRepository: FinanceRepository,
-    private val syncRepository: SyncRepository,
     private val personnelRepository: PersonnelRepository,
-    private val operationsRepository: OperationsRepository
+    private val operationsRepository: OperationsRepository,
+    private val bannerRepository: BannerRepository
 ) {
     private val _session = MutableStateFlow<DesktopSession?>(null)
     val session: StateFlow<DesktopSession?> = _session.asStateFlow()
@@ -55,9 +55,9 @@ class SessionManager(
         posRepository.setAuthToken(newSession.accessToken)
         couponRepository.setAuthToken(newSession.accessToken)
         financeRepository.setAuthToken(newSession.accessToken)
-        syncRepository.setAuthToken(newSession.accessToken)
         personnelRepository.setAuthToken(newSession.accessToken)
         operationsRepository.setAuthToken(newSession.accessToken)
+        bannerRepository.setAuthToken(newSession.accessToken)
         _session.value = newSession
     }
 
@@ -70,9 +70,9 @@ class SessionManager(
         posRepository.setAuthToken(accessToken)
         couponRepository.setAuthToken(accessToken)
         financeRepository.setAuthToken(accessToken)
-        syncRepository.setAuthToken(accessToken)
         personnelRepository.setAuthToken(accessToken)
         operationsRepository.setAuthToken(accessToken)
+        bannerRepository.setAuthToken(accessToken)
         _session.value = updated
         return true
     }
@@ -84,9 +84,9 @@ class SessionManager(
         posRepository.setAuthToken(null)
         couponRepository.setAuthToken(null)
         financeRepository.setAuthToken(null)
-        syncRepository.setAuthToken(null)
         personnelRepository.setAuthToken(null)
         operationsRepository.setAuthToken(null)
+        bannerRepository.setAuthToken(null)
         _session.value = null
     }
 

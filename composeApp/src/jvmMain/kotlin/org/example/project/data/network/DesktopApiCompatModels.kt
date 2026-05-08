@@ -22,7 +22,11 @@ data class UpdateProductRequest(
     val unit: String,
     val price: Double,
     val originalPrice: Double? = null,
+    val importPrice: Double? = null,
     val stock: Int = 0,
+    val mfgDate: String? = null,
+    val expDate: String? = null,
+    val inventoryNote: String? = null,
     val discountPct: Int? = null,
     val rewardPoints: Int? = null,
     val registrationNumber: String? = null,
@@ -82,5 +86,4 @@ data class ResponseTimeAnalytics(
     val maxResponseTimeMinutes: Double = 0.0,
     val totalResponses: Int = 0
 )
-
 

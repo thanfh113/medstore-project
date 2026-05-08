@@ -12,11 +12,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.example.project.data.models.ChatConversation
 import org.example.project.data.models.ChatMessage
 import org.example.project.data.models.ChatStatus
+import org.example.project.data.models.MessageType
+import org.example.project.data.models.Product
+import org.example.project.data.models.ProductCategory
+import org.example.project.data.models.ProductRecommendation
 import org.example.project.data.models.SenderType
 import org.example.project.data.repositories.ChatRepository
+import org.example.project.data.repositories.ProductRepository
 
 data class ChatUiState(
     val searchQuery: String = "",
@@ -32,11 +39,20 @@ data class ChatUiState(
     val isResolvingSession: Boolean = false,
     val isRealtimeConnected: Boolean = false,
     val isRealtimeReconnecting: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val currentUserRole: String? = null,
+    val isSuggestionPickerOpen: Boolean = false,
+    val isLoadingSuggestionProducts: Boolean = false,
+    val suggestionProducts: List<Product> = emptyList(),
+    val suggestionCategories: List<ProductCategory> = emptyList(),
+    val productSuggestionQuery: String = "",
+    val productSuggestionCategoryId: String? = null,
+    val selectedProductDetail: Product? = null
 )
 
 class ChatViewModel(
     private val chatRepository: ChatRepository,
+    private val productRepository: ProductRepository,
     private val sessionManager: SessionManager
 ) : ViewModel() {
 
@@ -45,6 +61,7 @@ class ChatViewModel(
     private var refreshJob: Job? = null
     private var queueRefreshJob: Job? = null
     private var listeningSessionId: String? = null
+    private val json = Json { ignoreUnknownKeys = true }
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -94,19 +111,21 @@ class ChatViewModel(
     fun selectConversation(conversation: ChatConversation) {
         val token = currentToken() ?: return
         if (_uiState.value.selectedConversation?.id == conversation.id) return
+        val role = currentRole()
 
         scope.launch {
             _uiState.update {
                 it.copy(
                     selectedConversation = conversation.copy(unreadCount = 0),
-                isLoadingMessages = true,
+                    isLoadingMessages = true,
                     isRealtimeConnected = false,
                     isRealtimeReconnecting = false,
-                    error = null
+                    error = null,
+                    currentUserRole = role
                 )
             }
 
-            val assignedConversation = if (conversation.status == ChatStatus.PENDING) {
+            val assignedConversation = if (conversation.status == ChatStatus.PENDING && role != "ADMIN") {
                 chatRepository.assignSession(token, conversation.id).getOrElse { conversation }
             } else {
                 conversation
@@ -144,6 +163,10 @@ class ChatViewModel(
         val token = currentToken() ?: return
         val selectedConversation = _uiState.value.selectedConversation ?: return
         if (selectedConversation.status == ChatStatus.RESOLVED) return
+        if (currentRole() == "ADMIN") {
+            _uiState.update { it.copy(error = "Admin chỉ được xem và giám sát phiên tư vấn, không trực tiếp chat với khách.") }
+            return
+        }
 
         val trimmed = content.trim()
         if (trimmed.isBlank()) return
@@ -162,6 +185,125 @@ class ChatViewModel(
                         it.copy(
                             isSendingMessage = false,
                             error = error.message ?: "Không thể gửi tin nhắn"
+                        )
+                    }
+                }
+        }
+    }
+
+    fun openProductSuggestionPicker() {
+        if (currentRole() == "ADMIN") {
+            _uiState.update { it.copy(error = "Admin chỉ xem và giám sát, không gửi gợi ý sản phẩm.") }
+            return
+        }
+        _uiState.update { it.copy(isSuggestionPickerOpen = true, error = null) }
+        loadSuggestionProductsIfNeeded()
+    }
+
+    fun closeProductSuggestionPicker() {
+        _uiState.update { it.copy(isSuggestionPickerOpen = false) }
+    }
+
+    fun updateProductSuggestionQuery(query: String) {
+        _uiState.update { it.copy(productSuggestionQuery = query) }
+    }
+
+    fun selectProductSuggestionCategory(categoryId: String?) {
+        _uiState.update { it.copy(productSuggestionCategoryId = categoryId) }
+    }
+
+    fun sendProductSuggestion(product: Product) {
+        val token = currentToken() ?: return
+        val selectedConversation = _uiState.value.selectedConversation ?: return
+        if (selectedConversation.status == ChatStatus.RESOLVED || currentRole() == "ADMIN") return
+
+        val recommendation = ProductRecommendation(
+            productId = product.id,
+            productName = product.name,
+            productImage = product.images.firstOrNull()?.url,
+            price = product.price,
+            productUnit = product.unit,
+            categoryId = product.categoryId,
+            description = product.description.take(180),
+            reason = "Nhân viên gợi ý sản phẩm phù hợp với nhu cầu tư vấn."
+        )
+        val metadata = json.encodeToString(recommendation)
+
+        scope.launch {
+            _uiState.update {
+                it.copy(
+                    isSendingMessage = true,
+                    isSuggestionPickerOpen = false,
+                    error = null
+                )
+            }
+            chatRepository.sendMessage(
+                token = token,
+                sessionId = selectedConversation.id,
+                content = "Gợi ý sản phẩm: ${product.name}",
+                type = MessageType.PRODUCT_RECOMMENDATION.value,
+                metadata = metadata
+            ).onSuccess { message ->
+                appendMessageIfMissing(message)
+                _uiState.update { it.copy(isSendingMessage = false) }
+            }.onFailure { error ->
+                markSelectedResolvedIfClosed(error)
+                _uiState.update {
+                    it.copy(
+                        isSendingMessage = false,
+                        error = error.message ?: "Không thể gửi gợi ý sản phẩm"
+                    )
+                }
+            }
+        }
+    }
+
+    fun openProductDetail(productId: String) {
+        if (productId.isBlank()) return
+        val existing = _uiState.value.suggestionProducts.firstOrNull { it.id == productId }
+        if (existing != null) {
+            _uiState.update { it.copy(selectedProductDetail = existing) }
+            return
+        }
+
+        scope.launch {
+            loadSuggestionProductsIfNeeded()
+            delay(50)
+            val product = _uiState.value.suggestionProducts.firstOrNull { it.id == productId }
+            _uiState.update { state ->
+                if (product != null) state.copy(selectedProductDetail = product)
+                else state.copy(error = "Chưa tải được thông tin sản phẩm")
+            }
+        }
+    }
+
+    fun dismissProductDetail() {
+        _uiState.update { it.copy(selectedProductDetail = null) }
+    }
+
+    private fun loadSuggestionProductsIfNeeded(force: Boolean = false) {
+        val state = _uiState.value
+        if (!force && state.suggestionProducts.isNotEmpty()) return
+        if (state.isLoadingSuggestionProducts) return
+
+        scope.launch {
+            _uiState.update { it.copy(isLoadingSuggestionProducts = true, error = null) }
+            val categoriesResult = productRepository.getCategories()
+            productRepository.getAllProducts()
+                .onSuccess { products ->
+                    _uiState.update {
+                        it.copy(
+                            isLoadingSuggestionProducts = false,
+                            suggestionProducts = products.filter { product -> product.isActive },
+                            suggestionCategories = categoriesResult.getOrDefault(emptyList())
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoadingSuggestionProducts = false,
+                            error = error.message ?: "Không thể tải danh sách sản phẩm gợi ý"
                         )
                     }
                 }
@@ -251,7 +393,8 @@ class ChatViewModel(
                 it.copy(
                     isLoading = if (showLoading) true else it.isLoading,
                     isRefreshingQueue = !showLoading,
-                    error = null
+                    error = null,
+                    currentUserRole = currentRole()
                 )
             }
             chatRepository.getSessions(token, status?.value)
@@ -410,6 +553,8 @@ class ChatViewModel(
         }
         return token
     }
+
+    private fun currentRole(): String? = sessionManager.session.value?.role?.uppercase()
 
     override fun onCleared() {
         listenJob?.cancel()

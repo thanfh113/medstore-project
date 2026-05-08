@@ -103,8 +103,7 @@ private data class OrderStatusUpdateRequest(
 )
 
 class DesktopOrderRepository(
-    private val client: HttpClient,
-    private val syncRepository: SyncRepository? = null
+    private val client: HttpClient
 ) {
     private val baseUrl = "http://localhost:8080/api/v1/internal/orders"
     private val json = Json { ignoreUnknownKeys = true }
@@ -136,12 +135,9 @@ class DesktopOrderRepository(
         }
 
         val response = httpResponse.body<InternalDataEnvelope<List<InternalOrderSummaryDto>>>()
-        syncRepository?.cacheOrdersSummary(response.data)
         Result.success(response.data)
     } catch (e: Exception) {
-        val cached = syncRepository?.loadCachedOrders(status).orEmpty()
-        if (cached.isNotEmpty()) Result.success(cached)
-        else Result.failure(IllegalStateException(e.message ?: "Khong the tai don hang"))
+        Result.failure(IllegalStateException(e.message ?: "Khong the tai don hang"))
     }
 
     suspend fun getOrderDetail(orderId: String): Result<InternalOrderDetailDto> = try {
@@ -159,12 +155,9 @@ class DesktopOrderRepository(
         }
 
         val response = httpResponse.body<InternalDataEnvelope<InternalOrderDetailDto>>()
-        syncRepository?.cacheOrderDetail(response.data)
         Result.success(response.data)
     } catch (e: Exception) {
-        val cached = syncRepository?.loadCachedOrderDetail(orderId)
-        if (cached != null) Result.success(cached)
-        else Result.failure(IllegalStateException(e.message ?: "Khong the tai chi tiet don hang"))
+        Result.failure(IllegalStateException(e.message ?: "Khong the tai chi tiet don hang"))
     }
 
     suspend fun updateOrderStatus(orderId: String, status: String): Result<Unit> = try {
@@ -184,12 +177,9 @@ class DesktopOrderRepository(
         }
 
         httpResponse.body<InternalDataEnvelope<InternalOrderStatusUpdateDataDto>>()
-        syncRepository?.markCachedOrderStatus(orderId, status)
         Result.success(Unit)
     } catch (e: Exception) {
-        val queued = syncRepository?.queueOrderStatusUpdate(orderId, status)?.isSuccess == true
-        if (queued) Result.success(Unit)
-        else Result.failure(IllegalStateException(e.message ?: "Khong the cap nhat trang thai don hang"))
+        Result.failure(IllegalStateException(e.message ?: "Khong the cap nhat trang thai don hang"))
     }
 
     private fun extractErrorMessage(raw: String): String {

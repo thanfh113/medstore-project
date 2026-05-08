@@ -11,9 +11,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.example.project.data.models.Product
 import org.example.project.data.models.ProductCategory
-import org.example.project.data.models.DiseaseCategory
 import org.example.project.data.models.RiskClassification
-import org.example.project.data.repositories.CreateBatchRequest
+import org.example.project.data.models.productCategoryMatches
+import org.example.project.data.repositories.CreateStockRequest
 import org.example.project.data.repositories.CompleteProductCertificateDraft
 import org.example.project.data.repositories.CompleteProductDraft
 import org.example.project.data.repositories.CompleteProductImageDraft
@@ -35,7 +35,6 @@ class ProductsViewModel(
     fun refreshData() {
         loadCategories()
         loadProducts()
-        loadDiseases()
         if (_uiState.value.userRole == "ADMIN") {
             loadDeleteRequests()
         }
@@ -324,9 +323,8 @@ class ProductsViewModel(
         }
     }
 
-    fun addBatch(
+    fun addStockReceipt(
         productId: String,
-        lotNumber: String?,
         mfgDate: String?,
         expDate: String?,
         quantity: Int,
@@ -335,10 +333,9 @@ class ProductsViewModel(
         scope.launch {
             _uiState.update { it.copy(isUpdating = true, error = null) }
 
-            productRepository.addBatch(
+            productRepository.updateStock(
                 productId,
-                CreateBatchRequest(
-                    lotNumber = lotNumber?.ifBlank { null },
+                CreateStockRequest(
                     mfgDate = mfgDate?.ifBlank { null },
                     expDate = expDate?.ifBlank { null },
                     quantity = quantity,
@@ -349,7 +346,7 @@ class ProductsViewModel(
                     _uiState.update {
                         it.copy(
                             isUpdating = false,
-                            successMessage = "Da them lo hang thanh cong"
+                            successMessage = "Da cap nhat ton kho thanh cong"
                         )
                     }
                     loadProducts()
@@ -357,7 +354,7 @@ class ProductsViewModel(
                 onFailure = { error ->
                     _uiState.update {
                         it.copy(
-                            error = error.message ?: "Khong the them lo hang",
+                            error = error.message ?: "Khong the cap nhat ton kho",
                             isUpdating = false
                         )
                     }
@@ -382,25 +379,18 @@ class ProductsViewModel(
         _uiState.update { it.copy(showCompleteProductForm = false) }
     }
 
-    fun loadDiseases() {
-        scope.launch {
-            productRepository.getDiseaseCategories().fold(
-                onSuccess = { diseases ->
-                    _uiState.update { it.copy(diseases = diseases) }
-                },
-                onFailure = { error ->
-                    // Silent fail - diseases are optional
-                }
-            )
-        }
-    }
-
     fun createCompleteProduct(formData: CompleteProductFormData) {
         scope.launch {
             _uiState.update { it.copy(isCreatingCompleteProduct = true, error = null) }
 
             try {
                 val primaryCertificate = formData.certificates.firstOrNull()
+                val normalizedRisk = try {
+                    RiskClassification.entries.first { it.value == formData.riskClassification }.value
+                } catch (e: Exception) {
+                    RiskClassification.A.value
+                }
+                val restrictedOnlineRisk = normalizedRisk == RiskClassification.C.value || normalizedRisk == RiskClassification.D.value
                 val draft = CompleteProductDraft(
                     categoryId = formData.categoryId,
                     name = formData.productName,
@@ -415,12 +405,15 @@ class ProductsViewModel(
                     originalPrice = formData.originalPrice,
                     discountPct = formData.discountPct,
                     rewardPoints = formData.rewardPoints,
+                    importPrice = formData.firstStockData?.importPrice?.takeIf { it > 0.0 },
+                    stock = formData.firstStockData?.quantityOnHand?.coerceAtLeast(0) ?: 0,
+                    mfgDate = formData.firstStockData?.mfgDate?.ifBlank { null },
+                    expDate = formData.firstStockData?.expDate?.ifBlank { null },
+                    inventoryNote = null,
                     registrationNumber = formData.registrationNumber.ifBlank { null },
-                    riskClassification = try {
-                        RiskClassification.entries.first { it.value == formData.riskClassification }.value
-                    } catch (e: Exception) {
-                        RiskClassification.A.value
-                    },
+                    riskClassification = normalizedRisk,
+                    requiresCertification = formData.requiresCertification || restrictedOnlineRisk,
+                    requiresConsultation = formData.requiresConsultation || restrictedOnlineRisk,
                     targetAudience = formData.targetAudience.ifBlank { "ALL" },
                     images = formData.productImages.mapIndexed { index, image ->
                         CompleteProductImageDraft(
@@ -438,6 +431,10 @@ class ProductsViewModel(
                                     type = it.type.ifBlank { "MOH_LICENSE" },
                                     name = it.name,
                                     fileUrl = it.fileUrl,
+                                    fileType = it.fileType.ifBlank { "IMAGE" },
+                                    publicId = it.publicId,
+                                    resourceType = it.resourceType.ifBlank { "image" },
+                                    thumbnailUrl = it.thumbnailUrl?.ifBlank { null },
                                     issueDate = it.issueDate.ifBlank { null },
                                     expireDate = it.expireDate.ifBlank { null },
                                     issuer = it.issuer.ifBlank { null }
@@ -448,20 +445,7 @@ class ProductsViewModel(
                 )
 
                 productRepository.createCompleteProduct(draft).fold(
-                    onSuccess = { productId ->
-                        formData.firstBatchData?.let { batch ->
-                            productRepository.addBatch(
-                                productId,
-                                CreateBatchRequest(
-                                    lotNumber = batch.lotNumber.ifBlank { null },
-                                    mfgDate = batch.mfgDate.ifBlank { null },
-                                    expDate = batch.expDate.ifBlank { null },
-                                    quantity = batch.quantityOnHand,
-                                    importPrice = batch.importPrice
-                                )
-                            )
-                        }
-
+                    onSuccess = { _ ->
                         _uiState.update {
                             it.copy(
                                 isCreatingCompleteProduct = false,
@@ -524,7 +508,13 @@ class ProductsViewModel(
         }
 
         if (categoryId != null) {
-            filtered = filtered.filter { it.categoryId == categoryId }
+            filtered = filtered.filter { product ->
+                productCategoryMatches(
+                    productCategoryId = product.categoryId,
+                    selectedCategoryId = categoryId,
+                    categories = _uiState.value.categories
+                )
+            }
         }
 
 
@@ -550,7 +540,6 @@ data class ProductsUiState(
     val products: List<Product> = emptyList(),
     val filteredProducts: List<Product> = emptyList(),
     val categories: List<ProductCategory> = emptyList(),
-    val diseases: List<DiseaseCategory> = emptyList(),
     val isLoading: Boolean = false,
     val isCreating: Boolean = false,
     val isUpdating: Boolean = false,

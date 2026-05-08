@@ -21,7 +21,17 @@ data class ChatConversation(
     val updatedAt: String,
     val notes: String? = null,
     val customerHealthInfo: CustomerHealthInfo? = null,
-    val productId: String? = null
+    val productId: String? = null,
+    val productName: String? = null,
+    val productImageUrl: String? = null,
+    val productPrice: Double? = null,
+    val productUnit: String? = null,
+    val consultantQualificationTitle: String? = null,
+    val consultantQualificationSpecialty: String? = null,
+    val consultantQualificationInstitution: String? = null,
+    val consultantQualificationDocumentUrl: String? = null,
+    val consultantQualificationDocumentType: String? = null,
+    val consultantVerified: Boolean? = null
 )
 
 @Serializable
@@ -76,7 +86,7 @@ enum class MessageType(val value: String, val displayName: String) {
     TEXT("TEXT", "Tin nhắn"),
     IMAGE("IMAGE", "Hình ảnh"),
     DOCUMENT("DOCUMENT", "Tài liệu"),
-    PRODUCT_RECOMMENDATION("PRODUCT_RECOMMENDATION", "Gợi ý sản phẩm"),
+    PRODUCT_RECOMMENDATION("PRODUCT_CARD", "Gợi ý sản phẩm"),
     SYSTEM_MESSAGE("SYSTEM_MESSAGE", "Thông báo hệ thống")
 }
 
@@ -93,6 +103,8 @@ data class ProductRecommendation(
     val productName: String,
     val productImage: String? = null,
     val price: Double,
+    val productUnit: String? = null,
+    val categoryId: String? = null,
     val description: String,
     val reason: String,
     val dosageInstructions: String? = null,

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -71,6 +72,9 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import org.example.project.data.models.Product
 import org.example.project.data.models.ProductCategory
+import org.example.project.data.models.categoryDisplayPath
+import org.example.project.data.models.selectedCategoryGroupId
+import org.example.project.data.models.topLevelProductCategories
 import org.example.project.data.repositories.ProductDeleteRequestDto
 import org.example.project.presentation.viewmodels.ProductsViewModel
 import org.example.project.ui.components.ProductFormDialog
@@ -85,7 +89,7 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
     val categoriesById = remember(uiState.categories) { uiState.categories.associateBy { it.id } }
     val canCreateProduct = uiState.categories.isNotEmpty() && !uiState.isLoading
     var productPendingDelete by remember { mutableStateOf<Product?>(null) }
-    var selectedProductForBatch by remember { mutableStateOf<Product?>(null) }
+    var selectedProductForStockReceipt by remember { mutableStateOf<Product?>(null) }
     var selectedProductForPreview by remember { mutableStateOf<Product?>(null) }
 
     LaunchedEffect(Unit) {
@@ -109,23 +113,22 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
         )
     }
 
-    // Add Batch Dialog
-    if (selectedProductForBatch != null) {
-        AddBatchDialog(
-            product = selectedProductForBatch!!,
+    // Product-level stock receipt dialog. Stock is stored directly on products.
+    if (selectedProductForStockReceipt != null) {
+        StockReceiptDialog(
+            product = selectedProductForStockReceipt!!,
             isLoading = uiState.isUpdating,
-            onSave = { lotNumber, mfgDate, expDate, quantity, importPrice ->
-                viewModel.addBatch(
-                    productId = selectedProductForBatch!!.id,
-                    lotNumber = lotNumber,
+            onSave = { mfgDate, expDate, quantity, importPrice ->
+                viewModel.addStockReceipt(
+                    productId = selectedProductForStockReceipt!!.id,
                     mfgDate = mfgDate,
                     expDate = expDate,
                     quantity = quantity,
                     importPrice = importPrice
                 )
-                selectedProductForBatch = null
+                selectedProductForStockReceipt = null
             },
-            onCancel = { selectedProductForBatch = null }
+            onCancel = { selectedProductForStockReceipt = null }
         )
     }
 
@@ -138,7 +141,7 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
         )
     }
 
-    // Add Complete Product Form Dialog (5-Step Wizard)
+    // Add Complete Product Form Dialog
     if (uiState.showCompleteProductForm) {
         AlertDialog(
             onDismissRequest = { },
@@ -147,7 +150,7 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
                 .clip(RoundedCornerShape(16.dp)),
             title = { 
                 Text(
-                    "Thêm Sản Phẩm Y Tế Mới (5 Bước)",
+                    "Thêm sản phẩm mới",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )
@@ -156,7 +159,6 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     CompleteProductFormStepper(
                         categories = uiState.categories,
-                        diseases = uiState.diseases,
                         onUploadProductMedia = { file, mediaType ->
                             viewModel.uploadCompleteProductMedia(file, mediaType)
                         },
@@ -345,13 +347,13 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
                                 itemsIndexed(uiState.filteredProducts) { index, product ->
                                     ProductRow(
                                         product = product,
-                                        categoryName = categoriesById[product.categoryId]?.displayName ?: product.categoryId,
+                                        categoryName = categoryDisplayPath(uiState.categories, product.categoryId).ifBlank { product.categoryId },
                                         isEven = index % 2 == 0,
                                         isDeleting = uiState.isDeleting == product.id,
                                         onPreview = { selectedProductForPreview = product },
                                         onEdit = { viewModel.selectProduct(product) },
                                         onDelete = { productPendingDelete = product },
-                                        onAddBatch = { selectedProductForBatch = product }
+                                        onAddStockReceipt = { selectedProductForStockReceipt = product }
                                     )
                                     if (index < uiState.filteredProducts.lastIndex) {
                                         HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
@@ -447,7 +449,7 @@ private fun SearchAndActionsRow(
         ) {
             Icon(Icons.Default.Add, contentDescription = null)
             Spacer(modifier = Modifier.width(4.dp))
-            Text("5 Bước", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            Text("Thêm", fontWeight = FontWeight.Bold, fontSize = 11.sp)
         }
     }
 }
@@ -458,14 +460,18 @@ private fun FilterRow(
     selectedCategory: String?,
     onCategorySelected: (String?) -> Unit
 ) {
+    val topLevelCategories = remember(categories) { topLevelProductCategories(categories) }
+    val selectedGroupId = remember(categories, selectedCategory) {
+        selectedCategoryGroupId(categories, selectedCategory) ?: selectedCategory
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         FilterDropdown(
             label = "Danh mục",
-            value = categories.firstOrNull { it.id == selectedCategory }?.displayName ?: "Tất cả danh mục",
-            options = categories.map { it.displayName to it.id },
+            value = topLevelCategories.firstOrNull { it.id == selectedGroupId }?.displayName ?: "Tất cả nhóm danh mục",
+            options = topLevelCategories.map { it.displayName to it.id },
             onClear = { onCategorySelected(null) },
             onSelect = { onCategorySelected(it) },
             modifier = Modifier.weight(1f)
@@ -486,7 +492,7 @@ private fun SummaryRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "Đang hiển thị $filteredProducts / $totalProducts sản phẩm, $categoriesLoaded danh mục",
+            text = "Đang hiển thị $filteredProducts / $totalProducts sản phẩm, $categoriesLoaded danh mục con/nhóm",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -599,7 +605,7 @@ private fun ProductRow(
     onPreview: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onAddBatch: () -> Unit
+    onAddStockReceipt: () -> Unit
 ) {
     val bgColor = if (isEven) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
     val primaryImage = product.images.firstOrNull()
@@ -723,10 +729,25 @@ private fun ProductRow(
                 .padding(end = 12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            val statusText = when {
+                !product.isActive -> "Tạm dừng"
+                product.stockQuantity <= 0 -> "Hết hàng"
+                else -> "Đang bán"
+            }
+            val statusContainerColor = when {
+                !product.isActive -> Color(0xFFFFEBEE)
+                product.stockQuantity <= 0 -> Color(0xFFFFF3E0)
+                else -> Color(0xFFE8F5E9)
+            }
+            val statusContentColor = when {
+                !product.isActive -> Color(0xFFD32F2F)
+                product.stockQuantity <= 0 -> Color(0xFFE65100)
+                else -> Color(0xFF2E7D32)
+            }
             StatusChip(
-                text = if (product.isActive) "Đang bán" else "Tạm dừng",
-                containerColor = if (product.isActive) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
-                contentColor = if (product.isActive) Color(0xFF2E7D32) else Color(0xFFD32F2F)
+                text = statusText,
+                containerColor = statusContainerColor,
+                contentColor = statusContentColor
             )
             if (product.requiresTechnicalConsultation) {
                 StatusChip(
@@ -760,10 +781,10 @@ private fun ProductRow(
             )
             Icon(
                 Icons.Default.Add,
-                contentDescription = "Thêm lô",
+                contentDescription = "Nhập hàng",
                 tint = if (isDeleting) MaterialTheme.colorScheme.outline else Color(0xFF4CAF50),
                 modifier = Modifier
-                    .clickable(enabled = !isDeleting, onClick = onAddBatch)
+                    .clickable(enabled = !isDeleting, onClick = onAddStockReceipt)
                     .padding(4.dp)
             )
             if (isDeleting) {
@@ -836,7 +857,8 @@ private fun FilterDropdown(
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = 320.dp)
         ) {
             DropdownMenuItem(
                 text = { Text("Tất cả") },
@@ -859,13 +881,12 @@ private fun FilterDropdown(
 }
 
 @Composable
-private fun AddBatchDialog(
+private fun StockReceiptDialog(
     product: Product,
     isLoading: Boolean,
-    onSave: (lotNumber: String?, mfgDate: String?, expDate: String?, quantity: Int, importPrice: Double?) -> Unit,
+    onSave: (mfgDate: String?, expDate: String?, quantity: Int, importPrice: Double?) -> Unit,
     onCancel: () -> Unit
 ) {
-    var lotNumber by remember { mutableStateOf("") }
     var mfgDate by remember { mutableStateOf("") }
     var expDate by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
@@ -874,7 +895,7 @@ private fun AddBatchDialog(
 
     AlertDialog(
         onDismissRequest = onCancel,
-        title = { Text("Thêm lô hàng - ${product.name}") },
+        title = { Text("Nhập hàng - ${product.name}") },
         text = {
             Column(
                 modifier = Modifier
@@ -898,69 +919,33 @@ private fun AddBatchDialog(
                     }
                 }
 
+                Text(
+                    "Tồn hiện tại: ${product.stockQuantity} ${product.unit}. Số lượng nhập sẽ được cộng vào tồn kho hiện tại.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
+                )
+
                 OutlinedTextField(
-                    value = lotNumber,
-                    onValueChange = { lotNumber = it },
-                    label = { Text("Số lô (LOT001)", fontSize = 13.sp) },
+                    value = mfgDate,
+                    onValueChange = { mfgDate = it },
+                    label = { Text("Ngày sản xuất", fontSize = 13.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    placeholder = { Text("yyyy-MM-dd", fontSize = 12.sp) },
                     enabled = !isLoading,
                     textStyle = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 14.sp)
                 )
 
-                // Ngày sản xuất - DatePicker
-                Row(
+                OutlinedTextField(
+                    value = expDate,
+                    onValueChange = { expDate = it },
+                    label = { Text("Hạn sử dụng", fontSize = 13.sp) },
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = mfgDate,
-                        onValueChange = {},
-                        label = { Text("Ngày SX", fontSize = 13.sp) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable(enabled = !isLoading) { /* TODO: show date picker */ },
-                        singleLine = true,
-                        enabled = false,
-                        placeholder = { Text("Chọn ngày", fontSize = 12.sp) },
-                        textStyle = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 14.sp)
-                    )
-                    Button(
-                        onClick = { /* TODO: show date picker */ },
-                        enabled = !isLoading,
-                        modifier = Modifier.height(56.dp)
-                    ) {
-                        Text("📅")
-                    }
-                }
-
-                // Hạn sử dụng - DatePicker
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = expDate,
-                        onValueChange = {},
-                        label = { Text("Hạn SD", fontSize = 13.sp) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable(enabled = !isLoading) { /* TODO: show date picker */ },
-                        singleLine = true,
-                        enabled = false,
-                        placeholder = { Text("Chọn ngày", fontSize = 12.sp) },
-                        textStyle = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 14.sp)
-                    )
-                    Button(
-                        onClick = { /* TODO: show date picker */ },
-                        enabled = !isLoading,
-                        modifier = Modifier.height(56.dp)
-                    ) {
-                        Text("📅")
-                    }
-                }
+                    singleLine = true,
+                    placeholder = { Text("yyyy-MM-dd", fontSize = 12.sp) },
+                    enabled = !isLoading,
+                    textStyle = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 14.sp)
+                )
 
                 OutlinedTextField(
                     value = quantity,
@@ -995,7 +980,6 @@ private fun AddBatchDialog(
                             errorMessage = "Số lượng phải > 0"
                         else -> {
                             onSave(
-                                lotNumber.ifBlank { null },
                                 mfgDate.ifBlank { null },
                                 expDate.ifBlank { null },
                                 quantity.toInt(),
@@ -1014,7 +998,7 @@ private fun AddBatchDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                 }
-                Text("Thêm lô")
+                Text("Cập nhật tồn kho")
             }
         },
         dismissButton = {

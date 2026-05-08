@@ -17,9 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
-import kotlinx.coroutines.delay
 import org.example.project.presentation.viewmodels.NetworkModule
 import org.example.project.ui.layout.MainLayout
+import org.example.project.ui.screens.BannerManagementScreen
 import org.example.project.ui.screens.ChatScreen
 import org.example.project.ui.screens.CouponManagementScreen
 import org.example.project.ui.screens.FinanceAdminScreen
@@ -30,9 +30,8 @@ import org.example.project.ui.screens.PersonnelManagementScreen
 import org.example.project.ui.screens.PosWorkspaceScreen
 import org.example.project.ui.screens.ProductsScreen
 import org.example.project.ui.screens.StoreOverviewScreen
-import org.example.project.ui.screens.SyncAuditHistoryScreen
 
-private val adminRoutes = setOf("dashboard", "orders", "products", "pos", "coupons", "finance", "chat", "ops", "personnel", "sync-audit")
+private val adminRoutes = setOf("dashboard", "orders", "products", "pos", "banners", "coupons", "finance", "chat", "ops", "personnel")
 private val employeeRoutes = setOf("orders", "products", "pos", "chat", "ops")
 
 private fun allowedRoutesForRole(role: String): Set<String> {
@@ -86,12 +85,10 @@ fun App() {
         val couponAdminViewModel = remember { NetworkModule.couponAdminViewModel() }
         val financeViewModel = remember { NetworkModule.financeDashboardViewModel() }
         val personnelViewModel = remember { NetworkModule.personnelViewModel() }
-        val syncAuditViewModel = remember { NetworkModule.syncInventoryAuditViewModel() }
         val chatViewModel = remember { NetworkModule.chatViewModel() }
         val operationsViewModel = remember { NetworkModule.operationsViewModel() }
+        val bannerViewModel = remember { NetworkModule.bannerViewModel() }
         val session by NetworkModule.sessionManager.session.collectAsState()
-        val syncUiState by NetworkModule.syncUiState.collectAsState()
-        val pendingOutboxCount by NetworkModule.pendingOutboxCount.collectAsState()
 
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             if (session == null) {
@@ -105,29 +102,29 @@ fun App() {
                 val role = session!!.role.uppercase()
                 val allowedRoutes = allowedRoutesForRole(role)
 
-                LaunchedEffect(session!!.accessToken) {
-                    var nextDelay = 15_000L
-                    while (true) {
-                        nextDelay = NetworkModule.runSyncWorkerStep(nextDelay)
-                        delay(nextDelay)
-                    }
-                }
-
                 LaunchedEffect(currentRoute, role) {
                     if (currentRoute !in allowedRoutes) {
                         currentRoute = defaultRouteForRole(role)
                     }
                 }
 
-                LaunchedEffect(role) {
+                LaunchedEffect(session!!.accessToken, role) {
+                    dashboardViewModel.fetchDashboardData()
+                    ordersViewModel.loadOrders()
                     productsViewModel.setUserRole(role)
+                    productsViewModel.refreshData()
+                    posViewModel.loadProducts()
+                    couponAdminViewModel.loadData()
+                    financeViewModel.loadSummary()
+                    personnelViewModel.loadUsers()
+                    operationsViewModel.loadAll()
+                    bannerViewModel.loadBanners()
+                    chatViewModel.loadConversations()
                 }
 
                 MainLayout(
                     userRole = role,
                     currentRoute = currentRoute,
-                    syncUiState = syncUiState,
-                    pendingOutboxCount = pendingOutboxCount,
                     onNavigate = { route ->
                         currentRoute = if (route in allowedRoutes) route else defaultRouteForRole(role)
                     },
@@ -141,12 +138,12 @@ fun App() {
                         "orders" -> OrdersScreen(viewModel = ordersViewModel)
                         "products" -> ProductsScreen(viewModel = productsViewModel)
                         "pos" -> PosWorkspaceScreen(viewModel = posViewModel)
+                        "banners" -> BannerManagementScreen(viewModel = bannerViewModel)
                         "coupons" -> CouponManagementScreen(viewModel = couponAdminViewModel)
                         "finance" -> FinanceAdminScreen(viewModel = financeViewModel)
                         "chat" -> ChatScreen(viewModel = chatViewModel)
                         "ops" -> OperationsModerationScreen(viewModel = operationsViewModel)
                         "personnel" -> PersonnelManagementScreen(viewModel = personnelViewModel)
-                        "sync-audit" -> SyncAuditHistoryScreen(viewModel = syncAuditViewModel)
                         else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Tính năng đang phát triển") }
                     }
                 }

@@ -10,8 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.example.project.data.local.PosCartDraft
-import org.example.project.data.local.PosCartDraftItem
 import org.example.project.data.models.Product
 import org.example.project.data.repositories.CouponAdminRepository
 import org.example.project.data.repositories.PosOrderItemRequest
@@ -19,7 +17,6 @@ import org.example.project.data.repositories.CreatePosOrderRequest
 import org.example.project.data.repositories.DesktopOrderRepository
 import org.example.project.data.repositories.PosRepository
 import org.example.project.data.repositories.ProductRepository
-import org.example.project.data.repositories.SyncRepository
 import org.example.project.printing.PosReceiptData
 import org.example.project.printing.ReceiptPdfArchiver
 import java.io.File
@@ -85,7 +82,6 @@ class PosViewModel(
     private val posRepository: PosRepository,
     private val orderRepository: DesktopOrderRepository,
     private val couponRepository: CouponAdminRepository,
-    private val syncRepository: SyncRepository? = null,
     private val receiptArchiver: ReceiptPdfArchiver = ReceiptPdfArchiver()
 ) {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -96,7 +92,6 @@ class PosViewModel(
 
     init {
         loadProducts()
-        restoreDraft()
     }
 
     fun loadProducts() {
@@ -111,7 +106,6 @@ class PosViewModel(
                             filteredProducts = filterProducts(products, state.searchQuery)
                         )
                     }
-                    restoreDraft()
                 },
                 onFailure = { error ->
                     _uiState.update { it.copy(isLoading = false, error = error.message ?: "Khong the tai san pham") }
@@ -131,50 +125,54 @@ class PosViewModel(
 
     fun addToCart(product: Product) {
         _uiState.update { state ->
+            if (product.stockQuantity <= 0) {
+                return@update state.copy(error = "Sản phẩm đã hết hàng")
+            }
             val existing = state.cart.firstOrNull { it.product.id == product.id }
             val updated = if (existing == null) {
                 state.cart + PosCartItem(product, 1)
             } else {
+                if (existing.quantity >= product.stockQuantity) {
+                    return@update state.copy(error = "Số lượng trong giỏ đã bằng tồn kho")
+                }
                 state.cart.map {
                     if (it.product.id == product.id) it.copy(quantity = it.quantity + 1) else it
                 }
             }
-            state.copy(cart = updated)
+            state.copy(cart = updated, error = null)
         }
-        persistDraft()
     }
 
     fun updateQuantity(productId: String, quantity: Int) {
         _uiState.update { state ->
+            val current = state.cart.firstOrNull { it.product.id == productId }
+            if (current != null && quantity > current.product.stockQuantity) {
+                return@update state.copy(error = "Số lượng vượt quá tồn kho")
+            }
             val updated = state.cart.mapNotNull {
                 if (it.product.id != productId) return@mapNotNull it
                 if (quantity <= 0) null else it.copy(quantity = quantity)
             }
-            state.copy(cart = updated)
+            state.copy(cart = updated, error = null)
         }
-        persistDraft()
     }
 
     fun removeFromCart(productId: String) {
         _uiState.update { state ->
             state.copy(cart = state.cart.filterNot { it.product.id == productId })
         }
-        persistDraft()
     }
 
     fun setCouponCode(code: String) {
         _uiState.update { it.copy(couponCode = code) }
-        persistDraft()
     }
 
     fun setPaymentMethod(method: String) {
         _uiState.update { it.copy(paymentMethod = method.uppercase()) }
-        persistDraft()
     }
 
     fun setCustomerCode(code: String) {
         _uiState.update { it.copy(customerCode = code) }
-        persistDraft()
     }
 
     fun openCheckoutReview() {
@@ -247,7 +245,6 @@ class PosViewModel(
                 error = null
             )
         }
-        persistDraft()
     }
 
     fun backToCheckoutFromCash() {
@@ -279,7 +276,6 @@ class PosViewModel(
                 error = null
             )
         }
-        persistDraft()
     }
 
     fun setCashReceivedInput(value: String) {
@@ -370,48 +366,18 @@ class PosViewModel(
                             appliedDiscount = if (isCashOrder) it.appliedDiscount else 0.0
                         )
                     }
-                    persistDraft()
                     if (isCashOrder) {
                         paymentPollingJob?.cancel()
                     } else {
-                        syncRepository?.clearPosDraft()
                         initGatewayPaymentForOrder(result.id, result.paymentMethod)
                     }
                 },
                 onFailure = { error ->
-                    val queued = syncRepository?.queuePosOrder(
-                        items = state.cart.map { it.product.id to it.quantity },
-                        paymentMethod = state.paymentMethod,
-                        couponCode = state.couponCode.takeIf { it.isNotBlank() }
-                    )?.isSuccess == true
-
-                    if (queued) {
-                        _uiState.update {
-                            it.copy(
-                                isSubmitting = false,
-                                successMessage = "Da luu don POS offline, se dong bo khi co mang",
-                                error = null,
-                                cart = emptyList(),
-                                couponCode = "",
-                                appliedDiscount = 0.0,
-                                activeOrderId = null,
-                                activeOrderCode = null,
-                                activeOrderStatus = null,
-                                activeOrderPaymentMethod = null,
-                                activeOrderPaymentStatus = null,
-                                activeOrderTotal = null,
-                                cashReceivedInput = "",
-                                gatewayPaymentUrl = null,
-                                gatewayQrContent = null,
-                                gatewayPaymentReference = null,
-                                gatewayPaidAt = null,
-                                isGatewayWebViewVisible = false,
-                                isPollingPayment = false
-                            )
-                        }
-                        syncRepository.clearPosDraft()
-                    } else {
-                        _uiState.update { it.copy(isSubmitting = false, error = error.message ?: "Khong the tao don") }
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            error = error.message ?: "Khong the tao don POS. Vui long kiem tra ket noi backend."
+                        )
                     }
                 }
             )
@@ -478,7 +444,6 @@ class PosViewModel(
                         )
                     }
                     paymentPollingJob?.cancel()
-                    syncRepository?.clearPosDraft()
                     loadProducts()
                 },
                 onFailure = { error ->
@@ -687,7 +652,6 @@ class PosViewModel(
                             }
                         )
                     }
-                    syncRepository?.clearPosDraft()
                     loadProducts()
                 } else {
                     _uiState.update {
@@ -715,42 +679,6 @@ class PosViewModel(
                     }
                 }
             }
-        )
-    }
-
-    private fun restoreDraft() {
-        val draft = syncRepository?.loadPosDraft() ?: return
-        if (draft.items.isEmpty()) return
-
-        _uiState.update { state ->
-            val cart = draft.items.mapNotNull { item ->
-                state.products.firstOrNull { it.id == item.productId }?.let { product ->
-                    PosCartItem(product = product, quantity = item.quantity)
-                }
-            }
-            state.copy(
-                cart = cart,
-                couponCode = draft.couponCode,
-                appliedDiscount = draft.appliedDiscount,
-                paymentMethod = draft.paymentMethod
-            )
-        }
-    }
-
-    private fun persistDraft() {
-        val state = _uiState.value
-        if (state.cart.isEmpty() && state.couponCode.isBlank() && state.appliedDiscount == 0.0) {
-            syncRepository?.clearPosDraft()
-            return
-        }
-
-        syncRepository?.savePosDraft(
-            PosCartDraft(
-                items = state.cart.map { PosCartDraftItem(productId = it.product.id, quantity = it.quantity) },
-                couponCode = state.couponCode,
-                appliedDiscount = state.appliedDiscount,
-                paymentMethod = state.paymentMethod
-            )
         )
     }
 

@@ -458,7 +458,6 @@ private fun PosPaymentMethodStep(state: PosUiState, viewModel: PosViewModel) {
     val options = listOf(
         "CASH" to "Tiền mặt",
         "MOMO" to "MoMo",
-        "VNPAY" to "VNPay",
         "ZALOPAY" to "ZaloPay"
     )
 
@@ -510,7 +509,6 @@ private fun PosPaymentMethodStep(state: PosUiState, viewModel: PosViewModel) {
                         when (state.paymentMethod) {
                             "CASH" -> "Khách thanh toán trực tiếp tại quầy."
                             "MOMO" -> "Hệ thống sẽ tạo trang hoặc mã thanh toán MoMo."
-                            "VNPAY" -> "Hệ thống sẽ tạo trang hoặc mã thanh toán VNPay."
                             else -> "Hệ thống sẽ tạo trang hoặc mã thanh toán ZaloPay."
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

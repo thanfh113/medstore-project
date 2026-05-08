@@ -21,7 +21,8 @@ data class PersonnelUiState(
     val error: String? = null,
     val successMessage: String? = null,
     val creating: Boolean = false,
-    val processingUserId: String? = null
+    val processingUserId: String? = null,
+    val lastProfileUpdatedUserId: String? = null
 )
 
 class PersonnelViewModel(
@@ -56,7 +57,7 @@ class PersonnelViewModel(
         qualificationDocumentFile: File? = null
     ) {
         scope.launch {
-            _uiState.update { it.copy(creating = true, error = null) }
+            _uiState.update { it.copy(creating = true, error = null, successMessage = null, lastProfileUpdatedUserId = null) }
             val preparedProfile = prepareEmployeeProfile(employeeProfile, qualificationDocumentFile)
                 .getOrElse { error ->
                     _uiState.update {
@@ -97,7 +98,7 @@ class PersonnelViewModel(
         qualificationDocumentFile: File? = null
     ) {
         scope.launch {
-            _uiState.update { it.copy(processingUserId = userId, error = null) }
+            _uiState.update { it.copy(processingUserId = userId, error = null, successMessage = null, lastProfileUpdatedUserId = null) }
             val preparedProfile = prepareEmployeeProfile(employeeProfile, qualificationDocumentFile)
                 .getOrElse { error ->
                     _uiState.update {
@@ -133,15 +134,49 @@ class PersonnelViewModel(
         employeeProfile: PersonnelEmployeeProfileRequest,
         qualificationDocumentFile: File? = null
     ) {
-        updateUser(
-            userId = user.id,
-            fullName = user.fullName.orEmpty(),
-            phone = user.phone,
-            email = user.email.orEmpty(),
-            role = user.role,
-            employeeProfile = employeeProfile,
-            qualificationDocumentFile = qualificationDocumentFile
-        )
+        scope.launch {
+            _uiState.update { it.copy(processingUserId = user.id, error = null, successMessage = null, lastProfileUpdatedUserId = null) }
+            val preparedProfile = prepareEmployeeProfile(employeeProfile, qualificationDocumentFile)
+                .getOrElse { error ->
+                    _uiState.update {
+                        it.copy(
+                            processingUserId = null,
+                            error = error.message ?: "Khong the upload minh chung chuyen mon"
+                        )
+                    }
+                    return@launch
+                }
+
+            repository.updateUser(
+                user.id,
+                UpdatePersonnelUserRequest(
+                    fullName = user.fullName?.ifBlank { null },
+                    phone = user.phone,
+                    email = user.email?.ifBlank { null },
+                    role = user.role,
+                    employeeProfile = preparedProfile
+                )
+            ).fold(
+                onSuccess = {
+                    _uiState.update {
+                        it.copy(
+                            processingUserId = null,
+                            successMessage = "Da cap nhat ho so chuyen mon",
+                            lastProfileUpdatedUserId = user.id
+                        )
+                    }
+                    loadUsers()
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            processingUserId = null,
+                            error = error.message ?: "Khong the cap nhat ho so chuyen mon"
+                        )
+                    }
+                }
+            )
+        }
     }
 
     fun toggleLock(userId: String) {
@@ -189,7 +224,7 @@ class PersonnelViewModel(
     }
 
     fun clearMessages() {
-        _uiState.update { it.copy(error = null, successMessage = null) }
+        _uiState.update { it.copy(error = null, successMessage = null, lastProfileUpdatedUserId = null) }
     }
 
     private suspend fun prepareEmployeeProfile(
@@ -197,6 +232,14 @@ class PersonnelViewModel(
         qualificationDocumentFile: File?
     ): Result<PersonnelEmployeeProfileRequest?> {
         if (qualificationDocumentFile == null) return Result.success(employeeProfile)
+        if (!qualificationDocumentFile.exists() || !qualificationDocumentFile.isFile) {
+            return Result.failure(IllegalStateException("File minh chung khong ton tai"))
+        }
+
+        val extension = qualificationDocumentFile.extension.lowercase()
+        if (extension !in setOf("jpg", "jpeg", "png", "pdf", "heic")) {
+            return Result.failure(IllegalStateException("Chi ho tro anh JPG/PNG/HEIC hoac PDF"))
+        }
 
         return repository.uploadQualificationDocument(qualificationDocumentFile).map { uploaded ->
             val profile = employeeProfile ?: PersonnelEmployeeProfileRequest()
@@ -204,9 +247,13 @@ class PersonnelViewModel(
                 qualificationDocumentUrl = uploaded.url,
                 qualificationDocumentPublicId = uploaded.publicId,
                 qualificationDocumentType = uploaded.fileType,
-                qualificationDocumentResourceType = uploaded.resourceType
+                qualificationDocumentResourceType = uploaded.resourceType ?: defaultResourceType(uploaded.fileType)
             )
         }
+    }
+
+    private fun defaultResourceType(fileType: String): String {
+        return if (fileType.equals("PDF", ignoreCase = true)) "raw" else "image"
     }
 }
 

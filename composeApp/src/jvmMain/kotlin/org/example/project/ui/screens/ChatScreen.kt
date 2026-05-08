@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
@@ -35,6 +36,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -43,9 +45,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -54,9 +58,16 @@ import java.time.format.DateTimeFormatter
 import org.example.project.data.models.ChatConversation
 import org.example.project.data.models.ChatMessage
 import org.example.project.data.models.ChatStatus
+import org.example.project.data.models.Product
+import org.example.project.data.models.ProductCategory
+import org.example.project.data.models.ProductRecommendation
 import org.example.project.data.models.SenderType
+import org.example.project.data.models.categoryDisplayPath
+import org.example.project.data.models.productCategoryMatches
+import org.example.project.data.models.topLevelProductCategories
 import org.example.project.presentation.viewmodels.ChatUiState
 import org.example.project.presentation.viewmodels.ChatViewModel
+import org.example.project.ui.components.ProductDetailDialog
 
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
@@ -89,8 +100,30 @@ fun ChatScreen(viewModel: ChatViewModel) {
             messageInput = messageInput,
             onInputChange = viewModel::updateMessageInput,
             onSend = { viewModel.sendMessage(messageInput) },
+            onOpenProductPicker = viewModel::openProductSuggestionPicker,
+            onOpenProduct = viewModel::openProductDetail,
             onResolve = viewModel::resolveSelectedConversation,
             modifier = Modifier.weight(1f).fillMaxHeight()
+        )
+    }
+
+    if (uiState.isSuggestionPickerOpen) {
+        ProductSuggestionDialog(
+            uiState = uiState,
+            onDismiss = viewModel::closeProductSuggestionPicker,
+            onQueryChange = viewModel::updateProductSuggestionQuery,
+            onCategoryChange = viewModel::selectProductSuggestionCategory,
+            onSuggest = viewModel::sendProductSuggestion,
+            onOpenProduct = viewModel::openProductDetail
+        )
+    }
+
+    uiState.selectedProductDetail?.let { product ->
+        ProductDetailDialog(
+            product = product,
+            categoryName = categoryDisplayPath(uiState.suggestionCategories, product.categoryId).ifBlank { null },
+            onDismiss = viewModel::dismissProductDetail,
+            formatVnd = ::formatVnd
         )
     }
 }
@@ -349,6 +382,8 @@ private fun MessagePane(
     messageInput: String,
     onInputChange: (String) -> Unit,
     onSend: () -> Unit,
+    onOpenProductPicker: () -> Unit,
+    onOpenProduct: (String) -> Unit,
     onResolve: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -377,6 +412,7 @@ private fun MessagePane(
     }
 
     val isResolved = selectedConversation.status == ChatStatus.RESOLVED
+    val isAdminViewer = uiState.currentUserRole == "ADMIN"
     val listState = rememberLazyListState()
     val consultantName = selectedConversation.pharmacistName?.takeIf { it.isNotBlank() }
         ?: uiState.messages.lastOrNull { it.senderType == SenderType.PHARMACIST }?.senderName
@@ -417,7 +453,7 @@ private fun MessagePane(
                     )
                     selectedConversation.productId?.let {
                         Text(
-                            text = "Mã vật tư: $it",
+                            text = "Mã vật tư: ${it.takeLast(8)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -427,6 +463,13 @@ private fun MessagePane(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (isAdminViewer) {
+                        Text(
+                            text = "Chế độ giám sát: admin không trực tiếp chat với khách.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                     if (uiState.isRealtimeReconnecting) {
                         Text(
                             text = "Đang kết nối lại realtime...",
@@ -459,8 +502,14 @@ private fun MessagePane(
                         .padding(horizontal = 24.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    item {
+                        ChatProductContextCard(selectedConversation, onOpenProduct)
+                    }
+                    item {
+                        ConsultantProfileCard(selectedConversation)
+                    }
                     items(uiState.messages, key = { it.id }) { message ->
-                        MessageItem(message)
+                        MessageItem(message, onOpenProduct)
                     }
                 }
             }
@@ -480,14 +529,30 @@ private fun MessagePane(
                     value = messageInput,
                     onValueChange = onInputChange,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text(if (isResolved) "Phiên tư vấn đã kết thúc" else "Nhập nội dung trả lời") },
-                    enabled = !isResolved && !uiState.isSendingMessage,
+                    placeholder = {
+                        Text(
+                            when {
+                                isResolved -> "Phiên tư vấn đã kết thúc"
+                                isAdminViewer -> "Admin chỉ xem và giám sát, không trực tiếp chat"
+                                else -> "Nhập nội dung trả lời"
+                            }
+                        )
+                    },
+                    enabled = !isResolved && !uiState.isSendingMessage && !isAdminViewer,
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
                 )
+                OutlinedButton(
+                    onClick = onOpenProductPicker,
+                    enabled = !isResolved && !uiState.isSendingMessage && !isAdminViewer,
+                    shape = RoundedCornerShape(999.dp),
+                    modifier = Modifier.height(56.dp)
+                ) {
+                    Text("Gợi ý sản phẩm")
+                }
                 Button(
                     onClick = onSend,
-                    enabled = !isResolved && messageInput.isNotBlank() && !uiState.isSendingMessage,
+                    enabled = !isResolved && !isAdminViewer && messageInput.isNotBlank() && !uiState.isSendingMessage,
                     shape = RoundedCornerShape(999.dp),
                     modifier = Modifier.height(56.dp)
                 ) {
@@ -507,7 +572,77 @@ private fun MessagePane(
 }
 
 @Composable
-private fun MessageItem(message: ChatMessage) {
+private fun ChatProductContextCard(
+    conversation: ChatConversation,
+    onOpenProduct: (String) -> Unit
+) {
+    val productName = conversation.productName?.takeIf { it.isNotBlank() } ?: return
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !conversation.productId.isNullOrBlank()) {
+                conversation.productId?.let(onOpenProduct)
+            },
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ProductThumb(
+                imageUrl = conversation.productImageUrl,
+                name = productName,
+                modifier = Modifier.size(74.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Sản phẩm khách đang hỏi", style = MaterialTheme.typography.labelMedium)
+                Text(productName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                val priceText = conversation.productPrice?.let { "${it.toLong()} đ" }
+                Text(
+                    listOfNotNull(priceText, conversation.productUnit).joinToString(" / "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConsultantProfileCard(conversation: ChatConversation) {
+    val consultantName = conversation.pharmacistName?.takeIf { it.isNotBlank() } ?: return
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Người phụ trách", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(consultantName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            conversation.consultantQualificationTitle?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium)
+            }
+            conversation.consultantQualificationInstitution?.takeIf { it.isNotBlank() }?.let {
+                Text("Đơn vị cấp: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text(
+                if (conversation.consultantVerified == true) "Hồ sơ chuyên môn đã xác minh" else "Hồ sơ chuyên môn chưa xác minh",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (conversation.consultantVerified == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+@Composable
+private fun MessageItem(
+    message: ChatMessage,
+    onOpenProduct: (String) -> Unit
+) {
     if (message.senderType == SenderType.SYSTEM) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             Surface(
@@ -522,6 +657,13 @@ private fun MessageItem(message: ChatMessage) {
                 )
             }
         }
+        return
+    }
+
+    if (message.messageType == org.example.project.data.models.MessageType.PRODUCT_RECOMMENDATION ||
+        message.productRecommendation != null
+    ) {
+        ProductRecommendationMessageItem(message, onOpenProduct)
         return
     }
 
@@ -569,6 +711,270 @@ private fun MessageItem(message: ChatMessage) {
             }
         }
     }
+}
+
+@Composable
+private fun ProductRecommendationMessageItem(
+    message: ChatMessage,
+    onOpenProduct: (String) -> Unit
+) {
+    val recommendation = message.productRecommendation
+    val isStaff = message.senderType == SenderType.PHARMACIST
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isStaff) Arrangement.End else Arrangement.Start
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.72f)
+                .clickable(enabled = recommendation != null) {
+                    recommendation?.productId?.let(onOpenProduct)
+                },
+            shape = RoundedCornerShape(18.dp),
+            color = if (isStaff) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+            tonalElevation = 1.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isStaff) "Bạn · ${message.senderName}" else message.senderName,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isStaff) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = formatChatTime(message.timestamp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (recommendation == null) {
+                    Text(message.content, style = MaterialTheme.typography.bodyLarge)
+                    return@Column
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ProductThumb(
+                        imageUrl = recommendation.productImage,
+                        name = recommendation.productName,
+                        modifier = Modifier.size(82.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Sản phẩm được gợi ý", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            recommendation.productName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            "${formatVnd(recommendation.price)}${recommendation.productUnit?.let { " / $it" }.orEmpty()}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        recommendation.reason.takeIf { it.isNotBlank() }?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+                Text("Bấm vào thẻ để xem chi tiết", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProductThumb(
+    imageUrl: String?,
+    name: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        if (!imageUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProductSuggestionDialog(
+    uiState: ChatUiState,
+    onDismiss: () -> Unit,
+    onQueryChange: (String) -> Unit,
+    onCategoryChange: (String?) -> Unit,
+    onSuggest: (Product) -> Unit,
+    onOpenProduct: (String) -> Unit
+) {
+    val suggestionGroups = topLevelProductCategories(uiState.suggestionCategories)
+    val filteredProducts = filterSuggestionProducts(
+        products = uiState.suggestionProducts,
+        query = uiState.productSuggestionQuery,
+        categoryId = uiState.productSuggestionCategoryId,
+        categories = uiState.suggestionCategories
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Gợi ý sản phẩm cho khách", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = uiState.productSuggestionQuery,
+                    onValueChange = onQueryChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Tìm tên, SKU, hãng sản phẩm") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        StatusFilterChip(
+                            label = "Tất cả",
+                            selected = uiState.productSuggestionCategoryId == null,
+                            onClick = { onCategoryChange(null) }
+                        )
+                    }
+                    items(suggestionGroups, key = { it.id }) { category ->
+                        StatusFilterChip(
+                            label = category.displayName,
+                            selected = uiState.productSuggestionCategoryId == category.id,
+                            onClick = { onCategoryChange(category.id) }
+                        )
+                    }
+                }
+
+                if (uiState.isLoadingSuggestionProducts) {
+                    Box(modifier = Modifier.fillMaxWidth().height(220.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else if (filteredProducts.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().height(220.dp), contentAlignment = Alignment.Center) {
+                        Text("Không có sản phẩm phù hợp", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().height(420.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(filteredProducts, key = { it.id }) { product ->
+                            ProductSuggestionRow(
+                                product = product,
+                                categoryName = categoryDisplayPath(uiState.suggestionCategories, product.categoryId).ifBlank { null },
+                                onSuggest = { onSuggest(product) },
+                                onOpenProduct = { onOpenProduct(product.id) }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Đóng")
+            }
+        }
+    )
+}
+
+@Composable
+private fun ProductSuggestionRow(
+    product: Product,
+    categoryName: String?,
+    onSuggest: () -> Unit,
+    onOpenProduct: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ProductThumb(
+                imageUrl = product.images.firstOrNull()?.url,
+                name = product.name,
+                modifier = Modifier.size(72.dp)
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(product.name, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOfNotNull(categoryName, product.sku).joinToString(" · ").ifBlank { "Chưa phân loại" },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    "${formatVnd(product.price)} / ${product.unit} · Tồn ${product.stockQuantity}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            OutlinedButton(onClick = onOpenProduct, shape = RoundedCornerShape(999.dp)) {
+                Text("Xem")
+            }
+            Button(onClick = onSuggest, shape = RoundedCornerShape(999.dp), enabled = product.stockQuantity > 0) {
+                Text("Gợi ý")
+            }
+        }
+    }
+}
+
+private fun filterSuggestionProducts(
+    products: List<Product>,
+    query: String,
+    categoryId: String?,
+    categories: List<ProductCategory>
+): List<Product> {
+    val normalizedQuery = query.trim()
+    return products.filter { product ->
+        val categoryMatches = productCategoryMatches(product.categoryId, categoryId, categories)
+        val queryMatches = normalizedQuery.isBlank() ||
+            product.name.contains(normalizedQuery, ignoreCase = true) ||
+            product.sku?.contains(normalizedQuery, ignoreCase = true) == true ||
+            product.manufacturer.contains(normalizedQuery, ignoreCase = true)
+        categoryMatches && queryMatches
+    }.sortedWith(compareByDescending<Product> { it.stockQuantity > 0 }.thenBy { it.name })
+}
+
+private fun formatVnd(value: Double): String {
+    return "%,.0f đ".format(value).replace(",", ".")
 }
 
 private fun statusColor(status: ChatStatus): Color = when (status) {

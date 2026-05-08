@@ -33,6 +33,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +45,8 @@ import org.example.project.data.repositories.PersonnelEmployeeProfileRequest
 import org.example.project.data.repositories.PersonnelUserDto
 import org.example.project.presentation.viewmodels.PersonnelViewModel
 import org.example.project.utils.openFileChooser
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.io.File
 import java.net.URI
@@ -81,13 +84,18 @@ fun PersonnelManagementScreen(viewModel: PersonnelViewModel) {
     }
 
     profileTarget?.let { user ->
+        LaunchedEffect(uiState.lastProfileUpdatedUserId) {
+            if (uiState.lastProfileUpdatedUserId == user.id) {
+                profileTarget = null
+                viewModel.clearMessages()
+            }
+        }
         EmployeeProfileDialog(
             user = user,
             processing = uiState.processingUserId == user.id,
             onDismiss = { profileTarget = null },
             onSave = { profile, qualificationDocumentFile ->
                 viewModel.updateEmployeeProfile(user, profile, qualificationDocumentFile)
-                profileTarget = null
             }
         )
     }
@@ -354,13 +362,21 @@ private fun CreatePersonnelDialog(
     var qualificationSpecialty by remember { mutableStateOf("") }
     var qualificationInstitution by remember { mutableStateOf("") }
     var qualificationDocumentFile by remember { mutableStateOf<File?>(null) }
-    var qualificationVerified by remember { mutableStateOf(false) }
     var qualificationNote by remember { mutableStateOf("") }
+    var isPickingQualificationFile by remember { mutableStateOf(false) }
+    val pickerScope = rememberCoroutineScope()
 
     val normalizedRole = role.trim().uppercase()
+    val roleOptions = if (initialRole.uppercase() == "USER") {
+        listOf("USER")
+    } else {
+        listOf("EMPLOYEE", "ADMIN")
+    }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (!isPickingQualificationFile && !creating) onDismiss()
+        },
         title = { Text("Tạo tài khoản") },
         text = {
             LazyColumn(
@@ -368,41 +384,71 @@ private fun CreatePersonnelDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item {
-                    OutlinedTextField(value = fullName, onValueChange = { fullName = it }, label = { Text("Họ tên") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = fullName, onValueChange = { fullName = it }, label = { Text("Họ tên *") }, modifier = Modifier.fillMaxWidth())
                 }
                 item {
-                    OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Điện thoại") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Điện thoại *") }, modifier = Modifier.fillMaxWidth())
                 }
                 item {
-                    OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email (tùy chọn)") }, modifier = Modifier.fillMaxWidth())
                 }
                 item {
-                    OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Mật khẩu") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Mật khẩu *") }, modifier = Modifier.fillMaxWidth())
                 }
                 item {
-                    OutlinedTextField(value = role, onValueChange = { role = it.uppercase() }, label = { Text("Vai trò (ADMIN/EMPLOYEE/USER)") }, modifier = Modifier.fillMaxWidth())
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Vai trò", fontWeight = FontWeight.SemiBold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            roleOptions.forEach { option ->
+                                FilterChip(
+                                    selected = normalizedRole == option,
+                                    onClick = { role = option },
+                                    label = {
+                                        Text(
+                                            when (option) {
+                                                "ADMIN" -> "Admin"
+                                                "EMPLOYEE" -> "Nhân viên"
+                                                else -> "Khách hàng"
+                                            }
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
                 if (normalizedRole == "EMPLOYEE") {
                     item {
                         EmployeeProfileFields(
                             qualificationTitle = qualificationTitle,
                             onQualificationTitleChange = { qualificationTitle = it },
-                            qualificationSpecialty = qualificationSpecialty,
-                            onQualificationSpecialtyChange = { qualificationSpecialty = it },
                             qualificationInstitution = qualificationInstitution,
                             onQualificationInstitutionChange = { qualificationInstitution = it },
                             currentQualificationDocumentUrl = null,
                             qualificationDocumentFile = qualificationDocumentFile,
                             onChooseQualificationDocument = {
-                                pickQualificationDocumentFile()?.let { qualificationDocumentFile = it }
+                                isPickingQualificationFile = true
+                                pickerScope.launch {
+                                    try {
+                                        delay(120)
+                                        pickQualificationDocumentFile()?.let { qualificationDocumentFile = it }
+                                    } catch (_: Throwable) {
+                                        // Keep the form open if the native file chooser fails.
+                                    } finally {
+                                        // Native file chooser can emit a delayed outside-click dismiss event.
+                                        delay(300)
+                                        isPickingQualificationFile = false
+                                    }
+                                }
                             },
                             onClearQualificationDocument = {
                                 qualificationDocumentFile = null
                             },
-                            qualificationVerified = qualificationVerified,
-                            onQualificationVerifiedChange = { qualificationVerified = it },
+                            qualificationVerified = false,
+                            onQualificationVerifiedChange = {},
                             qualificationNote = qualificationNote,
-                            onQualificationNoteChange = { qualificationNote = it }
+                            onQualificationNoteChange = { qualificationNote = it },
+                            showVerificationControls = false
                         )
                     }
                 }
@@ -418,8 +464,8 @@ private fun CreatePersonnelDialog(
                             qualificationInstitution = qualificationInstitution.ifBlank { null },
                             qualificationDocumentUrl = null,
                             qualificationDocumentPublicId = null,
-                            qualificationVerified = qualificationVerified,
-                            qualificationNote = qualificationNote.ifBlank { null }
+                            qualificationVerified = false,
+                            qualificationNote = null
                         )
                     } else {
                         null
@@ -434,7 +480,7 @@ private fun CreatePersonnelDialog(
                         if (normalizedRole == "EMPLOYEE") qualificationDocumentFile else null
                     )
                 },
-                enabled = !creating && phone.isNotBlank() && password.length >= 6
+                enabled = !creating && fullName.isNotBlank() && phone.isNotBlank() && password.length >= 6
             ) {
                 Text("Tạo")
             }
@@ -463,9 +509,13 @@ private fun EmployeeProfileDialog(
     var qualificationDocumentFile by remember(profile) { mutableStateOf<File?>(null) }
     var qualificationVerified by remember(profile) { mutableStateOf(profile?.qualificationVerified ?: false) }
     var qualificationNote by remember(profile) { mutableStateOf(profile?.qualificationNote.orEmpty()) }
+    var isPickingQualificationFile by remember(profile) { mutableStateOf(false) }
+    val pickerScope = rememberCoroutineScope()
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (!isPickingQualificationFile && !processing) onDismiss()
+        },
         title = { Text("Hồ sơ chuyên môn") },
         text = {
             LazyColumn(
@@ -475,18 +525,37 @@ private fun EmployeeProfileDialog(
                 item {
                     Text("Nhân viên: ${user.fullName ?: user.phone}", fontWeight = FontWeight.SemiBold)
                 }
+                if (processing) {
+                    item {
+                        Text(
+                            "Đang upload/cập nhật hồ sơ, vui lòng đợi...",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
                 item {
                     EmployeeProfileFields(
                         qualificationTitle = qualificationTitle,
                         onQualificationTitleChange = { qualificationTitle = it },
-                        qualificationSpecialty = qualificationSpecialty,
-                        onQualificationSpecialtyChange = { qualificationSpecialty = it },
                         qualificationInstitution = qualificationInstitution,
                         onQualificationInstitutionChange = { qualificationInstitution = it },
                         currentQualificationDocumentUrl = qualificationDocumentUrl.ifBlank { null },
                         qualificationDocumentFile = qualificationDocumentFile,
                         onChooseQualificationDocument = {
-                            pickQualificationDocumentFile()?.let { qualificationDocumentFile = it }
+                            isPickingQualificationFile = true
+                            pickerScope.launch {
+                                try {
+                                    delay(120)
+                                    pickQualificationDocumentFile()?.let { qualificationDocumentFile = it }
+                                } catch (_: Throwable) {
+                                    // Keep the form open if the native file chooser fails.
+                                } finally {
+                                    // Native file chooser can emit a delayed outside-click dismiss event.
+                                    delay(300)
+                                    isPickingQualificationFile = false
+                                }
+                            }
                         },
                         onClearQualificationDocument = {
                             qualificationDocumentFile = null
@@ -532,8 +601,6 @@ private fun EmployeeProfileDialog(
 private fun EmployeeProfileFields(
     qualificationTitle: String,
     onQualificationTitleChange: (String) -> Unit,
-    qualificationSpecialty: String,
-    onQualificationSpecialtyChange: (String) -> Unit,
     qualificationInstitution: String,
     onQualificationInstitutionChange: (String) -> Unit,
     currentQualificationDocumentUrl: String?,
@@ -543,20 +610,15 @@ private fun EmployeeProfileFields(
     qualificationVerified: Boolean,
     onQualificationVerifiedChange: (Boolean) -> Unit,
     qualificationNote: String,
-    onQualificationNoteChange: (String) -> Unit
+    onQualificationNoteChange: (String) -> Unit,
+    showVerificationControls: Boolean = true
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Thông tin chuyên môn", fontWeight = FontWeight.SemiBold)
         OutlinedTextField(
             value = qualificationTitle,
             onValueChange = onQualificationTitleChange,
-            label = { Text("Bằng cấp / chứng chỉ") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        OutlinedTextField(
-            value = qualificationSpecialty,
-            onValueChange = onQualificationSpecialtyChange,
-            label = { Text("Chuyên môn") },
+            label = { Text("Chức danh / chứng chỉ chuyên môn") },
             modifier = Modifier.fillMaxWidth()
         )
         OutlinedTextField(
@@ -601,16 +663,18 @@ private fun EmployeeProfileFields(
                 }
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = qualificationVerified, onCheckedChange = onQualificationVerifiedChange)
-            Text("Đã xác minh hồ sơ chuyên môn")
+        if (showVerificationControls) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = qualificationVerified, onCheckedChange = onQualificationVerifiedChange)
+                Text("Đã xác minh hồ sơ chuyên môn")
+            }
+            OutlinedTextField(
+                value = qualificationNote,
+                onValueChange = onQualificationNoteChange,
+                label = { Text("Ghi chú nội bộ") },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
-        OutlinedTextField(
-            value = qualificationNote,
-            onValueChange = onQualificationNoteChange,
-            label = { Text("Ghi chú") },
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
 

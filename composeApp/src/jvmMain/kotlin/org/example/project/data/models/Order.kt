@@ -55,7 +55,7 @@ enum class PaymentMethod(val value: String, val displayName: String, val icon: S
     CASH("CASH", "Tiền mặt", "💵"),
     BANK_TRANSFER("BANK_TRANSFER", "Chuyển khoản ngân hàng", "🏦"),
     MOMO("MOMO", "MoMo", "📱"),
-    VNPAY("VNPAY", "VNPay", "💰"),
+    VNPAY("VNPAY", "Thanh toán online", "💰"),
     COD("COD", "Thanh toán COD", "📦")
 }
 

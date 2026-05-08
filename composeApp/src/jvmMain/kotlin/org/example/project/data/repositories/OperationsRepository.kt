@@ -174,6 +174,7 @@ data class ComplaintMessageRequest(
 data class OperationsRewardRedemptionDto(
     val id: String,
     val userId: String,
+    val userName: String? = null,
     val rewardProductId: String,
     val productName: String,
     val productImageUrl: String? = null,

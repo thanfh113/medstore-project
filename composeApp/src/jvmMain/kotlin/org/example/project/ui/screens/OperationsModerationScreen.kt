@@ -979,22 +979,25 @@ private fun RewardsTab(
             Column(Modifier.padding(16.dp)) {
                 Text("Yêu cầu đổi điểm", fontWeight = FontWeight.Bold)
                 Text(
-                    "Voucher: duyệt sẽ sinh mã riêng cho user. Khi user áp mã ở checkout, backend chuyển sang USED và lưu mã đơn đã dùng.",
+                    "Voucher: user đổi đủ điểm sẽ tự phát mã riêng và dùng ngay ở checkout. Desktop tập trung theo dõi voucher, xử lý quà vật lý và hủy khi cần.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(redemptions, key = { it.id }) { redemption ->
-                        val isVoucher = redemption.rewardType == "VOUCHER"
-                        Column(
-                            Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                items(redemptions, key = { it.id }) { redemption ->
+                    val isVoucher = redemption.rewardType == "VOUCHER"
+                    val customerLabel = redemption.userName
+                        ?.takeIf { it.isNotBlank() }
+                        ?: "Khách ${redemption.userId.takeLast(8)}"
+                    Column(
+                        Modifier.fillMaxWidth().padding(vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text(redemption.productName, fontWeight = FontWeight.SemiBold)
                                 Text(redemption.status, color = MaterialTheme.colorScheme.primary)
                             }
-                            Text("User: ${redemption.userId.takeLast(8)} | SL: ${redemption.quantity} | Điểm: ${redemption.pointsUsed}")
+                        Text("Khách: $customerLabel | SL: ${redemption.quantity} | Điểm: ${redemption.pointsUsed}")
                             Text("Loại reward: ${if (isVoucher) "Voucher giảm giá" else "Quà vật lý"}")
 
                             if (isVoucher) {

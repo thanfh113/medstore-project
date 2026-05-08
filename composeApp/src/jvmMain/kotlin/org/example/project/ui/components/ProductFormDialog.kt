@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -45,6 +46,10 @@ import org.example.project.data.models.Product
 import org.example.project.data.models.ProductCategory
 import org.example.project.data.models.ProductImage
 import org.example.project.data.models.RiskClassification
+import org.example.project.data.models.categoryDisplayPath
+import org.example.project.data.models.childProductCategories
+import org.example.project.data.models.selectedCategoryGroupId
+import org.example.project.data.models.topLevelProductCategories
 import org.example.project.utils.openFileChooser
 import java.io.File
 
@@ -83,9 +88,9 @@ fun ProductFormDialog(
     }
     val newImageFiles = remember(product?.id) { mutableStateListOf<File>() }
 
-    val selectedCategory = categories.firstOrNull { it.id == selectedCategoryId }
     val parsedPrice = price.toDoubleOrNull()
     val parsedOriginalPrice = originalPrice.toDoubleOrNull()
+    val restrictedOnlineRisk = riskClassification == RiskClassification.C || riskClassification == RiskClassification.D
     val isOriginalPriceValid = originalPrice.isBlank() || (parsedOriginalPrice != null && parsedPrice != null && parsedOriginalPrice <= parsedPrice)
     val isFormValid = name.isNotBlank() && selectedCategoryId != null && parsedPrice != null && parsedPrice > 0.0 && isOriginalPriceValid
 
@@ -264,17 +269,40 @@ fun ProductFormDialog(
 
                         RiskClassificationDropdown(
                             selectedRiskClassification = riskClassification,
-                            onRiskClassificationSelected = { riskClassification = it },
+                            onRiskClassificationSelected = {
+                                riskClassification = it
+                                if (it == RiskClassification.C || it == RiskClassification.D) {
+                                    requiresCertification = true
+                                    requiresConsultation = true
+                                }
+                            },
                             enabled = !isLoading
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
+                        if (restrictedOnlineRisk) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = MaterialTheme.shapes.medium,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Loại ${riskClassification.value} chỉ hiển thị để tư vấn. User không thể đặt online, cần tư vấn/ký kết tại nhà thuốc.",
+                                    modifier = Modifier.padding(12.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(
-                                checked = requiresCertification,
-                                onCheckedChange = { requiresCertification = it },
-                                enabled = !isLoading
+                                checked = requiresCertification || restrictedOnlineRisk,
+                                onCheckedChange = { requiresCertification = it || restrictedOnlineRisk },
+                                enabled = !isLoading && !restrictedOnlineRisk
                             )
                             Spacer(modifier = Modifier.padding(4.dp))
                             Text("Yêu cầu chứng nhận hồ sơ thiết bị")
@@ -282,9 +310,9 @@ fun ProductFormDialog(
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(
-                                checked = requiresConsultation,
-                                onCheckedChange = { requiresConsultation = it },
-                                enabled = !isLoading
+                                checked = requiresConsultation || restrictedOnlineRisk,
+                                onCheckedChange = { requiresConsultation = it || restrictedOnlineRisk },
+                                enabled = !isLoading && !restrictedOnlineRisk
                             )
                             Spacer(modifier = Modifier.padding(4.dp))
                             Text("Cần tư vấn kỹ thuật trước khi bán")
@@ -403,7 +431,7 @@ fun ProductFormDialog(
                                     manufacturer = manufacturer.trim(),
                                     origin = origin.trim(),
                                     sku = sku.trim().ifBlank { null },
-                                    ceIsoRequired = requiresCertification,
+                                    ceIsoRequired = requiresCertification || restrictedOnlineRisk,
                                     isActive = isActive,
                                     createdAt = product?.createdAt ?: now,
                                     updatedAt = now,
@@ -411,7 +439,7 @@ fun ProductFormDialog(
                                     unit = unit.trim().ifBlank { "Cái" },
                                     registrationNumber = registrationNumber.trim().ifBlank { null },
                                     riskClassification = riskClassification,
-                                    requiresTechnicalConsultation = requiresConsultation,
+                                    requiresTechnicalConsultation = requiresConsultation || restrictedOnlineRisk,
                                     images = normalizedImages
                                 ),
                                 newImageFiles.toList()
@@ -532,47 +560,106 @@ private fun CategoryDropdown(
     enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var groupExpanded by remember { mutableStateOf(false) }
+    var childExpanded by remember { mutableStateOf(false) }
+    val groups = remember(categories) { topLevelProductCategories(categories) }
+    val selectedGroupId = selectedCategoryGroupId(categories, selectedCategory)
+    val selectedGroup = groups.firstOrNull { it.id == selectedGroupId }
+    val children = remember(categories, selectedGroupId) {
+        childProductCategories(categories, selectedGroupId)
+    }
+    val selectedChild = children.firstOrNull { it.id == selectedCategory }
 
-    Box(modifier = modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = categories.firstOrNull { it.id == selectedCategory }?.displayName.orEmpty(),
-            onValueChange = { },
-            readOnly = true,
-            label = { Text("Danh mục *") },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = enabled,
-            isError = selectedCategory == null,
-            trailingIcon = {
-                if (enabled) {
-                    Text("▼", modifier = Modifier.clickable { expanded = !expanded })
+    Column(modifier = modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = selectedGroup?.displayName.orEmpty(),
+                onValueChange = { },
+                readOnly = true,
+                label = { Text("Nhóm danh mục *") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = enabled,
+                isError = selectedCategory == null,
+                trailingIcon = {
+                    if (enabled) {
+                        Text("▼", modifier = Modifier.clickable { groupExpanded = !groupExpanded })
+                    }
+                }
+            )
+
+            DropdownMenu(
+                expanded = groupExpanded,
+                onDismissRequest = { groupExpanded = false },
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .heightIn(max = 320.dp)
+            ) {
+                if (groups.isEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("Không có nhóm danh mục nào") },
+                        onClick = { }
+                    )
+                } else {
+                    groups.forEach { category ->
+                        DropdownMenuItem(
+                text = { Text(category.displayName) },
+                onClick = {
+                    val firstChild = childProductCategories(categories, category.id).firstOrNull()
+                    onCategorySelected(firstChild?.id ?: category.id)
+                    groupExpanded = false
+                }
+            )
+                    }
                 }
             }
-        )
+        }
 
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier
-                .fillMaxWidth(0.9f)
-        ) {
-            if (categories.isEmpty()) {
-                DropdownMenuItem(
-                    text = { Text("Không có danh mục nào") },
-                    onClick = { }
+        if (selectedGroup != null && children.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = selectedChild?.displayName ?: if (selectedCategory == selectedGroup.id) "Nhóm chung: ${selectedGroup.displayName}" else "",
+                    onValueChange = { },
+                    readOnly = true,
+                    label = { Text("Danh mục con") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = enabled,
+                    trailingIcon = {
+                        if (enabled) {
+                            Text("▼", modifier = Modifier.clickable { childExpanded = !childExpanded })
+                        }
+                    },
+                    supportingText = {
+                        val path = categoryDisplayPath(categories, selectedCategory)
+                        if (path.isNotBlank()) Text(path)
+                    }
                 )
-            } else {
-                categories.forEach { category ->
+
+                DropdownMenu(
+                    expanded = childExpanded,
+                    onDismissRequest = { childExpanded = false },
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .heightIn(max = 320.dp)
+                ) {
                     DropdownMenuItem(
-                        text = { Text(category.displayName) },
+                        text = { Text("Nhóm chung: ${selectedGroup.displayName}") },
                         onClick = {
-                            onCategorySelected(category.id)
-                            expanded = false
+                            onCategorySelected(selectedGroup.id)
+                            childExpanded = false
                         }
                     )
+                    children.forEach { child ->
+                        DropdownMenuItem(
+                            text = { Text(child.displayName) },
+                            onClick = {
+                                onCategorySelected(child.id)
+                                childExpanded = false
+                            }
+                        )
+                    }
                 }
             }
         }
     }
 }
-

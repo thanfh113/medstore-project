@@ -14,29 +14,26 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.example.project.presentation.viewmodels.NetworkModule
 
 data class MenuItem(
     val title: String,
@@ -48,8 +45,6 @@ data class MenuItem(
 fun MainLayout(
     userRole: String,
     currentRoute: String,
-    syncUiState: NetworkModule.SyncUiState,
-    pendingOutboxCount: Int,
     onNavigate: (String) -> Unit,
     onLogout: () -> Unit,
     content: @Composable () -> Unit
@@ -92,13 +87,15 @@ fun MainLayout(
     menus.add(MenuItem("POS", Icons.Default.PointOfSale, "pos"))
     menus.add(MenuItem("Đơn hàng", Icons.Default.ShoppingCart, "orders"))
     menus.add(MenuItem("Sản phẩm", Icons.Default.Inventory, "products"))
+    if (userRole == "ADMIN") {
+        menus.add(MenuItem("Banner", Icons.Default.Campaign, "banners"))
+    }
     menus.add(MenuItem("Chat", Icons.Default.Chat, "chat"))
     menus.add(MenuItem("CSKH", Icons.Default.Warning, "ops"))
 
     if (userRole == "ADMIN") {
         menus.add(MenuItem("Mã giảm giá", Icons.Default.LocalOffer, "coupons"))
         menus.add(MenuItem("Tài chính", Icons.Default.MonetizationOn, "finance"))
-        menus.add(MenuItem("Audit sync", Icons.Default.Sync, "sync-audit"))
         menus.add(MenuItem("Nhân sự", Icons.Default.People, "personnel"))
     }
 
@@ -107,8 +104,6 @@ fun MainLayout(
             modifier = Modifier.fillMaxHeight().width(100.dp),
             containerColor = MaterialTheme.colorScheme.surface
         ) {
-            SyncStatusBadge(syncUiState)
-            PendingOutboxBadge(pendingOutboxCount)
             Spacer(modifier = Modifier.height(8.dp))
             menus.forEach { menu ->
                 NavigationRailItem(
@@ -127,44 +122,5 @@ fun MainLayout(
             )
         }
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) { content() }
-    }
-}
-
-@Composable
-private fun PendingOutboxBadge(count: Int) {
-    if (count <= 0) return
-    Surface(
-        color = MaterialTheme.colorScheme.errorContainer,
-        modifier = Modifier.width(92.dp)
-    ) {
-        Text(
-            text = "Outbox: $count",
-            color = MaterialTheme.colorScheme.onErrorContainer,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-        )
-    }
-}
-
-@Composable
-private fun SyncStatusBadge(state: NetworkModule.SyncUiState) {
-    val color = when (state.type) {
-        NetworkModule.SyncUiStateType.SYNCING -> MaterialTheme.colorScheme.primary
-        NetworkModule.SyncUiStateType.PENDING_SYNC -> MaterialTheme.colorScheme.tertiary
-        NetworkModule.SyncUiStateType.OFFLINE -> MaterialTheme.colorScheme.error
-        NetworkModule.SyncUiStateType.SYNC_FAIL -> MaterialTheme.colorScheme.error
-        NetworkModule.SyncUiStateType.SYNCED -> Color(0xFF2E7D32)
-    }
-
-    Surface(
-        color = color.copy(alpha = 0.12f),
-        modifier = Modifier.width(92.dp)
-    ) {
-        Text(
-            text = state.message,
-            color = color,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-        )
     }
 }

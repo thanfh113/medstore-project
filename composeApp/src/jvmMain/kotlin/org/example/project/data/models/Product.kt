@@ -17,8 +17,12 @@ data class Product(
     val description: String,
     val price: Double,
     val originalPrice: Double? = null,
+    val importPrice: Double? = null,
     val categoryId: String,
     val stockQuantity: Int,
+    val mfgDate: String? = null,
+    val expDate: String? = null,
+    val inventoryNote: String? = null,
     val manufacturer: String,
     val origin: String = "",
     val sku: String? = null,
@@ -48,8 +52,78 @@ data class ProductCategory(
     val name: String,
     val displayName: String,
     val parentId: String? = null,
-    val icon: String? = null
+    val icon: String? = null,
+    val sortOrder: Int = 0
 )
+
+private val coreProductCategoryIds = listOf(
+    "cat-supplies",
+    "cat-bandage",
+    "cat-device",
+    "cat-protect",
+    "cat-instrument",
+    "cat-infection-control",
+    "cat-therapy",
+    "cat-lab"
+)
+
+fun topLevelProductCategories(categories: List<ProductCategory>): List<ProductCategory> {
+    val coreGroups = categories.filter { it.id in coreProductCategoryIds }
+    val decadeGroups = categories.filter { it.sortOrder > 0 && it.sortOrder % 10 == 0 }
+    val groups = coreGroups.ifEmpty {
+        decadeGroups.ifEmpty {
+            categories.filter { it.parentId.isNullOrBlank() }
+        }
+    }
+    return groups.sortedWith(compareBy<ProductCategory> {
+        coreProductCategoryIds.indexOf(it.id).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE
+    }.thenBy { it.sortOrder }.thenBy { it.displayName })
+}
+
+fun childProductCategories(
+    categories: List<ProductCategory>,
+    parentId: String?
+): List<ProductCategory> {
+    if (parentId.isNullOrBlank()) return emptyList()
+    return categories
+        .filter { it.parentId == parentId }
+        .sortedBy { it.displayName }
+}
+
+fun selectedCategoryGroupId(
+    categories: List<ProductCategory>,
+    selectedCategoryId: String?
+): String? {
+    val selected = categories.firstOrNull { it.id == selectedCategoryId } ?: return null
+    return selected.parentId ?: selected.id
+}
+
+fun categoryDisplayPath(
+    categories: List<ProductCategory>,
+    categoryId: String?
+): String {
+    val selected = categories.firstOrNull { it.id == categoryId } ?: return ""
+    val parent = selected.parentId?.let { parentId -> categories.firstOrNull { it.id == parentId } }
+    return if (parent != null) {
+        "${parent.displayName} / ${selected.displayName}"
+    } else {
+        selected.displayName
+    }
+}
+
+fun productCategoryMatches(
+    productCategoryId: String,
+    selectedCategoryId: String?,
+    categories: List<ProductCategory>
+): Boolean {
+    if (selectedCategoryId.isNullOrBlank()) return true
+    if (productCategoryId == selectedCategoryId) return true
+
+    val selected = categories.firstOrNull { it.id == selectedCategoryId } ?: return false
+    if (!selected.parentId.isNullOrBlank()) return false
+
+    return categories.any { it.parentId == selectedCategoryId && it.id == productCategoryId }
+}
 
 @Serializable
 data class MedicalSpecialty(
@@ -81,28 +155,21 @@ object MedicalSpecialties {
 
 object ProductCategories {
     val categories = listOf(
-        ProductCategory("vat-tu-co-ban", "basic-supplies", "Vật tư y tế cơ bản"),
-        ProductCategory("vat-tu-cap-cuu", "emergency-supplies", "Vật tư cấp cứu"),
-        ProductCategory("kim-tiem", "syringes", "Kim tiêm và ống tiêm"),
-        ProductCategory("ong-nghe", "stethoscopes", "Ống nghe"),
-        ProductCategory("gang-tay", "gloves", "Găng tay y tế"),
-        ProductCategory("may-do-huyet-ap", "blood-pressure", "Máy đo huyết áp"),
-        ProductCategory("may-do-duong-huyet", "glucose-meter", "Máy đo đường huyết"),
-        ProductCategory("nhiet-ke", "thermometer", "Nhiệt kế"),
-        ProductCategory("may-sieu-am", "ultrasound", "Máy siêu âm"),
-        ProductCategory("may-xquang", "xray", "Máy X-quang"),
-        ProductCategory("kiem-phau-thuat", "surgical-forceps", "Kìm phẫu thuật"),
-        ProductCategory("kim-khau", "surgical-needles", "Kim khâu"),
-        ProductCategory("keo-phau-thuat", "surgical-scissors", "Kéo phẫu thuật"),
-        ProductCategory("dao-phau-thuat", "surgical-knives", "Dao mổ"),
-        ProductCategory("bang-gac", "bandages", "Băng gạc"),
-        ProductCategory("mieng-dan", "patches", "Miếng dán vết thương"),
-        ProductCategory("sat-trung", "antiseptics", "Dung dịch sát trùng"),
-        ProductCategory("bang-ep", "compression-bandages", "Băng ép"),
-        ProductCategory("khau-trang-y-te", "medical-masks", "Khẩu trang y tế"),
-        ProductCategory("kinh-bao-ho", "protective-goggles", "Kính bảo hộ"),
-        ProductCategory("ao-bao-ho", "protective-gowns", "Áo bảo hộ"),
-        ProductCategory("mu-bao-ho", "protective-caps", "Mũ bảo hộ y tế")
+        ProductCategory("cat-supplies", "dung-cu-tiem-truyen", "Dụng cụ tiêm truyền"),
+        ProductCategory("cat-syringe", "bom-tiem-ong-xi-lanh", "Bơm tiêm - Ống xi lanh", "cat-supplies"),
+        ProductCategory("cat-needle", "kim-tiem", "Kim tiêm", "cat-supplies"),
+        ProductCategory("cat-infusion-set", "day-truyen-dich", "Dây truyền dịch", "cat-supplies"),
+        ProductCategory("cat-bandage", "bang-gac-cam-mau", "Băng gạc - Cầm máu"),
+        ProductCategory("cat-sterile-gauze", "gac-vo-trung", "Gạc vô trùng", "cat-bandage"),
+        ProductCategory("cat-device", "thiet-bi-chan-doan", "Thiết bị chẩn đoán"),
+        ProductCategory("cat-blood-pressure", "may-do-huyet-ap", "Máy đo huyết áp", "cat-device"),
+        ProductCategory("cat-thermometer", "nhiet-ke-y-te", "Nhiệt kế y tế", "cat-device"),
+        ProductCategory("cat-protect", "khau-trang-ppe", "Khẩu trang - PPE"),
+        ProductCategory("cat-mask", "khau-trang-y-te", "Khẩu trang y tế", "cat-protect"),
+        ProductCategory("cat-gloves", "gang-tay-y-te", "Găng tay y tế", "cat-protect"),
+        ProductCategory("cat-instrument", "thiet-bi-phau-thuat", "Thiết bị phẫu thuật"),
+        ProductCategory("cat-infection-control", "chong-nhiem-khuan", "Chống nhiễm khuẩn"),
+        ProductCategory("cat-therapy", "phuc-hoi-chuc-nang", "Phục hồi chức năng"),
+        ProductCategory("cat-lab", "vat-tu-xet-nghiem", "Vật tư xét nghiệm")
     )
 }
-

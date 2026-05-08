@@ -395,7 +395,7 @@ private fun Step3_SelectPaymentMethod(state: PosUiState, viewModel: PosViewModel
                 Text("Chọn phương thức thanh toán", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(24.dp))
 
-                val paymentOptions = listOf("CASH", "MOMO", "VNPAY", "ZALOPAY")
+                val paymentOptions = listOf("CASH", "MOMO", "ZALOPAY")
                 var paymentExpanded by remember { mutableStateOf(false) }
 
                 ExposedDropdownMenuBox(
@@ -456,7 +456,6 @@ private fun Step3_SelectPaymentMethod(state: PosUiState, viewModel: PosViewModel
                             when (state.paymentMethod) {
                                 "CASH" -> "Sẽ nhập tiền mặt ở bước tiếp theo"
                                 "MOMO" -> "Sẽ quét mã QR MOMO"
-                                "VNPAY" -> "Sẽ quét mã QR VNPAY"
                                 "ZALOPAY" -> "Sẽ quét mã QR ZALOPAY"
                                 else -> ""
                             },

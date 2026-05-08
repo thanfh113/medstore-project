@@ -28,7 +28,6 @@ import org.example.project.data.models.Product
 import org.example.project.data.models.ProductCategory
 import org.example.project.data.models.ProductImage
 import org.example.project.data.models.RiskClassification
-import org.example.project.data.models.DiseaseCategory
 import org.example.project.data.network.ProductImagePayload
 import org.example.project.data.network.UpdateProductRequest
 import java.io.File
@@ -78,9 +77,13 @@ private data class BackendProductDto(
     val unit: String = "Cai",
     val price: Double,
     val originalPrice: Double? = null,
+    val importPrice: Double? = null,
     val discountPct: Int = 0,
     val rewardPoints: Int = 0,
     val stock: Int = 0,
+    val mfgDate: String? = null,
+    val expDate: String? = null,
+    val inventoryNote: String? = null,
     val registrationNumber: String? = null,
     val riskClassification: String = "A",
     val requiresCertification: Boolean = false,
@@ -120,14 +123,17 @@ private data class ProductCertificateRequestPayload(
     val type: String = "MOH_LICENSE",
     val name: String,
     val fileUrl: String,
+    val fileType: String = "IMAGE",
+    val publicId: String? = null,
+    val resourceType: String = "image",
+    val thumbnailUrl: String? = null,
     val issueDate: String? = null,
     val expireDate: String? = null,
     val issuer: String? = null
 )
 
 @Serializable
-data class CreateBatchRequest(
-    val lotNumber: String? = null,
+data class CreateStockRequest(
     val mfgDate: String? = null,  // Format: yyyy-MM-dd
     val expDate: String? = null,  // Format: yyyy-MM-dd
     val quantity: Int,
@@ -145,6 +151,10 @@ data class CompleteProductCertificateDraft(
     val type: String = "MOH_LICENSE",
     val name: String,
     val fileUrl: String,
+    val fileType: String = "IMAGE",
+    val publicId: String? = null,
+    val resourceType: String = "image",
+    val thumbnailUrl: String? = null,
     val issueDate: String? = null,
     val expireDate: String? = null,
     val issuer: String? = null
@@ -153,7 +163,8 @@ data class CompleteProductCertificateDraft(
 data class UploadedProductAsset(
     val url: String,
     val publicId: String,
-    val mediaType: String
+    val mediaType: String,
+    val resourceType: String
 )
 
 data class CompleteProductDraft(
@@ -168,10 +179,17 @@ data class CompleteProductDraft(
     val unit: String = "Cái",
     val price: Double,
     val originalPrice: Double? = null,
+    val importPrice: Double? = null,
+    val stock: Int = 0,
+    val mfgDate: String? = null,
+    val expDate: String? = null,
+    val inventoryNote: String? = null,
     val discountPct: Int = 0,
     val rewardPoints: Int = 0,
     val registrationNumber: String? = null,
     val riskClassification: String = "A",
+    val requiresCertification: Boolean = false,
+    val requiresConsultation: Boolean = false,
     val targetAudience: String = "ALL",
     val images: List<CompleteProductImageDraft> = emptyList(),
     val certificates: List<CompleteProductCertificateDraft> = emptyList()
@@ -190,6 +208,11 @@ private data class CreateDesktopProductRequest(
     val unit: String = "Cái",
     val price: Double,
     val originalPrice: Double? = null,
+    val importPrice: Double? = null,
+    val stock: Int = 0,
+    val mfgDate: String? = null,
+    val expDate: String? = null,
+    val inventoryNote: String? = null,
     val discountPct: Int = 0,
     val rewardPoints: Int = 0,
     val registrationNumber: String? = null,
@@ -208,6 +231,7 @@ private data class BackendUploadResponse(
     val url: String,
     val publicId: String,
     val format: String? = null,
+    val resourceType: String = "image",
     val bytes: Int? = null
 )
 
@@ -253,8 +277,7 @@ private data class AdminEnvelope<T>(
 )
 
 class ProductRepository(
-    private val client: HttpClient,
-    private val syncRepository: SyncRepository? = null
+    private val client: HttpClient
 ) {
     private val baseUrl = "http://localhost:8080/api/v1"
     private val json = Json { ignoreUnknownKeys = true }
@@ -283,15 +306,9 @@ class ProductRepository(
 
         val response = httpResponse.body<ProductListEnvelope>()
         val products = response.data.map { it.toDesktopProduct() }
-        syncRepository?.cacheProducts(products)
         Result.success(products)
     } catch (e: Exception) {
-        val cached = syncRepository?.loadCachedProducts().orEmpty()
-        if (cached.isNotEmpty()) {
-            Result.success(cached)
-        } else {
-            Result.failure(IllegalStateException(e.message ?: "Khong the tai danh sach san pham"))
-        }
+        Result.failure(IllegalStateException(e.message ?: "Khong the tai danh sach san pham"))
     }
 
     suspend fun getCategories(): Result<List<ProductCategory>> = try {
@@ -338,12 +355,7 @@ class ProductRepository(
             )
         } catch (e: Exception) {
             authToken?.takeIf { it.isNotBlank() }?.let { cleanupUploadedImages(uploadedImages, it) }
-            if (newImageFiles.isNotEmpty()) {
-                return Result.failure(IllegalStateException("Khong the tao san pham offline khi co anh moi, vui long thu lai khi co mang"))
-            }
-            val queued = syncRepository?.queueProductUpsert(product, "CREATE")?.isSuccess == true
-            if (queued) Result.success(Unit)
-            else Result.failure(IllegalStateException(e.message ?: "Khong the tao san pham"))
+            Result.failure(IllegalStateException(e.message ?: "Khong the tao san pham"))
         }
     }
 
@@ -375,7 +387,8 @@ class ProductRepository(
     }
 
     suspend fun uploadCertificate(file: File): Result<UploadedProductAsset> {
-        return uploadAsset(file, "CERTIFICATE", "IMAGE")
+        val mediaType = if (file.extension.equals("pdf", ignoreCase = true)) "PDF" else "IMAGE"
+        return uploadAsset(file, "CERTIFICATE", mediaType)
     }
 
     suspend fun deleteUploadedAsset(publicId: String, resourceType: String): Result<Unit> {
@@ -429,12 +442,7 @@ class ProductRepository(
             )
         } catch (e: Exception) {
             authToken?.takeIf { it.isNotBlank() }?.let { cleanupUploadedImages(uploadedImages, it) }
-            if (newImageFiles.isNotEmpty()) {
-                return Result.failure(IllegalStateException("Khong the cap nhat san pham offline khi co anh moi, vui long thu lai khi co mang"))
-            }
-            val queued = syncRepository?.queueProductUpsert(product, "UPDATE")?.isSuccess == true
-            if (queued) Result.success(Unit)
-            else Result.failure(IllegalStateException(e.message ?: "Khong the cap nhat san pham"))
+            Result.failure(IllegalStateException(e.message ?: "Khong the cap nhat san pham"))
         }
     }
 
@@ -452,9 +460,7 @@ class ProductRepository(
 
         Result.success(Unit)
     } catch (e: Exception) {
-        val queued = syncRepository?.queueProductDelete(productId)?.isSuccess == true
-        if (queued) Result.success(Unit)
-        else Result.failure(IllegalStateException(e.message ?: "Khong the xoa san pham"))
+        Result.failure(IllegalStateException(e.message ?: "Khong the xoa san pham"))
     }
 
     suspend fun submitDeleteRequest(productId: String, reason: String?): Result<Unit> = try {
@@ -476,12 +482,12 @@ class ProductRepository(
         Result.failure(IllegalStateException(e.message ?: "Khong the gui yeu cau xoa san pham"))
     }
 
-    suspend fun addBatch(productId: String, batch: CreateBatchRequest): Result<String> = try {
+    suspend fun updateStock(productId: String, stock: CreateStockRequest): Result<String> = try {
         val httpResponse = executeAuthorized { token ->
-            client.post("$baseUrl/products/$productId/batches") {
+            client.post("$baseUrl/products/$productId/stock") {
                 header(HttpHeaders.Authorization, "Bearer $token")
                 contentType(ContentType.Application.Json)
-                setBody(batch)
+                setBody(stock)
             }
         }
 
@@ -493,7 +499,7 @@ class ProductRepository(
         val response = httpResponse.body<DataEnvelope<String>>()
         Result.success(response.data)
     } catch (e: Exception) {
-        Result.failure(IllegalStateException(e.message ?: "Khong the them lo hang"))
+        Result.failure(IllegalStateException(e.message ?: "Khong the cap nhat ton kho"))
     }
 
     suspend fun getDeleteRequests(status: String? = "PENDING"): Result<List<ProductDeleteRequestDto>> = try {
@@ -585,12 +591,13 @@ class ProductRepository(
 
         val response = httpResponse.body<BackendUploadResponse>()
         Result.success(
-            UploadedProductAsset(
-                url = response.url,
-                publicId = response.publicId,
-                mediaType = mediaType
+                UploadedProductAsset(
+                    url = response.url,
+                    publicId = response.publicId,
+                    mediaType = mediaType,
+                    resourceType = response.resourceType
+                )
             )
-        )
     } catch (e: Exception) {
         Result.failure(IllegalStateException(e.message ?: "Khong the upload tep"))
     }
@@ -679,7 +686,11 @@ class ProductRepository(
     }
 
     private fun normalizeCloudinaryResourceType(resourceType: String): String {
-        return if (resourceType.equals("video", ignoreCase = true)) "video" else "image"
+        return when {
+            resourceType.equals("raw", ignoreCase = true) -> "raw"
+            resourceType.equals("video", ignoreCase = true) -> "video"
+            else -> "image"
+        }
     }
 
     private fun BackendProductDto.toDesktopProduct(): Product {
@@ -690,8 +701,12 @@ class ProductRepository(
             description = description.orEmpty(),
             price = price,
             originalPrice = originalPrice,
+            importPrice = importPrice,
             categoryId = categoryId ?: "",
             stockQuantity = stock,
+            mfgDate = mfgDate,
+            expDate = expDate,
+            inventoryNote = inventoryNote,
             manufacturer = manufacturer?.ifBlank { null } ?: brand.orEmpty(),
             origin = origin.orEmpty(),
             sku = sku,
@@ -723,7 +738,8 @@ class ProductRepository(
             name = slug ?: name.lowercase().replace(' ', '-'),
             displayName = name,
             parentId = parentId,
-            icon = iconUrl
+            icon = iconUrl,
+            sortOrder = sortOrder
         )
     }
 
@@ -740,6 +756,11 @@ class ProductRepository(
             unit = unit.ifBlank { "Cái" },
             price = price,
             originalPrice = originalPrice,
+            importPrice = importPrice,
+            stock = stockQuantity,
+            mfgDate = mfgDate,
+            expDate = expDate,
+            inventoryNote = inventoryNote,
             discountPct = 0,
             rewardPoints = 0,
             registrationNumber = registrationNumber?.ifBlank { null },
@@ -765,7 +786,11 @@ class ProductRepository(
             unit = unit.ifBlank { "Cái" },
             price = price,
             originalPrice = originalPrice,
+            importPrice = importPrice,
             stock = stockQuantity,
+            mfgDate = mfgDate,
+            expDate = expDate,
+            inventoryNote = inventoryNote,
             discountPct = 0,
             registrationNumber = registrationNumber?.ifBlank { null },
             riskClassification = riskClassification.value,
@@ -801,12 +826,17 @@ class ProductRepository(
             unit = unit.ifBlank { "Cái" },
             price = price,
             originalPrice = originalPrice,
+            importPrice = importPrice,
+            stock = stock,
+            mfgDate = mfgDate,
+            expDate = expDate,
+            inventoryNote = inventoryNote,
             discountPct = discountPct,
             rewardPoints = rewardPoints,
             registrationNumber = registrationNumber?.ifBlank { null },
             riskClassification = riskClassification,
-            requiresCertification = false,
-            requiresConsultation = false,
+            requiresCertification = requiresCertification,
+            requiresConsultation = requiresConsultation,
             targetAudience = targetAudience.ifBlank { "ALL" },
             isActive = true,
             attributes = emptyMap(),
@@ -828,6 +858,10 @@ class ProductRepository(
                         type = it.type.ifBlank { "MOH_LICENSE" },
                         name = it.name,
                         fileUrl = it.fileUrl,
+                        fileType = it.fileType.ifBlank { "IMAGE" },
+                        publicId = it.publicId,
+                        resourceType = it.resourceType.ifBlank { "image" },
+                        thumbnailUrl = it.thumbnailUrl?.ifBlank { null },
                         issueDate = it.issueDate?.ifBlank { null },
                         expireDate = it.expireDate?.ifBlank { null },
                         issuer = it.issuer?.ifBlank { null }
@@ -899,45 +933,4 @@ class ProductRepository(
         val token: String
     )
 
-    suspend fun getDiseaseCategories(): Result<List<DiseaseCategory>> = try {
-        val httpResponse = executeAuthorized { token ->
-            client.get("$baseUrl/disease-categories") {
-                header(HttpHeaders.Authorization, "Bearer $token")
-            }
-        }
-
-        if (!httpResponse.status.isSuccess()) {
-            val raw = httpResponse.bodyAsText()
-            return Result.failure(IllegalStateException(extractErrorMessage(raw)))
-        }
-
-        val response = httpResponse.body<DataEnvelope<List<DiseaseCategory>>>()
-        Result.success(response.data)
-    } catch (e: Exception) {
-        Result.failure(IllegalStateException(e.message ?: "Khong the tai danh sach benh ly"))
-    }
-
-    suspend fun linkProductDiseases(
-        productId: String,
-        diseaseIds: List<String>
-    ): Result<Unit> = try {
-        val request = mapOf("diseaseIds" to diseaseIds)
-
-        val httpResponse = executeAuthorized { token ->
-            client.post("$baseUrl/products/$productId/diseases") {
-                header(HttpHeaders.Authorization, "Bearer $token")
-                contentType(ContentType.Application.Json)
-                setBody(request)
-            }
-        }
-
-        if (!httpResponse.status.isSuccess()) {
-            val raw = httpResponse.bodyAsText()
-            return Result.failure(IllegalStateException(extractErrorMessage(raw)))
-        }
-
-        Result.success(Unit)
-    } catch (e: Exception) {
-        Result.failure(IllegalStateException(e.message ?: "Khong the lien ket benh ly"))
-    }
 }

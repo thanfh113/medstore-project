@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -108,6 +109,10 @@ fun OrdersScreen(viewModel: OrdersViewModel) {
     val statusOptions = viewModel.availableStatuses(uiState.selectedChannel)
     var selectedOrderItem by remember(uiState.selectedOrderDetail?.id) {
         mutableStateOf<InternalOrderItemDto?>(null)
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadOrders()
     }
 
     Scaffold(
@@ -514,14 +519,35 @@ fun OrdersScreen(viewModel: OrdersViewModel) {
                                         }
                                     }
                                     order.channel == OrderChannel.ONLINE && order.status == OrderStatus.PENDING -> {
-                                        Button(
-                                            onClick = { viewModel.updateOrderStatus(order.id, OrderStatus.PROCESSING) },
-                                            enabled = !uiState.isUpdatingStatus,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(48.dp)
+                                        val paymentPending = order.paymentStatus.equals("PENDING", ignoreCase = true)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
-                                            Text("Bắt đầu xử lý", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            if (paymentPending) {
+                                                OutlinedButton(
+                                                    onClick = { viewModel.updateOrderStatus(order.id, OrderStatus.CANCELLED) },
+                                                    enabled = !uiState.isUpdatingStatus,
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .height(48.dp)
+                                                ) {
+                                                    Text("Hủy đơn treo", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                }
+                                            }
+                                            Button(
+                                                onClick = { viewModel.updateOrderStatus(order.id, OrderStatus.PROCESSING) },
+                                                enabled = !uiState.isUpdatingStatus && !paymentPending,
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(48.dp)
+                                            ) {
+                                                Text(
+                                                    if (paymentPending) "Chờ thanh toán" else "Bắt đầu xử lý",
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
                                         }
                                     }
                                     order.channel == OrderChannel.ONLINE && order.status == OrderStatus.PROCESSING -> {

@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -82,6 +83,10 @@ import org.example.project.ui.components.ProductDetailDialog
 fun PosWorkspaceScreen(viewModel: PosViewModel) {
     val state by viewModel.uiState.collectAsState()
     var previewProduct by remember { mutableStateOf<Product?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadProducts()
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -520,7 +525,7 @@ private fun PaymentMethodSelector(
                     onDismissRequest = { expanded = false },
                     modifier = Modifier.widthIn(min = 184.dp)
                 ) {
-                    listOf("CASH", "MOMO", "VNPAY", "ZALOPAY").forEach { method ->
+                    listOf("CASH", "MOMO", "ZALOPAY").forEach { method ->
                         DropdownMenuItem(
                             text = { Text(paymentMethodLabel(method)) },
                             onClick = {
@@ -803,7 +808,6 @@ private fun PosPaymentStage(
 private fun paymentMethodLabel(method: String): String = when (method.uppercase()) {
     "CASH" -> "Tiền mặt"
     "MOMO" -> "MoMo"
-    "VNPAY" -> "VNPay"
     "ZALOPAY" -> "ZaloPay"
     else -> method
 }
