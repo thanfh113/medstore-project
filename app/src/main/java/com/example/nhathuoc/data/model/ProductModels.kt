@@ -35,6 +35,8 @@ data class ProductDto(
     val attributes: Map<String, String> = emptyMap(), // Dynamic attributes
     val productType: String = "MEDICINE", // Added: MEDICINE, SUPPLEMENT, DEVICE, etc.
     val registrationNumber: String? = null, // Added for regulatory compliance
+    val riskClassification: String = "A", // Medical device risk class A|B|C|D
+    val requiresCertification: Boolean = false,
     val isPrescription: Boolean = false, // Added for prescription requirement
     val requiresConsultation: Boolean = false, // Added for consultation requirement
     val isFlashSale: Boolean = false,
@@ -76,6 +78,8 @@ data class ProductCertificateDto(
     val fileType: String? = null,
     val cloudinaryPublicId: String? = null,
     val cloudinaryResourceType: String? = null,
+    val publicId: String? = null,
+    val resourceType: String? = null,
     val thumbnailUrl: String? = null,
     val isActive: Boolean = true,
     val createdAt: String,
@@ -152,12 +156,11 @@ data class ProductImageDto(
     val createdAt: String
 )
 
-// Product Batches model based on product_batches table
+// Product stock model based on product-level inventory fields
 @Serializable
-data class ProductBatchDto(
+data class ProductStockDto(
     val id: String, // UUID from backend
     val productId: String, // UUID from backend
-    val lotNumber: String? = null,
     val mfgDate: String? = null, // Manufacturing date
     val expDate: String? = null, // Expiry date
     val quantity: Int,
@@ -168,12 +171,12 @@ data class ProductBatchDto(
     val updatedAt: String
 )
 
-// Product with images and batches for detailed view
+// Product with images, stock metadata, certificates and related products
 @Serializable
 data class ProductDetailWithExtrasResponse(
     val product: ProductDto,
     val images: List<ProductImageDto>,
-    val batches: List<ProductBatchDto>,
+    val stockEntries: List<ProductStockDto>,
     val certificates: List<ProductCertificateDto>,
     val relatedProducts: List<ProductDto>
 )

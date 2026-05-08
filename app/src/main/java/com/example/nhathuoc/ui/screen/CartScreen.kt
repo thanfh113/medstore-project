@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.outlined.MedicalServices
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +32,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,7 +66,31 @@ fun CartScreen(
 
     // Remove confirmation dialog
     var itemToRemove by remember { mutableStateOf<CartItemDto?>(null) }
+    var quantityEditorItem by remember { mutableStateOf<CartItemDto?>(null) }
+    var quantityDraft by rememberSaveable { mutableStateOf("") }
+    var quantityEditorError by remember { mutableStateOf<String?>(null) }
+    var selectedItemIds by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+    var hasInitializedSelection by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val cartItemIds = remember(uiState.items) { uiState.items.map { it.id } }
+    val selectedItems = remember(uiState.items, selectedItemIds) {
+        val selectedSet = selectedItemIds.toSet()
+        uiState.items.filter { it.id in selectedSet }
+    }
+    val selectedQuantity = selectedItems.sumOf { it.quantity }
+    val selectedTotal = selectedItems.sumOf { it.totalPrice }
+
+    LaunchedEffect(cartItemIds) {
+        if (cartItemIds.isEmpty()) {
+            selectedItemIds = emptyList()
+            hasInitializedSelection = false
+        } else if (!hasInitializedSelection) {
+            selectedItemIds = cartItemIds
+            hasInitializedSelection = true
+        } else {
+            selectedItemIds = selectedItemIds.filter { it in cartItemIds }
+        }
+    }
 
     // Load cart on entry
     LaunchedEffect(Unit) {
@@ -119,15 +146,98 @@ fun CartScreen(
         )
     }
 
+    if (quantityEditorItem != null) {
+        val editingItem = quantityEditorItem!!
+        AlertDialog(
+            onDismissRequest = {
+                quantityEditorItem = null
+                quantityEditorError = null
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Text(
+                    "Nhập số lượng",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        editingItem.displayName,
+                        color = Color(0xFF555555),
+                        fontSize = 14.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    OutlinedTextField(
+                        value = quantityDraft,
+                        onValueChange = { input ->
+                            quantityDraft = input.filter { it.isDigit() }
+                            quantityEditorError = null
+                        },
+                        label = { Text("Số lượng") },
+                        singleLine = true,
+                        isError = quantityEditorError != null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (quantityEditorError != null) {
+                        Text(
+                            quantityEditorError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val newQuantity = quantityDraft.toIntOrNull()
+                        if (newQuantity == null || newQuantity < 1) {
+                            quantityEditorError = "Số lượng phải lớn hơn 0"
+                            return@Button
+                        }
+                        if (editingItem.stock > 0 && newQuantity > editingItem.stock) {
+                            quantityEditorError = "Số lượng vượt tồn kho"
+                            return@Button
+                        }
+                        viewModel.updateQuantity(editingItem.id, newQuantity)
+                        quantityEditorItem = null
+                        quantityEditorError = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CartGreen),
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Text("Lưu", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    quantityEditorItem = null
+                    quantityEditorError = null
+                }) {
+                    Text("Hủy", color = Color.Gray)
+                }
+            }
+        )
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = { CartTopBar(itemCount = uiState.totalItems, onBack = { navController?.popBackStack() }) },
         bottomBar = {
             CartBottomBar(
-                totalAmount = uiState.totalPrice,
-                itemCount = uiState.items.size,
+                totalAmount = selectedTotal,
+                itemCount = selectedItems.size,
                 isLoading = uiState.isLoading,
-                onCheckout = { navController?.navigate("CheckoutScreen") }
+                onCheckout = {
+                    navController?.currentBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("selectedCartItemIds", ArrayList(selectedItemIds))
+                    navController?.navigate("CheckoutScreen")
+                }
             )
         },
         containerColor = CartBg
@@ -159,20 +269,41 @@ fun CartScreen(
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        item {
+                            CartSelectionHeader(
+                                selectedCount = selectedItems.size,
+                                totalCount = uiState.items.size,
+                                allSelected = selectedItems.size == uiState.items.size,
+                                onToggleAll = {
+                                    selectedItemIds = if (selectedItems.size == uiState.items.size) {
+                                        emptyList()
+                                    } else {
+                                        cartItemIds
+                                    }
+                                }
+                            )
+                        }
+
                         items(uiState.items, key = { it.id }) { item ->
+                            val isSelected = item.id in selectedItemIds
                             CartItemCard(
                                 item = item,
-                                onIncrease = {
-                                    viewModel.updateQuantity(item.id, item.quantity + 1)
-                                },
-                                onDecrease = {
-                                    if (item.quantity > 1) {
-                                        viewModel.updateQuantity(item.id, item.quantity - 1)
+                                selected = isSelected,
+                                onSelectedChange = { checked ->
+                                    selectedItemIds = if (checked) {
+                                        (selectedItemIds + item.id).distinct()
                                     } else {
-                                        itemToRemove = item
+                                        selectedItemIds.filterNot { it == item.id }
                                     }
                                 },
-                                onRemove = { itemToRemove = item }
+                                onQuantityChange = { quantity ->
+                                    viewModel.updateQuantity(item.id, quantity)
+                                },
+                                onRemove = {
+                                    quantityEditorItem = null
+                                    quantityEditorError = null
+                                    itemToRemove = item
+                                }
                             )
                         }
 
@@ -180,8 +311,8 @@ fun CartScreen(
                         item {
                             Spacer(Modifier.height(4.dp))
                             CartSummarySection(
-                                subtotal = uiState.totalPrice,
-                                itemCount = uiState.items.sumOf { it.quantity }
+                                subtotal = selectedTotal,
+                                itemCount = selectedQuantity
                             )
                         }
                     }
@@ -273,7 +404,7 @@ private fun CartBottomBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("Tong cong", fontSize = 12.sp, color = Color.Gray)
+                Text("Tổng cộng", fontSize = 12.sp, color = Color.Gray)
                 Text(
                     totalAmount.fmtVnd(),
                     fontSize = 18.sp,
@@ -292,7 +423,7 @@ private fun CartBottomBar(
                 contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
             ) {
                 Text(
-                    "Dat hang",
+                    "Đặt hàng",
                     color = Color.White,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
@@ -311,12 +442,69 @@ private fun CartBottomBar(
 
 // ── CartItemCard ───────────────────────────────────────────────────────────
 @Composable
+private fun CartSelectionHeader(
+    selectedCount: Int,
+    totalCount: Int,
+    allSelected: Boolean,
+    onToggleAll: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        shadowElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = allSelected && totalCount > 0,
+                    onCheckedChange = { onToggleAll() },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = CartGreen,
+                        uncheckedColor = Color(0xFFBDBDBD)
+                    )
+                )
+                Text(
+                    "Chọn tất cả",
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1A1A1A)
+                )
+            }
+            Text(
+                "$selectedCount/$totalCount sản phẩm",
+                color = CartGreen,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
 private fun CartItemCard(
     item: CartItemDto,
-    onIncrease: () -> Unit,
-    onDecrease: () -> Unit,
+    selected: Boolean,
+    onSelectedChange: (Boolean) -> Unit,
+    onQuantityChange: (Int) -> Unit,
     onRemove: () -> Unit
 ) {
+    val maxQuantity = if (item.stock > 0) item.stock else item.quantity.coerceAtLeast(1)
+    var quantityText by remember(item.id) { mutableStateOf(item.quantity.toString()) }
+    LaunchedEffect(item.id, item.quantity) {
+        quantityText = item.quantity.toString()
+    }
+    val draftQuantity = quantityText.toIntOrNull()
+    val quantityError = quantityText.isNotBlank() && (draftQuantity == null || draftQuantity !in 1..maxQuantity)
+    val canSaveQuantity = draftQuantity != null &&
+        draftQuantity in 1..maxQuantity &&
+        draftQuantity != item.quantity
+
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
@@ -328,6 +516,15 @@ private fun CartItemCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Checkbox(
+                    checked = selected,
+                    onCheckedChange = onSelectedChange,
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = CartGreen,
+                        uncheckedColor = Color(0xFFBDBDBD)
+                    )
+                )
+                Spacer(Modifier.width(4.dp))
                 Box(
                     modifier = Modifier
                         .size(64.dp)
@@ -400,51 +597,51 @@ private fun CartItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Quantity stepper
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Decrease / Remove
-                    Surface(
-                        onClick = onDecrease,
-                        shape = CircleShape,
-                        color = if (item.quantity <= 1) Color(0xFFFFEBEE) else CartGreenLight,
-                        modifier = Modifier.size(34.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                if (item.quantity <= 1) Icons.Filled.Delete else Icons.Filled.Remove,
-                                contentDescription = null,
-                                tint = if (item.quantity <= 1) CartRed else CartGreen,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        "${item.quantity}",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A1A),
-                        modifier = Modifier.widthIn(min = 32.dp),
-                        textAlign = TextAlign.Center
-                    )
-
-                    // Increase
-                    Surface(
-                        onClick = onIncrease,
-                        shape = CircleShape,
+                        "Tồn: ${item.stock}",
                         color = CartGreen,
-                        modifier = Modifier.size(34.dp)
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Filled.Add,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
+                        IconButton(
+                            onClick = { onQuantityChange(item.quantity - 1) },
+                            enabled = item.quantity > 1,
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(Icons.Filled.Remove, contentDescription = "Giảm", tint = CartGreen)
+                        }
+                        OutlinedTextField(
+                            value = quantityText,
+                            onValueChange = { input ->
+                                quantityText = input.filter { it.isDigit() }.take(4)
+                            },
+                            singleLine = true,
+                            isError = quantityError,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                textAlign = TextAlign.Center,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            modifier = Modifier
+                                .width(68.dp)
+                                .height(48.dp)
+                        )
+                        IconButton(
+                            onClick = { onQuantityChange(item.quantity + 1) },
+                            enabled = item.quantity < maxQuantity,
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = "Tăng", tint = CartGreen)
+                        }
+                        if (canSaveQuantity) {
+                            TextButton(onClick = { onQuantityChange(draftQuantity!!) }) {
+                                Text("Lưu", color = CartGreen, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

@@ -35,34 +35,33 @@ import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.ui.theme.NhathuocTheme
 import com.example.nhathuoc.viewmodel.CartViewModel
 import com.example.nhathuoc.viewmodel.HomeViewModel
+import com.example.nhathuoc.viewmodel.NotificationViewModel
 import kotlinx.coroutines.launch
 
 private val HEADER_FULL = 160.dp
 private val HEADER_MID = 110.dp
 private val HEADER_COLLAPSED = 72.dp
-private val nonProductDrawerLabels = setOf(
-    "Tin tức - Kiến thức",
-    "Tin tức ngành",
-    "Hướng dẫn sử dụng",
-    "Tiêu chuẩn chất lượng"
-)
 
 @Composable
 fun HomeScreen(modifier: Modifier = Modifier, navController: NavController? = null) {
     val drawerState = rememberDrawerState()
+    val notificationViewModel: NotificationViewModel = hiltViewModel()
+    val unreadNotificationCount by notificationViewModel.unreadCount.collectAsState()
 
     AppDrawer(
         drawerState = drawerState,
         userName = "Khách hàng",
         rewardPoints = 0,
-        notificationCount = 0,
+        notificationCount = unreadNotificationCount,
         onMenuItemClick = { item ->
             if (item.label != "Thông báo") {
                 drawerState.close()
                 when (item.label) {
                     "Hệ thống cửa hàng" -> navController?.navigate("FindPharmacyScreen")
-                    in nonProductDrawerLabels -> Unit
-                    else -> navController?.navigate("CategoryProductScreen/${Uri.encode(item.label)}")
+                    else -> {
+                        val categoryId = item.categoryId ?: item.label
+                        navController?.navigate("CategoryProductScreen/${Uri.encode(categoryId)}/${Uri.encode(item.label)}")
+                    }
                 }
             }
             if (item.label == "Thông báo") {
@@ -76,6 +75,7 @@ fun HomeScreen(modifier: Modifier = Modifier, navController: NavController? = nu
             onMenuClick = { drawerState.toggle() },
             onChatClick = { navController?.navigate("ChatScreen") },
             onNotificationClick = { navController?.navigate("NotificationScreen") },
+            notificationCount = unreadNotificationCount,
             navController = navController
         )
     }
@@ -87,6 +87,7 @@ private fun HomeScreenContent(
     onMenuClick: () -> Unit = {},
     onChatClick: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
+    notificationCount: Int = 0,
     navController: NavController? = null
 ) {
     val listState = rememberLazyListState()
@@ -125,6 +126,13 @@ private fun HomeScreenContent(
     val flashSaleLoading by homeViewModel.flashSaleLoading.collectAsState()
     val bestSellerProducts by homeViewModel.bestSellerProducts.collectAsState()
     val bestSellerLoading by homeViewModel.bestSellerLoading.collectAsState()
+    val banners by homeViewModel.banners.collectAsState()
+    val promoItems = remember(banners) {
+        banners
+            .sortedBy { it.sortOrder }
+            .map { it.toPromoBannerItem() }
+            .ifEmpty { defaultPromoItems }
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -148,7 +156,28 @@ private fun HomeScreenContent(
                 }
             }
             item { QuickAccessRow(navController = navController, modifier = Modifier.padding(horizontal = 16.dp)) }
-            item { PromoBannerPager(modifier = Modifier.padding(horizontal = 16.dp)) }
+            item {
+                PromoBannerPager(
+                    items = promoItems,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    onBannerClick = { item ->
+                        val link = item.linkUrl?.trim().orEmpty()
+                        when {
+                            link.equals("/chat", ignoreCase = true) -> navController?.navigate("ChatScreen")
+                            link.startsWith("/products/", ignoreCase = true) -> {
+                                navController?.navigate("ProductDetailScreen/${Uri.encode(link.substringAfterLast('/'))}")
+                            }
+                            link.startsWith("/categories/", ignoreCase = true) -> {
+                                val categoryId = link.substringAfterLast('/')
+                                navController?.navigate(
+                                    "CategoryProductScreen/${Uri.encode(categoryId)}/${Uri.encode(item.title)}"
+                                )
+                            }
+                            link.equals("/products", ignoreCase = true) -> navController?.navigate("ProductListScreen")
+                        }
+                    }
+                )
+            }
             item {
                 FlashSaleRow(
                     navController = navController,
@@ -189,10 +218,6 @@ private fun HomeScreenContent(
                 )
             }
             item { FeaturedCategoriesGrid(navController = navController, modifier = Modifier.padding(horizontal = 16.dp)) }
-            item { HealthCheckRow(modifier = Modifier.padding(horizontal = 16.dp)) }
-            item { SeasonalDiseaseSection(navController = navController, modifier = Modifier.padding(horizontal = 16.dp)) }
-            item { ShortVideoRow(modifier = Modifier.padding(horizontal = 16.dp)) }
-            item { HealthNewsSection(modifier = Modifier.padding(horizontal = 16.dp)) }
             item { TrustBadgesGrid(modifier = Modifier.padding(horizontal = 16.dp)) }
             item { HomeFooter(modifier = Modifier.padding(horizontal = 16.dp)) }
         }
@@ -230,14 +255,11 @@ private fun HomeScreenContent(
                     Text("VẬT TƯ Y TẾ", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
                     Text("MedStore", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp)
                 }
-                BadgedBox(
-                    badge = { Badge(containerColor = Color(0xFFFF6D00)) { Text("!", color = Color.White, fontSize = 9.sp) } },
+                HomeNotificationButton(
+                    notificationCount = notificationCount,
+                    onClick = onNotificationClick,
                     modifier = Modifier.align(Alignment.CenterEnd)
-                ) {
-                    IconButton(onClick = onNotificationClick) {
-                        Icon(Icons.Filled.Notifications, "Thông báo", tint = Color.White, modifier = Modifier.size(26.dp))
-                    }
-                }
+                )
             }
 
             Box(
@@ -277,14 +299,38 @@ private fun HomeScreenContent(
                     Icon(Icons.Filled.Menu, null, tint = Color.White)
                 }
                 Box(modifier = Modifier.weight(1f)) { HomeSearchBar() }
-                BadgedBox(badge = {
-                    Badge(containerColor = Color(0xFFFF6D00)) { Text("!", color = Color.White, fontSize = 9.sp) }
-                }) {
-                    IconButton(onClick = onNotificationClick) {
-                        Icon(Icons.Filled.Notifications, null, tint = Color.White)
-                    }
-                }
+                HomeNotificationButton(
+                    notificationCount = notificationCount,
+                    onClick = onNotificationClick
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun HomeNotificationButton(
+    notificationCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val displayCount = notificationCount.coerceAtMost(99).toString()
+    if (notificationCount > 0) {
+        BadgedBox(
+            badge = {
+                Badge(containerColor = Color(0xFFFF6D00)) {
+                    Text(displayCount, color = Color.White, fontSize = 9.sp)
+                }
+            },
+            modifier = modifier
+        ) {
+            IconButton(onClick = onClick) {
+                Icon(Icons.Filled.Notifications, "Thông báo", tint = Color.White, modifier = Modifier.size(26.dp))
+            }
+        }
+    } else {
+        IconButton(onClick = onClick, modifier = modifier) {
+            Icon(Icons.Filled.Notifications, "Thông báo", tint = Color.White, modifier = Modifier.size(26.dp))
         }
     }
 }

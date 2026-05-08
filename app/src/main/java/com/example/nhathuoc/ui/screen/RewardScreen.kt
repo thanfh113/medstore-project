@@ -145,7 +145,9 @@ fun RewardScreen(
         when (val s = redeemState) {
             is UiState.Success -> {
                 showRedeemSheet = false
-                scope.launch { snackbarHostState.showSnackbar("Đổi quà thành công! ${s.data}") }
+                scope.launch {
+                    snackbarHostState.showSnackbar(s.data)
+                }
                 viewModel.clearRedeemState()
             }
             is UiState.Error -> {
@@ -797,15 +799,15 @@ private fun MyRewardVouchersSection(
     onUseVoucher: () -> Unit
 ) {
     RewardHistorySection(
-        title = "Voucher cua toi",
-        subtitle = "Ma da doi bang diem se hien o day va co the chon lai trong man thanh toan."
+        title = "Voucher của tôi",
+        subtitle = "Mã đã đổi bằng điểm sẽ hiện ở đây và có thể chọn lại trong màn thanh toán."
     ) {
         when (vouchersState) {
-            is UiState.Loading -> HistoryLoadingState("Dang tai voucher da doi...")
+            is UiState.Loading -> HistoryLoadingState("Đang tải voucher đã đổi...")
             is UiState.Error -> HistoryErrorState(vouchersState.message)
             is UiState.Success -> {
                 if (vouchers.isEmpty()) {
-                    EmptyHistoryState("Chua co voucher nao. Doi voucher trong catalog diem thuong de dung khi checkout.")
+                    EmptyHistoryState("Chưa có voucher nào. Đổi voucher trong catalog điểm thưởng để dùng khi checkout.")
                 } else {
                     vouchers.forEachIndexed { index, voucher ->
                         RewardVoucherCard(voucher = voucher, onUseVoucher = onUseVoucher)
@@ -813,17 +815,19 @@ private fun MyRewardVouchersSection(
                     }
                 }
             }
-            else -> EmptyHistoryState("Chua co du lieu voucher.")
+            else -> EmptyHistoryState("Chưa có dữ liệu voucher.")
         }
     }
 }
 
 @Composable
 private fun RewardVoucherCard(voucher: RewardVoucherDto, onUseVoucher: () -> Unit) {
-    val used = voucher.status.uppercase() == "USED"
+    val normalizedStatus = voucher.status.uppercase()
+    val used = normalizedStatus == "USED"
+    val unusable = normalizedStatus in setOf("USED", "CANCELLED", "EXPIRED")
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = if (used) Color(0xFFF3F4F6) else Color(0xFFFFFBEB)
+        color = if (unusable) Color(0xFFF3F4F6) else Color(0xFFFFFBEB)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -839,7 +843,7 @@ private fun RewardVoucherCard(voucher: RewardVoucherDto, onUseVoucher: () -> Uni
                     Text(voucher.code, color = GreenTopRw, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                     Text(formatRewardVoucherValue(voucher), color = Color(0xFF4B5563), fontSize = 12.sp)
                 }
-                RedemptionStatusChip(if (used) "USED" else "APPROVED")
+                RedemptionStatusChip(normalizedStatus)
             }
             voucher.terms?.takeIf { it.isNotBlank() }?.let {
                 Text(it, color = Color(0xFF6B7280), fontSize = 12.sp, lineHeight = 18.sp)
@@ -850,17 +854,25 @@ private fun RewardVoucherCard(voucher: RewardVoucherDto, onUseVoucher: () -> Uni
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Nhan ngay: ${formatRewardDateTime(voucher.createdAt)}",
+                    "Nhận lúc: ${formatRewardDateTime(voucher.createdAt)}",
                     color = Color(0xFF9CA3AF),
                     fontSize = 11.sp
                 )
                 Button(
                     onClick = onUseVoucher,
-                    enabled = !used,
+                    enabled = !unusable,
                     colors = ButtonDefaults.buttonColors(containerColor = GreenTopRw),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                 ) {
-                    Text(if (used) "Da dung" else "Dung voucher", color = Color.White, fontSize = 12.sp)
+                    Text(
+                        when {
+                            used -> "Đã dùng"
+                            unusable -> "Không dùng được"
+                            else -> "Dùng voucher"
+                        },
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
                 }
             }
         }
@@ -869,12 +881,12 @@ private fun RewardVoucherCard(voucher: RewardVoucherDto, onUseVoucher: () -> Uni
 
 private fun formatRewardVoucherValue(voucher: RewardVoucherDto): String {
     val value = if (voucher.discountType.uppercase() == "PERCENT") {
-        "Giam ${voucher.discountValue.toLong()}%"
+        "Giảm ${voucher.discountValue.toLong()}%"
     } else {
-        "Giam ${voucher.discountValue.toLong().fmtPts()} d"
+        "Giảm ${voucher.discountValue.toLong().fmtPts()} đ"
     }
-    val minOrder = voucher.minOrderTotal?.let { " | Don toi thieu ${it.toLong().fmtPts()} d" }.orEmpty()
-    val maxDiscount = voucher.maxDiscountAmount?.let { " | Giam toi da ${it.toLong().fmtPts()} d" }.orEmpty()
+    val minOrder = voucher.minOrderTotal?.let { " | Đơn tối thiểu ${it.toLong().fmtPts()} đ" }.orEmpty()
+    val maxDiscount = voucher.maxDiscountAmount?.let { " | Giảm tối đa ${it.toLong().fmtPts()} đ" }.orEmpty()
     return value + minOrder + maxDiscount
 }
 

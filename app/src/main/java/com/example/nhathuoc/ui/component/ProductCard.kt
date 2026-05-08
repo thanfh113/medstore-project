@@ -46,7 +46,8 @@ data class ProductCardData(
     val isFlashSale: Boolean = false,
     val isBestSeller: Boolean = false,
     val rating: Float = 0f,
-    val reviewCount: Int = 0
+    val reviewCount: Int = 0,
+    val canOrderOnline: Boolean = true
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -61,6 +62,8 @@ fun ProductCard(
     onProductClick: (String) -> Unit = {},
     onAddToCart: (String) -> Unit = {}
 ) {
+    val canAddToCart = data.canOrderOnline && data.stock > 0
+
     Surface(
         modifier = modifier
             .width(cardWidth)
@@ -167,26 +170,52 @@ fun ProductCard(
                     }
 
                     // Stock
-                    if (data.stock > 0) {
-                        Surface(
-                            color = Color(0xFFE8F5E9),
-                            shape = RoundedCornerShape(4.dp),
-                            modifier = Modifier.wrapContentSize()
-                        ) {
-                            Text(
-                                text = "Còn ${data.stock}",
-                                fontSize = 9.sp,
-                                color = GreenTop,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
+                    Surface(
+                        color = if (data.stock > 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier.wrapContentSize()
+                    ) {
+                        Text(
+                            text = if (data.stock > 0) "Còn ${data.stock}" else "Hết hàng",
+                            fontSize = 9.sp,
+                            color = if (data.stock > 0) GreenTop else Color(0xFFE53935),
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
                     }
                 }
             }
 
             // ── Discount Badge (top-right) ──────────────────────────────
-            if (data.discountPercent > 0) {
+            if (!data.canOrderOnline) {
+                Surface(
+                    color = Color(0xFFFFF3E0),
+                    shape = RoundedCornerShape(topEnd = 12.dp, bottomStart = 12.dp),
+                    modifier = Modifier.align(Alignment.TopEnd)
+                ) {
+                    Text(
+                        text = "Tư vấn",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE65100),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                    )
+                }
+            } else if (data.stock <= 0) {
+                Surface(
+                    color = Color(0xFFE53935),
+                    shape = RoundedCornerShape(topEnd = 12.dp, bottomStart = 12.dp),
+                    modifier = Modifier.align(Alignment.TopEnd)
+                ) {
+                    Text(
+                        text = "Hết",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                    )
+                }
+            } else if (data.discountPercent > 0) {
                 Surface(
                     color = Color(0xFFE53935),
                     shape = RoundedCornerShape(topEnd = 12.dp, bottomStart = 12.dp),
@@ -248,22 +277,24 @@ fun ProductCard(
             }
 
             // ── Add to Cart Button (bottom-right) ───────────────────────
-            FloatingActionButton(
-                onClick = { onAddToCart(data.id) },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .size(36.dp),
-                containerColor = GreenTop,
-                shape = CircleShape,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Add",
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
-                )
+            if (canAddToCart) {
+                FloatingActionButton(
+                    onClick = { onAddToCart(data.id) },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp)
+                        .size(36.dp),
+                    containerColor = GreenTop,
+                    shape = CircleShape,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = "Thêm vào giỏ",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }

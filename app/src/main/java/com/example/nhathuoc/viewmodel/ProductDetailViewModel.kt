@@ -140,11 +140,15 @@ class ProductDetailViewModel @Inject constructor(
             when (val result = productRepository.createProductReview(productId, request)) {
                 is NetworkResult.Success -> {
                     _reviewSubmitState.value = UiState.Success(Unit)
-                    _reviewFeedbackMessage.value = "Đã gửi đánh giá"
+                    _reviewFeedbackMessage.value = if (rating == 5) {
+                        "Đã gửi đánh giá. Bạn được cộng 200 điểm thưởng."
+                    } else {
+                        "Đã gửi đánh giá"
+                    }
                     loadReviews(productId)
                 }
                 is NetworkResult.Error -> {
-                    _reviewSubmitState.value = UiState.Error(result.message)
+                    _reviewSubmitState.value = UiState.Error(result.toUserReviewError())
                 }
                 is NetworkResult.Exception -> {
                     _reviewSubmitState.value = UiState.Error(
@@ -169,7 +173,7 @@ class ProductDetailViewModel @Inject constructor(
                     _reviewFeedbackMessage.value = "Đã gửi báo cáo đánh giá"
                 }
                 is NetworkResult.Error -> {
-                    _reviewSubmitState.value = UiState.Error(result.message)
+                    _reviewSubmitState.value = UiState.Error(result.toUserReviewError())
                 }
                 is NetworkResult.Exception -> {
                     _reviewSubmitState.value = UiState.Error(
@@ -183,5 +187,13 @@ class ProductDetailViewModel @Inject constructor(
     fun clearReviewSubmitState() {
         _reviewSubmitState.value = UiState.Idle
         _reviewFeedbackMessage.value = null
+    }
+
+    private fun NetworkResult.Error.toUserReviewError(): String {
+        return when (code) {
+            401 -> "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại rồi gửi lại đánh giá."
+            403 -> "Tài khoản không có quyền thực hiện thao tác này."
+            else -> message
+        }
     }
 }

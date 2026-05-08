@@ -30,7 +30,7 @@ class AuthInterceptor(
         val originalRequest = chain.request()
 
         // Skip auth for public endpoints
-        if (isPublicEndpoint(originalRequest.url.encodedPath)) {
+        if (isPublicEndpoint(originalRequest)) {
             return chain.proceed(originalRequest)
         }
 
@@ -80,19 +80,29 @@ class AuthInterceptor(
         return response
     }
 
-    private fun isPublicEndpoint(path: String): Boolean {
-        val publicPaths = listOf(
-            ApiConstants.AUTH_LOGIN,
-            ApiConstants.AUTH_REGISTER,
-            ApiConstants.PRODUCTS,
-            ApiConstants.PRODUCTS_FLASH_SALE,
-            ApiConstants.PRODUCTS_BEST_SELLERS,
-            ApiConstants.BANNERS,
-            ApiConstants.PHARMACIES
-        )
-        return publicPaths.any { publicPath ->
-            path.startsWith(publicPath) || path == publicPath
+    private fun isPublicEndpoint(request: Request): Boolean {
+        val path = request.url.encodedPath
+        val method = request.method.uppercase()
+
+        if (path in setOf(
+                ApiConstants.AUTH_LOGIN,
+                ApiConstants.AUTH_REGISTER,
+                ApiConstants.AUTH_REFRESH
+            )
+        ) {
+            return true
         }
+
+        if (method != "GET") return false
+
+        return path == ApiConstants.PRODUCTS ||
+            path.startsWith("${ApiConstants.PRODUCTS}/") ||
+            path == ApiConstants.PRODUCTS_FLASH_SALE ||
+            path == ApiConstants.PRODUCTS_BEST_SELLERS ||
+            path == ApiConstants.BANNERS ||
+            path.startsWith("${ApiConstants.BANNERS}/") ||
+            path == ApiConstants.CATEGORIES ||
+            path.startsWith("${ApiConstants.CATEGORIES}/")
     }
 
     private fun attemptTokenRefresh(

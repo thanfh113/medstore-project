@@ -37,7 +37,8 @@ private val BgColorCat = Color(0xFFF5F7FA)
 
 @Composable
 fun CategoryProductScreen(
-    categoryName: String,
+    categoryId: String,
+    categoryTitle: String,
     navController: NavController? = null,
     onBack: () -> Unit = {}
 ) {
@@ -47,8 +48,8 @@ fun CategoryProductScreen(
     val products by viewModel.allProducts.collectAsState()
 
     // Load products when screen appears
-    LaunchedEffect(categoryName) {
-        viewModel.loadProductsByCategory(categoryName)
+    LaunchedEffect(categoryId) {
+        viewModel.loadProductsByCategory(categoryId)
     }
 
     var sortMode by remember { mutableStateOf("price_asc") }
@@ -76,7 +77,7 @@ fun CategoryProductScreen(
                         Icon(Icons.Filled.ArrowBackIosNew, null, tint = Color.White, modifier = Modifier.size(20.dp))
                     }
                     Text(
-                        categoryName,
+                        categoryTitle,
                         color = Color.White,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
@@ -133,7 +134,7 @@ fun CategoryProductScreen(
                             )
                             Spacer(Modifier.height(16.dp))
                             Button(
-                                onClick = { viewModel.loadProductsByCategory(categoryName) },
+                                onClick = { viewModel.loadProductsByCategory(categoryId) },
                                 colors = ButtonDefaults.buttonColors(containerColor = GreenTopCat)
                             ) {
                                 Text("Thử lại")
@@ -221,6 +222,9 @@ private fun CategoryProductCard(
     product: ProductDto,
     onClick: () -> Unit
 ) {
+    val normalizedRisk = product.riskClassification.uppercase()
+    val canOrderOnline = normalizedRisk != "C" && normalizedRisk != "D"
+
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
@@ -321,6 +325,39 @@ private fun CategoryProductCard(
                         textDecoration = TextDecoration.LineThrough
                     )
                 }
+            }
+
+            if (!canOrderOnline) {
+                Spacer(Modifier.height(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color(0xFFFFF3E0),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Loại $normalizedRisk - Cần tư vấn",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFE65100),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = if (product.stock > 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = if (product.stock > 0) "Còn ${product.stock} ${product.unit}" else "Hết hàng",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (product.stock > 0) GreenTopCat else Color(0xFFE53935),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
             }
 
             Spacer(Modifier.height(4.dp))

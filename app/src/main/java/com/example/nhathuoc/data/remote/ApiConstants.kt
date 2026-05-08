@@ -5,7 +5,7 @@
  * Base URL for Android emulator pointing to localhost BE
  */
 object ApiConstants {
-    const val BASE_URL = "http://10.196.200.132:8080"
+    const val BASE_URL = "http://10.196.200.187:8080"
 
     const val AUTH_REGISTER = "/api/v1/auth/register"
     const val AUTH_LOGIN = "/api/v1/auth/login"
@@ -16,6 +16,7 @@ object ApiConstants {
     const val USER_UPDATE = "/api/v1/user/update"
     const val USER_ADDRESSES = "/api/v1/user/addresses"
     const val USER_ADDRESS_ADD = "/api/v1/user/addresses"
+    const val USER_ADDRESS_BY_ID = "/api/v1/user/addresses/{id}"
 
     const val PRODUCTS = "/api/v1/products"
     const val PRODUCTS_FLASH_SALE = "/api/v1/products/flash-sale"
@@ -27,7 +28,6 @@ object ApiConstants {
 
     const val CATEGORIES = "/api/v1/categories"
     const val CATEGORY_BY_ID = "/api/v1/categories/{id}"
-    const val CATEGORY_ATTRIBUTES = "/api/v1/categories/{id}/attributes"
 
     const val CART = "/api/v1/cart"
     const val CART_ITEMS = "/api/v1/cart/items"
@@ -36,13 +36,13 @@ object ApiConstants {
     const val ORDERS = "/api/v1/orders"
     const val ORDER_BY_ID = "/api/v1/orders/{orderId}"
     const val ORDER_CANCEL = "/api/v1/orders/{orderId}/cancel"
+    const val ORDER_CONFIRM_RECEIVED = "/api/v1/orders/{orderId}/confirm-received"
     const val COMPLAINTS = "/api/v1/complaints"
     const val COMPLAINT_BY_ID = "/api/v1/complaints/{id}"
     const val COMPLAINT_MESSAGES = "/api/v1/complaints/{id}/messages"
     const val CHECKOUT = "/api/v1/checkout"
 
     const val PAYMENTS_MOMO_INIT = "/api/v1/payments/momo/init"
-    const val PAYMENTS_VNPAY_INIT = "/api/v1/payments/vnpay/init"
     const val PAYMENTS_ZALOPAY_INIT = "/api/v1/payments/zalopay/init"
     const val PAYMENTS_COD_CREATE = "/api/v1/payments/cod/create"
     const val PAYMENT_STATUS = "/api/v1/payments/{orderId}"
@@ -59,12 +59,10 @@ object ApiConstants {
     const val CHAT_MESSAGES = "/api/v1/chat/sessions/{sessionId}/messages"
     const val CHAT_SESSION_STATUS = "/api/v1/chat/sessions/{sessionId}/status"
 
-    const val PHARMACIES = "/api/v1/pharmacies"
-    const val PHARMACY_BY_ID = "/api/v1/pharmacies/{id}"
-
     const val NOTIFICATIONS = "/api/v1/notifications"
     const val NOTIFICATION_READ = "/api/v1/notifications/{id}/read"
     const val NOTIFICATIONS_READ_ALL = "/api/v1/notifications/read-all"
+    const val NOTIFICATION_PUSH_TOKEN = "/api/v1/notifications/push-token"
 
     const val BANNERS = "/api/v1/banners"
     const val BANNER_BY_ID = "/api/v1/banners/{id}"
@@ -72,19 +70,7 @@ object ApiConstants {
     const val SHOPS = "/api/v1/shops"
     const val SHOP_BY_ID = "/api/v1/shops/{id}"
 
-    const val PRESCRIPTIONS = "/api/v1/prescriptions"
-    const val PRESCRIPTION_BY_ID = "/api/v1/prescriptions/{id}"
-
-    const val HEALTH_ARTICLES = "/api/v1/health-articles"
-    const val HEALTH_ARTICLE_BY_SLUG = "/api/v1/health-articles/{slug}"
-
-    const val DISEASE_CATEGORIES = "/api/v1/disease-categories"
-    const val PAYMENT_METHODS = "/api/v1/payment-methods"
-
     const val UPLOAD_FILE = "/api/v1/upload"
-
-    const val INVENTORY_BATCHES = "/api/v1/inventory/batches"
-    const val INVENTORY_ALERTS_EXPIRING = "/api/v1/inventory/alerts/expiring"
 
     const val HEADER_AUTHORIZATION = "Authorization"
     const val HEADER_CONTENT_TYPE = "Content-Type"

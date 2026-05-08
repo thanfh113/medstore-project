@@ -41,8 +41,25 @@ import com.example.nhathuoc.viewmodel.NotificationViewModel
 
 private val GreenTopNtf = Color(0xFF2E7D32)
 
+private fun notificationMatchesCategory(item: NotificationDto, categoryKey: String): Boolean {
+    if (categoryKey == "ALL") return true
+    val type = item.type.uppercase()
+    return when (categoryKey) {
+        "ORDER" -> type == "ORDER" || type == "ORDER_STATUS" || type.startsWith("ORDER_")
+        "REWARD" -> type == "REWARD" || type == "POINT" || type == "VOUCHER" || type.startsWith("REWARD_")
+        "COMPLAINT" -> type == "COMPLAINT" || type.startsWith("COMPLAINT_")
+        "REFUND" -> type == "REFUND" || type.startsWith("REFUND_")
+        "CHAT" -> type == "CHAT" || type == "CONSULTATION" || type.startsWith("CHAT_")
+        "REVIEW" -> type == "REVIEW" || type.startsWith("REVIEW_")
+        "PROMOTION" -> type == "PROMOTION" || type == "COUPON" || type.startsWith("PROMOTION_")
+        else -> type == categoryKey
+    }
+}
+
 // Category filter model
 private data class NotifCategory(val key: String, val label: String)
+private data class ReadFilter(val key: String, val label: String)
+
 private val notifCategories = listOf(
     NotifCategory("ALL", "Tất cả"),
     NotifCategory("PROMOTION", "Khuyến mãi"),
@@ -55,6 +72,12 @@ private val notifCategories = listOf(
     NotifCategory("SYSTEM", "Hệ thống")
 )
 
+private val readFilters = listOf(
+    ReadFilter("ALL", "Tất cả"),
+    ReadFilter("UNREAD", "Chưa đọc"),
+    ReadFilter("READ", "Đã đọc")
+)
+
 // ── Screen ─────────────────────────────────────────────────────────────────
 @Composable
 fun NotificationScreen(
@@ -64,12 +87,21 @@ fun NotificationScreen(
     val viewModel: NotificationViewModel = hiltViewModel()
     val state by viewModel.state.collectAsState()
     val notifications by viewModel.notifications.collectAsState()
+    val unreadCount by viewModel.unreadCount.collectAsState()
 
     var selectedCategoryKey by remember { mutableStateOf("ALL") }
+    var selectedReadFilter by remember { mutableStateOf("ALL") }
 
-    val filtered = remember(notifications, selectedCategoryKey) {
-        if (selectedCategoryKey == "ALL") notifications
-        else notifications.filter { it.type.uppercase() == selectedCategoryKey }
+    val filtered = remember(notifications, selectedCategoryKey, selectedReadFilter) {
+        notifications
+            .filter { notificationMatchesCategory(it, selectedCategoryKey) }
+            .filter {
+                when (selectedReadFilter) {
+                    "UNREAD" -> !it.isRead
+                    "READ" -> it.isRead
+                    else -> true
+                }
+            }
     }
 
     val unreadCounts = remember(notifications) {
@@ -77,15 +109,24 @@ fun NotificationScreen(
             cat.key to if (cat.key == "ALL") {
                 notifications.count { !it.isRead }
             } else {
-                notifications.count { !it.isRead && it.type.uppercase() == cat.key }
+                notifications.count { !it.isRead && notificationMatchesCategory(it, cat.key) }
             }
         }
+    }
+
+    val readCounts = remember(notifications) {
+        mapOf(
+            "ALL" to notifications.size,
+            "UNREAD" to notifications.count { !it.isRead },
+            "READ" to notifications.count { it.isRead }
+        )
     }
 
     Scaffold(
         topBar = {
             NotificationTopBar(
                 onBack = onBack,
+                unreadCount = unreadCount,
                 onMarkAllRead = { viewModel.markAllAsRead() }
             )
         },
@@ -130,6 +171,38 @@ fun NotificationScreen(
                                 containerColor = Color(0xFFF0F0F0)
                             ),
                             border = null
+                        )
+                    }
+                }
+            }
+
+            // ── Read state filter ────────────────────────────────────
+            Surface(color = Color.White, shadowElevation = 1.dp) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    readFilters.forEach { filter ->
+                        val count = readCounts[filter.key] ?: 0
+                        val isSelected = selectedReadFilter == filter.key
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedReadFilter = filter.key },
+                            label = {
+                                Text(
+                                    text = "${filter.label} ($count)",
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFFE8F5E9),
+                                selectedLabelColor = GreenTopNtf,
+                                containerColor = Color.White
+                            )
                         )
                     }
                 }
@@ -224,7 +297,7 @@ fun NotificationScreen(
                                     modifier = Modifier.size(64.dp)
                                 )
                                 Spacer(Modifier.height(12.dp))
-                                Text("Không có thông báo", color = Color.Gray, fontSize = 15.sp)
+                                Text("Không có thông báo phù hợp", color = Color.Gray, fontSize = 15.sp)
                                 if (selectedCategoryKey != "ALL") {
                                     Spacer(Modifier.height(4.dp))
                                     Text(
@@ -266,6 +339,7 @@ fun NotificationScreen(
 @Composable
 private fun NotificationTopBar(
     onBack: () -> Unit,
+    unreadCount: Int,
     onMarkAllRead: () -> Unit
 ) {
     Box(
@@ -273,7 +347,7 @@ private fun NotificationTopBar(
             .fillMaxWidth()
             .background(Brush.horizontalGradient(listOf(GreenTopNtf, GreenLight)))
             .statusBarsPadding()
-            .height(56.dp)
+            .height(64.dp)
     ) {
         IconButton(
             onClick = onBack,
@@ -286,23 +360,34 @@ private fun NotificationTopBar(
                 modifier = Modifier.size(20.dp)
             )
         }
-        Text(
-            text = "Thông báo",
-            color = Color.White,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.Center)
-        )
-        IconButton(
-            onClick = onMarkAllRead,
-            modifier = Modifier.align(Alignment.CenterEnd)
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                Icons.Outlined.DoneAll,
-                contentDescription = "Đọc tất cả",
-                tint = Color.White,
-                modifier = Modifier.size(22.dp)
+            Text(
+                text = "Thông báo",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
             )
+            Text(
+                text = if (unreadCount > 0) "$unreadCount thông báo chưa đọc" else "Tất cả đã đọc",
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 11.sp
+            )
+        }
+        if (unreadCount > 0) {
+            IconButton(
+                onClick = onMarkAllRead,
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) {
+                Icon(
+                    Icons.Outlined.DoneAll,
+                    contentDescription = "Đọc tất cả",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
     }
 }
@@ -404,6 +489,9 @@ private fun NotificationCard(
                 )
 
                 Spacer(Modifier.height(6.dp))
+                ReadStatusPill(isRead = item.isRead)
+
+                Spacer(Modifier.height(6.dp))
 
                 // Body
                 Text(
@@ -416,5 +504,23 @@ private fun NotificationCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ReadStatusPill(isRead: Boolean) {
+    val background = if (isRead) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
+    val content = if (isRead) Color(0xFF2E7D32) else Color(0xFFE65100)
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = background
+    ) {
+        Text(
+            text = if (isRead) "Đã đọc" else "Chưa đọc",
+            color = content,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+        )
     }
 }

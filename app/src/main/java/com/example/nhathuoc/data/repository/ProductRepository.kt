@@ -2,6 +2,10 @@ package com.example.nhathuoc.data.repository
 
 import com.example.nhathuoc.data.model.*
 import com.example.nhathuoc.data.remote.ApiService
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
@@ -11,6 +15,8 @@ import javax.inject.Singleton
 class ProductRepository @Inject constructor(
     private val apiService: ApiService
 ) {
+    private val json = Json { ignoreUnknownKeys = true }
+
     suspend fun getProducts(
         category: String? = null,
         brand: String? = null,
@@ -124,10 +130,17 @@ class ProductRepository @Inject constructor(
     }
 
     private fun parseErrorMessage(errorBody: String?): String {
+        val fallback = "Co loi xay ra, vui long thu lai"
+        val body = errorBody?.trim().orEmpty()
+        if (body.isBlank()) return fallback
+
         return try {
-            if (errorBody != null) kotlinx.serialization.json.Json.decodeFromString<ApiError>(errorBody).message else "Co loi xay ra, vui long thu lai"
+            val obj = json.parseToJsonElement(body).jsonObject
+            obj["message"]?.jsonPrimitive?.contentOrNull
+                ?: obj["error"]?.jsonPrimitive?.contentOrNull
+                ?: body
         } catch (e: Exception) {
-            errorBody ?: "Co loi xay ra, vui long thu lai"
+            body
         }
     }
 }

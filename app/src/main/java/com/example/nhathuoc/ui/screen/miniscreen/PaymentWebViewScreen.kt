@@ -52,7 +52,6 @@ import com.example.nhathuoc.ui.theme.GreenTop
 private val NATIVE_APP_SCHEMES = listOf(
     "momo",
     "zalopay",
-    "vnpay",
     "intent"
 )
 
@@ -193,7 +192,7 @@ private fun PaymentStatusBanner(orderId: String, paymentStatus: PaymentStatusDto
     }
 }
 
-// ── WebView with MoMo/ZaloPay/VNPAY native app support ────────────────────
+// WebView with MoMo/ZaloPay native app support.
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun GatewayWebView(

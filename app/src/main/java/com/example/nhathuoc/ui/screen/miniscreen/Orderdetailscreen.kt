@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
@@ -88,13 +89,19 @@ private data class PickedComplaintAttachment(
 fun OrderDetailScreen(
     orderId: String,
     onBack: () -> Unit,
+    onOpenProduct: (String, Boolean) -> Unit = { _, _ -> },
+    onResumePayment: (String, String) -> Unit = { _, _ -> },
     viewModel: OrderViewModel = hiltViewModel()
 ) {
     val orderState by viewModel.orderState.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val complaintState by viewModel.complaintState.collectAsState()
     var showCancelDialog by rememberSaveable { mutableStateOf(false) }
+    var showReceivedDialog by rememberSaveable { mutableStateOf(false) }
     var showComplaintDialog by rememberSaveable { mutableStateOf(false) }
+    var showReviewPromptDialog by rememberSaveable { mutableStateOf(false) }
+    var pendingReviewProductId by rememberSaveable { mutableStateOf<String?>(null) }
+    var promptReviewAfterReceive by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(orderId) {
         viewModel.getOrderById(orderId)
@@ -103,6 +110,15 @@ fun OrderDetailScreen(
     LaunchedEffect(complaintState) {
         if (complaintState is UiState.Success) {
             showComplaintDialog = false
+        }
+    }
+
+    LaunchedEffect(orderState, promptReviewAfterReceive) {
+        val state = orderState
+        if (promptReviewAfterReceive && state is UiState.Success && state.data.status.equals("DELIVERED", ignoreCase = true)) {
+            pendingReviewProductId = state.data.items.firstOrNull()?.productId
+            showReviewPromptDialog = pendingReviewProductId != null
+            promptReviewAfterReceive = false
         }
     }
 
@@ -124,6 +140,62 @@ fun OrderDetailScreen(
             dismissButton = {
                 OutlinedButton(onClick = { showCancelDialog = false }) {
                     Text("Đóng")
+                }
+            }
+        )
+    }
+
+    if (showReceivedDialog) {
+        AlertDialog(
+            onDismissRequest = { showReceivedDialog = false },
+            title = { Text("Xác nhận đã nhận hàng") },
+            text = { Text("Đơn sẽ chuyển sang đã giao. Sau đó bạn có thể đánh giá từng sản phẩm trong đơn.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showReceivedDialog = false
+                        promptReviewAfterReceive = true
+                        viewModel.confirmOrderReceived(orderId)
+                    }
+                ) {
+                    Text("Đã nhận hàng")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showReceivedDialog = false }) {
+                    Text("Đóng")
+                }
+            }
+        )
+    }
+
+    if (showReviewPromptDialog) {
+        AlertDialog(
+            onDismissRequest = { showReviewPromptDialog = false },
+            title = { Text("Đánh giá sau khi nhận hàng") },
+            text = { Text("Bạn có muốn viết đánh giá ngay không? Đánh giá 5 sao sẽ được cộng thêm 200 điểm thưởng.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val productId = pendingReviewProductId
+                        showReviewPromptDialog = false
+                        pendingReviewProductId = null
+                        if (!productId.isNullOrBlank()) {
+                            onOpenProduct(productId, true)
+                        }
+                    }
+                ) {
+                    Text("Viết đánh giá")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        showReviewPromptDialog = false
+                        pendingReviewProductId = null
+                    }
+                ) {
+                    Text("Để sau")
                 }
             }
         )
@@ -193,7 +265,10 @@ fun OrderDetailScreen(
                     isBusy = isLoading,
                     onRetry = { viewModel.getOrderById(orderId) },
                     onCancelOrder = { showCancelDialog = true },
+                    onConfirmReceived = { showReceivedDialog = true },
                     onOpenComplaint = { showComplaintDialog = true },
+                    onOpenProduct = onOpenProduct,
+                    onResumePayment = onResumePayment,
                     modifier = Modifier.padding(innerPadding)
                 )
             }
@@ -207,11 +282,18 @@ private fun OrderDetailContent(
     isBusy: Boolean,
     onRetry: () -> Unit,
     onCancelOrder: () -> Unit,
+    onConfirmReceived: () -> Unit,
     onOpenComplaint: () -> Unit,
+    onOpenProduct: (String, Boolean) -> Unit,
+    onResumePayment: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val canCancel = order.status.uppercase() in setOf("PENDING", "PROCESSING")
-    val canComplaint = order.status.uppercase() !in setOf("CANCELLED", "RETURNED")
+    val status = order.status.uppercase()
+    val canCancel = status in setOf("PENDING", "PROCESSING")
+    val canConfirmReceived = status == "SHIPPING"
+    val canReviewProducts = status == "DELIVERED"
+    val canComplaint = status !in setOf("CANCELLED", "RETURNED")
+    val canResumePayment = canResumeGatewayPayment(order)
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -230,7 +312,18 @@ private fun OrderDetailContent(
                 }
             }
             item {
-                ItemsCard(items = order.items)
+                ItemsCard(
+                    items = order.items,
+                    canReviewProducts = canReviewProducts,
+                    onOpenProduct = onOpenProduct
+                )
+            }
+            if (canReviewProducts && order.items.isNotEmpty()) {
+                item {
+                    ReviewRewardPromptCard(
+                        onReviewClick = { onOpenProduct(order.items.first().productId, true) }
+                    )
+                }
             }
             item {
                 PaymentCard(order = order)
@@ -244,13 +337,19 @@ private fun OrderDetailContent(
                 }
             }
             item {
-                ActionCard(
-                    canCancel = canCancel,
-                    canComplaint = canComplaint,
-                    onRetry = onRetry,
-                    onCancelOrder = onCancelOrder,
-                    onOpenComplaint = onOpenComplaint
-                )
+                    ActionCard(
+                        canCancel = canCancel,
+                        canConfirmReceived = canConfirmReceived,
+                        canComplaint = canComplaint,
+                        canResumePayment = canResumePayment,
+                        onRetry = onRetry,
+                        onCancelOrder = onCancelOrder,
+                        onConfirmReceived = onConfirmReceived,
+                        onOpenComplaint = onOpenComplaint,
+                        onResumePayment = {
+                            onResumePayment(order.id, order.paymentMethod.uppercase())
+                        }
+                    )
             }
             item { Spacer(Modifier.height(16.dp)) }
         }
@@ -376,7 +475,11 @@ private fun AddressCard(address: UserAddress) {
 }
 
 @Composable
-private fun ItemsCard(items: List<OrderItemDto>) {
+private fun ItemsCard(
+    items: List<OrderItemDto>,
+    canReviewProducts: Boolean,
+    onOpenProduct: (String, Boolean) -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -387,7 +490,11 @@ private fun ItemsCard(items: List<OrderItemDto>) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("Sản phẩm đã đặt", fontWeight = FontWeight.Bold, color = GreenTop, fontSize = 18.sp)
             items.forEachIndexed { index, item ->
-                OrderItemRow(item = item)
+                OrderItemRow(
+                    item = item,
+                    canReview = canReviewProducts,
+                    onOpenProduct = onOpenProduct
+                )
                 if (index != items.lastIndex) {
                     HorizontalDivider(color = Color(0xFFE5E7EB))
                 }
@@ -397,7 +504,11 @@ private fun ItemsCard(items: List<OrderItemDto>) {
 }
 
 @Composable
-private fun OrderItemRow(item: OrderItemDto) {
+private fun OrderItemRow(
+    item: OrderItemDto,
+    canReview: Boolean,
+    onOpenProduct: (String, Boolean) -> Unit
+) {
     val lineTotal = item.totalPrice ?: item.price * item.quantity
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -416,6 +527,15 @@ private fun OrderItemRow(item: OrderItemDto) {
                 Spacer(Modifier.height(2.dp))
                 Text(text = it, color = Color(0xFF9CA3AF), fontSize = 12.sp)
             }
+            if (canReview) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { onOpenProduct(item.productId, true) },
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Text("Đánh giá sản phẩm", color = GreenTop, fontSize = 12.sp)
+                }
+            }
         }
         Spacer(Modifier.width(12.dp))
         Text(
@@ -424,6 +544,44 @@ private fun OrderItemRow(item: OrderItemDto) {
             color = GreenTop,
             fontSize = 15.sp
         )
+    }
+}
+
+@Composable
+private fun ReviewRewardPromptCard(
+    onReviewClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1))
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFFFAB00))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Đánh giá sau khi nhận hàng",
+                    color = Color(0xFF92400E),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            }
+            Text(
+                "Gợi ý: đánh giá 5 sao cho sản phẩm phù hợp để nhận thêm 200 điểm thưởng.",
+                color = Color(0xFF78350F),
+                fontSize = 13.sp
+            )
+            OutlinedButton(
+                onClick = onReviewClick,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text("Viết đánh giá ngay", color = GreenTop, fontWeight = FontWeight.SemiBold)
+            }
+        }
     }
 }
 
@@ -515,10 +673,14 @@ private fun NoteCard(order: OrderDto) {
 @Composable
 private fun ActionCard(
     canCancel: Boolean,
+    canConfirmReceived: Boolean,
     canComplaint: Boolean,
+    canResumePayment: Boolean,
     onRetry: () -> Unit,
     onCancelOrder: () -> Unit,
-    onOpenComplaint: () -> Unit
+    onConfirmReceived: () -> Unit,
+    onOpenComplaint: () -> Unit,
+    onResumePayment: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -531,6 +693,17 @@ private fun ActionCard(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (canResumePayment) {
+                Button(
+                    onClick = onResumePayment,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Filled.Payments, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Tiếp tục thanh toán")
+                }
+            }
             Button(
                 onClick = onRetry,
                 modifier = Modifier.fillMaxWidth(),
@@ -549,6 +722,17 @@ private fun ActionCard(
                     Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = Color(0xFF2563EB))
                     Spacer(Modifier.width(8.dp))
                     Text("Khiếu nại đơn hàng", color = Color(0xFF2563EB))
+                }
+            }
+            if (canConfirmReceived) {
+                Button(
+                    onClick = onConfirmReceived,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Filled.LocalShipping, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Đã nhận được hàng")
                 }
             }
             if (canCancel) {
@@ -824,7 +1008,7 @@ private fun pickupTypeLabel(value: String): String = when (value.uppercase()) {
 private fun paymentMethodLabel(value: String): String = when (value.uppercase()) {
     "COD" -> "Thanh toán khi nhận hàng"
     "MOMO" -> "Ví MoMo"
-    "VNPAY" -> "VNPay"
+    "VNPAY" -> "Thanh toán online"
     "ZALOPAY" -> "ZaloPay"
     else -> value
 }
@@ -865,6 +1049,15 @@ private fun orderProgressMessage(order: OrderDto): String? {
             "Thanh toán đang chờ xác nhận từ cổng thanh toán."
         else -> null
     }
+}
+
+private fun canResumeGatewayPayment(order: OrderDto): Boolean {
+    val method = order.paymentMethod.uppercase()
+    val paymentStatus = order.paymentStatus.uppercase()
+    val orderStatus = order.status.uppercase()
+    return method in setOf("MOMO", "ZALOPAY") &&
+        paymentStatus == "PENDING" &&
+        orderStatus !in setOf("CANCELLED", "RETURNED", "DELIVERED")
 }
 
 private fun formatCurrency(value: Double): String {

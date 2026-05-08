@@ -65,8 +65,10 @@ private val complaintFilters = listOf(
     ComplaintStatusFilter("OPEN", "Mới tạo"),
     ComplaintStatusFilter("IN_REVIEW", "Đang xử lý"),
     ComplaintStatusFilter("NEED_MORE_INFO", "Cần bổ sung"),
+    ComplaintStatusFilter("APPROVED", "Đã duyệt"),
     ComplaintStatusFilter("RESOLVED", "Đã giải quyết"),
-    ComplaintStatusFilter("REJECTED", "Từ chối")
+    ComplaintStatusFilter("REJECTED", "Từ chối"),
+    ComplaintStatusFilter("CANCELLED", "Đã hủy")
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

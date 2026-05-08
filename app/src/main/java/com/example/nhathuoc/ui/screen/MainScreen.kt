@@ -32,6 +32,9 @@ import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.ui.theme.GreenMedium
 import com.example.nhathuoc.viewmodel.CartViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -76,8 +79,19 @@ fun MainScreen(navController: NavController) {
     val cartViewModel: CartViewModel = hiltViewModel()
     val cartUiState by cartViewModel.uiState.collectAsState()
     val cartBadge = cartUiState.items.sumOf { it.quantity }.coerceAtMost(99)
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(Unit) { cartViewModel.loadCart() }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                cartViewModel.loadCart()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -329,7 +343,7 @@ private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {
             ) {
                 Icon(Icons.Filled.ChatBubble, null, tint = ActiveGreen, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Chat với ChatbotAI", color = ActiveGreen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Tư vấn vật tư y tế", color = ActiveGreen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.width(8.dp))
                 Badge(containerColor = Color(0xFFFFAB00)) {
                     Text("1", color = Color.White, fontSize = 10.sp)

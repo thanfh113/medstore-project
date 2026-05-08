@@ -21,19 +21,20 @@ private val CatIconBg = Color(0xFFEEF2FF)
 
 data class FeaturedCategory(
     val icon: ImageVector,
+    val id: String,
     val name: String,
     val productCount: Int
 )
 
 val defaultFeaturedCategories = listOf(
-    FeaturedCategory(Icons.Outlined.LocalHospital,    "Dụng cụ tiêm truyền",      120),
-    FeaturedCategory(Icons.Outlined.HealthAndSafety,   "Băng gạc - Cầm máu",       95),
-    FeaturedCategory(Icons.Outlined.MedicalServices,   "Thiết bị phẫu thuật",      63),
-    FeaturedCategory(Icons.Outlined.MonitorHeart,      "Thiết bị chẩn đoán",       48),
-    FeaturedCategory(Icons.Outlined.Masks,             "Khẩu trang - PPE",         210),
-    FeaturedCategory(Icons.Outlined.Sanitizer,         "Chống nhiễm khuẩn",        77),
-    FeaturedCategory(Icons.Outlined.Accessibility,     "Phục hồi chức năng",       34),
-    FeaturedCategory(Icons.Outlined.Biotech,           "Vật tư xét nghiệm",        58),
+    FeaturedCategory(Icons.Outlined.LocalHospital, "cat-supplies", "Dụng cụ tiêm truyền", 120),
+    FeaturedCategory(Icons.Outlined.HealthAndSafety, "cat-bandage", "Băng gạc - Cầm máu", 95),
+    FeaturedCategory(Icons.Outlined.MedicalServices, "cat-instrument", "Thiết bị phẫu thuật", 63),
+    FeaturedCategory(Icons.Outlined.MonitorHeart, "cat-device", "Thiết bị chẩn đoán", 48),
+    FeaturedCategory(Icons.Outlined.Masks, "cat-protect", "Khẩu trang - PPE", 210),
+    FeaturedCategory(Icons.Outlined.Sanitizer, "cat-infection-control", "Chống nhiễm khuẩn", 77),
+    FeaturedCategory(Icons.Outlined.Accessibility, "cat-therapy", "Phục hồi chức năng", 34),
+    FeaturedCategory(Icons.Outlined.Biotech, "cat-lab", "Vật tư xét nghiệm", 58),
 )
 
 @Composable
@@ -70,7 +71,7 @@ fun FeaturedCategoriesGrid(
                         category = cat,
                         onClick = {
                             onCategoryClick(cat)
-                            navController?.navigate("CategoryProductScreen/${Uri.encode(cat.name)}")
+                            navController?.navigate("CategoryProductScreen/${cat.id}/${Uri.encode(cat.name)}")
                         },
                         modifier = Modifier.weight(1f)
                     )

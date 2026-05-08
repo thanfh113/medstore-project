@@ -83,6 +83,24 @@ class OrderViewModel @Inject constructor(
         }
     }
 
+    fun confirmOrderReceived(orderId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            when (val result = orderRepository.confirmOrderReceived(orderId)) {
+                is NetworkResult.Success -> {
+                    when (val refreshed = orderRepository.getOrderById(orderId)) {
+                        is NetworkResult.Success -> _orderState.value = UiState.Success(refreshed.data)
+                        is NetworkResult.Error -> _orderState.value = UiState.Error("Đã xác nhận nhận hàng nhưng không tải lại được: ${refreshed.message}")
+                        is NetworkResult.Exception -> _orderState.value = UiState.Error("Đã xác nhận nhận hàng nhưng mất kết nối khi tải lại")
+                    }
+                }
+                is NetworkResult.Error -> _orderState.value = UiState.Error("Lỗi: ${result.message}")
+                is NetworkResult.Exception -> _orderState.value = UiState.Error("Lỗi kết nối")
+            }
+            _isLoading.value = false
+        }
+    }
+
     fun createComplaint(
         orderId: String,
         type: String,

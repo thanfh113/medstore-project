@@ -1,6 +1,7 @@
 package com.example.nhathuoc.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -41,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,6 +53,7 @@ import com.example.nhathuoc.data.model.ComplaintDto
 import com.example.nhathuoc.data.model.ComplaintEventDto
 import com.example.nhathuoc.data.model.ComplaintMessageDto
 import com.example.nhathuoc.data.model.UiState
+import com.example.nhathuoc.data.remote.BackendUrlResolver
 import com.example.nhathuoc.ui.theme.BgColor
 import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.viewmodel.OrderViewModel
@@ -291,19 +295,37 @@ private fun complaintEventColor(type: String): Color {
 
 @Composable
 private fun ComplaintAttachmentsCard(complaint: ComplaintDto) {
+    val uriHandler = LocalUriHandler.current
+    fun openAttachment(fileUrl: String) {
+        val resolvedUrl = BackendUrlResolver.resolveFileUrl(fileUrl)
+        if (resolvedUrl.isNotBlank()) {
+            runCatching { uriHandler.openUri(resolvedUrl) }
+        }
+    }
+
     Surface(color = Color.White, shape = RoundedCornerShape(18.dp), shadowElevation = 1.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("File minh chứng", fontWeight = FontWeight.Bold, color = GreenTop)
             complaint.attachments.forEachIndexed { index, attachment ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { openAttachment(attachment.fileUrl) },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Icon(Icons.Outlined.AttachFile, contentDescription = null, tint = GreenTop, modifier = Modifier.size(18.dp))
                     Text(
                         "${index + 1}. ${attachment.fileType} • ${attachment.fileUrl.substringAfterLast('/').take(42)}",
                         color = Color(0xFF374151),
                         fontSize = 12.sp,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
+                    TextButton(onClick = { openAttachment(attachment.fileUrl) }) {
+                        Text("Mở", color = GreenTop)
+                    }
                 }
             }
         }

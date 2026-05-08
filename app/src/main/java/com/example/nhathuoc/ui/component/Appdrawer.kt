@@ -42,21 +42,61 @@ private val DrawerWidth = 300.dp
 // -- Data ---------------------------------------------------------
 data class DrawerMenuItem(
     val label: String,
+    val categoryId: String? = null,
     val icon: ImageVector? = null,
-    val children: List<String> = emptyList(),
+    val children: List<DrawerMenuItem> = emptyList(),
     val badge: Int = 0
 )
 
 val defaultDrawerMenuItems = listOf(
-    DrawerMenuItem("Thông báo",             badge = 3),
-    DrawerMenuItem("Dụng cụ tiêm truyền",   children = listOf("Kim tiêm", "Ống xi lanh", "Dây truyền dịch", "Bơm tiêm")),
-    DrawerMenuItem("Băng gạc - Cầm máu",    children = listOf("Băng dính y tế", "Gạc vô trùng", "Băng cuộn", "Băng keo thấm tẩm kháng sinh")),
-    DrawerMenuItem("Thiết bị chẩn đoán",    children = listOf("Máy đo huyết áp", "Nhiệt kế y tế", "Máy đo SpO2", "Máy đo đường huyết")),
-    DrawerMenuItem("Khẩu trang - PPE",      children = listOf("Khẩu trang y tế", "Khẩu trang N95", "Quần áo bảo hộ", "Kính bảo hộ")),
-    DrawerMenuItem("Thiết bị phẫu thuật",    children = listOf("Dụng cụ vi phẫu", "Kẹp phẫu thuật", "Dây khâu", "Van cầm máu")),
-    DrawerMenuItem("Chống nhiễm khuẩn"),
-    DrawerMenuItem("Phục hồi chức năng",    children = listOf("Nạng - Xe lăn", "Dụng cụ vật lý trị liệu", "Nẹp chỉnh hình")),
-    DrawerMenuItem("Tin tức - Kiến thức",   children = listOf("Tin tức ngành", "Hướng dẫn sử dụng", "Tiêu chuẩn chất lượng")),
+    DrawerMenuItem("Thông báo"),
+    DrawerMenuItem("Dụng cụ tiêm truyền", categoryId = "cat-supplies", children = listOf(
+        DrawerMenuItem("Bơm tiêm - Ống xi lanh", categoryId = "cat-syringe"),
+        DrawerMenuItem("Kim tiêm", categoryId = "cat-needle"),
+        DrawerMenuItem("Dây truyền dịch", categoryId = "cat-infusion-set"),
+        DrawerMenuItem("Ống thông", categoryId = "cat-tube"),
+    )),
+    DrawerMenuItem("Băng gạc - Cầm máu", categoryId = "cat-bandage", children = listOf(
+        DrawerMenuItem("Gạc vô trùng", categoryId = "cat-sterile-gauze"),
+        DrawerMenuItem("Băng dính y tế", categoryId = "cat-medical-tape"),
+        DrawerMenuItem("Băng cuộn", categoryId = "cat-bandage-roll"),
+        DrawerMenuItem("Băng keo thấm tẩm kháng sinh", categoryId = "cat-antimicrobial-dressing"),
+    )),
+    DrawerMenuItem("Thiết bị chẩn đoán", categoryId = "cat-device", children = listOf(
+        DrawerMenuItem("Máy theo dõi - Máy thở", categoryId = "cat-monitor"),
+        DrawerMenuItem("Máy đo huyết áp", categoryId = "cat-blood-pressure"),
+        DrawerMenuItem("Nhiệt kế y tế", categoryId = "cat-thermometer"),
+        DrawerMenuItem("Máy đo SpO2", categoryId = "cat-spo2"),
+        DrawerMenuItem("Máy đo đường huyết", categoryId = "cat-glucose-meter"),
+    )),
+    DrawerMenuItem("Khẩu trang - PPE", categoryId = "cat-protect", children = listOf(
+        DrawerMenuItem("Khẩu trang y tế", categoryId = "cat-mask"),
+        DrawerMenuItem("Khẩu trang N95", categoryId = "cat-n95-mask"),
+        DrawerMenuItem("Găng tay y tế", categoryId = "cat-gloves"),
+        DrawerMenuItem("Quần áo bảo hộ", categoryId = "cat-protective-clothing"),
+        DrawerMenuItem("Kính bảo hộ", categoryId = "cat-goggles"),
+    )),
+    DrawerMenuItem("Thiết bị phẫu thuật", categoryId = "cat-instrument", children = listOf(
+        DrawerMenuItem("Dụng cụ vi phẫu", categoryId = "cat-surgical-tools"),
+        DrawerMenuItem("Kẹp phẫu thuật", categoryId = "cat-forceps"),
+        DrawerMenuItem("Dây khâu", categoryId = "cat-suture"),
+        DrawerMenuItem("Van cầm máu", categoryId = "cat-hemostatic-valve"),
+    )),
+    DrawerMenuItem("Chống nhiễm khuẩn", categoryId = "cat-infection-control", children = listOf(
+        DrawerMenuItem("Dung dịch sát khuẩn", categoryId = "cat-sanitizer"),
+        DrawerMenuItem("Dung dịch khử khuẩn", categoryId = "cat-disinfectant"),
+        DrawerMenuItem("Vật tư tiệt khuẩn", categoryId = "cat-sterilization"),
+    )),
+    DrawerMenuItem("Phục hồi chức năng", categoryId = "cat-therapy", children = listOf(
+        DrawerMenuItem("Nạng - Xe lăn", categoryId = "cat-crutch-wheelchair"),
+        DrawerMenuItem("Dụng cụ vật lý trị liệu", categoryId = "cat-physio-tools"),
+        DrawerMenuItem("Nẹp chỉnh hình", categoryId = "cat-orthopedic-brace"),
+    )),
+    DrawerMenuItem("Vật tư xét nghiệm", categoryId = "cat-lab", children = listOf(
+        DrawerMenuItem("Kit xét nghiệm", categoryId = "cat-test-kit"),
+        DrawerMenuItem("Vật tư phòng xét nghiệm", categoryId = "cat-lab-consumables"),
+        DrawerMenuItem("Dụng cụ lấy mẫu", categoryId = "cat-sample-container"),
+    )),
     DrawerMenuItem("Hệ thống cửa hàng"),
 )
 
@@ -191,6 +231,12 @@ private fun DrawerContent(
     onMenuItemClick: (DrawerMenuItem) -> Unit,
     onCallHotline: () -> Unit
 ) {
+    val effectiveMenuItems = remember(menuItems, notificationCount) {
+        menuItems.map { item ->
+            if (item.label == "Thông báo") item.copy(badge = notificationCount) else item
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
 
         // -- Header: Logo + Close ----------------------------------
@@ -258,7 +304,7 @@ private fun DrawerContent(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            menuItems.forEach { item ->
+            effectiveMenuItems.forEach { item ->
                 DrawerMenuRow(
                     item = item,
                     onClick = onMenuItemClick
@@ -344,11 +390,27 @@ private fun DrawerMenuRow(
 
         // Sub-items
         if (expanded && hasChildren) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onClick(item.copy(label = "Tất cả ${item.label}", children = emptyList())) }
+                    .padding(start = 36.dp, end = 20.dp, top = 10.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(5.dp)
+                        .clip(CircleShape)
+                        .background(GoldColor)
+                )
+                Spacer(Modifier.width(10.dp))
+                Text("Tất cả ${item.label}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = GreenTop)
+            }
             item.children.forEach { child ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onClick(item.copy(label = child, children = emptyList())) }
+                        .clickable { onClick(child) }
                         .padding(start = 36.dp, end = 20.dp, top = 10.dp, bottom = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -359,7 +421,7 @@ private fun DrawerMenuRow(
                             .background(GreenTop)
                     )
                     Spacer(Modifier.width(10.dp))
-                    Text(child, fontSize = 13.sp, color = Color(0xFF555555))
+                    Text(child.label, fontSize = 13.sp, color = Color(0xFF555555))
                 }
             }
             Spacer(Modifier.height(6.dp))

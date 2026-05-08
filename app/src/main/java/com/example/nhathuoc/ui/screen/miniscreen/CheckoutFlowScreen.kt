@@ -142,6 +142,40 @@ fun CheckoutFlowScreen(
         viewModel.clearError()
     }
 
+    LaunchedEffect(Unit) {
+        val previousHandle = navController.previousBackStackEntry?.savedStateHandle
+        val resumeOrderId = previousHandle?.get<String>("resumeOrderId")
+        if (!resumeOrderId.isNullOrBlank()) {
+            val resumeMethod = previousHandle.get<String>("resumePaymentMethod")
+                ?.uppercase()
+                ?.takeIf { it != "COD" }
+                ?: "MOMO"
+            previousHandle.remove<String>("resumeOrderId")
+            previousHandle.remove<String>("resumePaymentMethod")
+            viewModel.setPaymentMethod(resumeMethod)
+            activeOrderId = resumeOrderId
+            activeOrderPaymentMethod = resumeMethod
+            viewModel.resumeOnlinePayment(resumeOrderId)
+            return@LaunchedEffect
+        }
+
+        val directProductId = previousHandle?.get<String>("directProductId")
+        if (!directProductId.isNullOrBlank()) {
+            val directQuantity = previousHandle.get<Int>("directQuantity") ?: 1
+            val directUnit = previousHandle.get<String>("directUnit")
+            previousHandle.remove<String>("directProductId")
+            previousHandle.remove<Int>("directQuantity")
+            previousHandle.remove<String>("directUnit")
+            viewModel.startDirectCheckout(directProductId, directQuantity, directUnit)
+        } else {
+            val selectedCartItemIds = previousHandle?.get<ArrayList<String>>("selectedCartItemIds")
+            if (!selectedCartItemIds.isNullOrEmpty()) {
+                previousHandle.remove<ArrayList<String>>("selectedCartItemIds")
+                viewModel.startSelectedCartCheckout(selectedCartItemIds)
+            }
+        }
+    }
+
     LaunchedEffect(checkoutNotice) {
         val message = checkoutNotice ?: return@LaunchedEffect
         snackbars.showSnackbar(message)
@@ -525,8 +559,7 @@ private fun PaymentMethodSection(
     val methods = listOf(
         Triple("COD", "Thanh toán khi nhận hàng", "Trả tiền mặt khi nhận hàng. Đơn sẽ được nhân viên xác nhận."),
         Triple("MOMO", "Ví MoMo", "Mở app MoMo UAT hoặc web thanh toán để hoàn tất."),
-        Triple("ZALOPAY", "ZaloPay", "Mở ZaloPay sandbox hoặc trang thanh toán ZaloPay."),
-        Triple("VNPAY", "VNPay", "Thanh toán bằng thẻ/ngân hàng qua cổng VNPay.")
+        Triple("ZALOPAY", "ZaloPay", "Mở ZaloPay sandbox hoặc trang thanh toán ZaloPay.")
     )
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1023,7 +1056,6 @@ private fun estimateVoucherPreviewDiscount(voucher: RewardVoucherDto, subtotal: 
 
 private fun paymentTitleFor(method: String): String = when (method) {
     "MOMO" -> "Thanh toán MoMo"
-    "VNPAY" -> "Thanh toán VNPay"
     "ZALOPAY" -> "Thanh toán ZaloPay"
     else -> "Thanh toán"
 }
@@ -1031,7 +1063,6 @@ private fun paymentTitleFor(method: String): String = when (method) {
 private fun deliveryDescriptionFor(method: String): String = when (method) {
     "COD" -> "Bạn sẽ thanh toán khi đơn hàng được giao tới."
     "MOMO" -> "Bạn sẽ được chuyển sang trang thanh toán MoMo."
-    "VNPAY" -> "Bạn sẽ được chuyển sang cổng thanh toán VNPay."
     "ZALOPAY" -> "Bạn sẽ được chuyển sang cổng thanh toán ZaloPay."
     else -> "Vui lòng kiểm tra kỹ thông tin trước khi xác nhận."
 }

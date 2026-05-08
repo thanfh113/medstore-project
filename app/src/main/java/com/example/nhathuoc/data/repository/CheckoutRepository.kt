@@ -22,12 +22,6 @@ class CheckoutRepository @Inject constructor(
         }
     }
 
-    suspend fun initVnPayPayment(request: PaymentInitRequest): NetworkResult<DataMessageResponse<PaymentInitData>> {
-        return ApiErrorHandler.safeApiCall {
-            apiService.initVnPayPayment(request)
-        }
-    }
-
     suspend fun initZaloPayPayment(request: PaymentInitRequest): NetworkResult<DataMessageResponse<PaymentInitData>> {
         return ApiErrorHandler.safeApiCall {
             apiService.initZaloPayPayment(request)

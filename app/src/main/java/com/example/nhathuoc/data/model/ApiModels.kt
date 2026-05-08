@@ -11,7 +11,11 @@ data class CheckoutRequest(
     val paymentMethod: String,
     val rewardPointsToUse: Int = 0,
     val promoCode: String? = null,
-    val notes: String? = null
+    val notes: String? = null,
+    val selectedCartItemIds: List<String>? = null,
+    val directProductId: String? = null,
+    val directQuantity: Int? = null,
+    val directUnit: String? = null
 )
 
 @Serializable

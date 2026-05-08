@@ -79,6 +79,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.1")
 
     implementation("com.google.android.gms:play-services-location:21.0.1")
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
 
     implementation("androidx.navigation:navigation-compose:2.7.5")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

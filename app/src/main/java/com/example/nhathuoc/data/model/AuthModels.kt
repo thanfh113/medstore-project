@@ -90,8 +90,13 @@ data class UserAddress(
     val recipientPhone: String, // Updated to match schema
     val fullAddress: String, // Updated to match schema
     val ward: String,
+    val wardCode: String? = null,
     val district: String,
     val province: String,
+    val provinceCode: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val locationSource: String = "MANUAL",
     val isDefault: Boolean,
     val createdAt: String,
     val updatedAt: String,
@@ -108,8 +113,13 @@ data class AddAddressRequest(
     val recipientPhone: String, // Updated to match schema
     val fullAddress: String, // Updated to match schema
     val ward: String,
+    val wardCode: String? = null,
     val district: String,
     val province: String,
+    val provinceCode: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val locationSource: String = "MANUAL",
     val isDefault: Boolean = false
 )
 

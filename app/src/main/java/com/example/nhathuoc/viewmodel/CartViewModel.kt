@@ -53,7 +53,7 @@ class CartViewModel @Inject constructor(
                             isLoading = false,
                             items = cart.items,
                             totalItems = cart.totalItems,
-                            totalPrice = cart.totalAmount,
+                            totalPrice = cart.subtotal,
                             error = null
                         )
                     }

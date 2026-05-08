@@ -469,7 +469,6 @@ private fun PaymentMethodSection(
     val methods = listOf(
         "COD" to "Thanh toán khi nhận hàng",
         "MOMO" to "MoMo",
-        "VNPAY" to "VNPay",
         "ZALOPAY" to "ZaloPay"
     )
     FlowRow(
@@ -674,7 +673,6 @@ private fun GatewayWebView(
 
 private fun paymentTitleFor(method: String): String = when (method) {
     "MOMO" -> "Thanh toán MoMo"
-    "VNPAY" -> "Thanh toán VNPay"
     "ZALOPAY" -> "Thanh toán ZaloPay"
     else -> "Thanh toán"
 }
@@ -682,7 +680,6 @@ private fun paymentTitleFor(method: String): String = when (method) {
 private fun deliveryDescriptionFor(method: String): String = when (method) {
     "COD" -> "Bạn sẽ thanh toán khi đơn hàng được giao tới."
     "MOMO" -> "Bạn sẽ được chuyển sang trang thanh toán MoMo."
-    "VNPAY" -> "Bạn sẽ được chuyển sang cổng thanh toán VNPay."
     "ZALOPAY" -> "Bạn sẽ được chuyển sang cổng thanh toán ZaloPay."
     else -> "Vui lòng kiểm tra kỹ thông tin trước khi xác nhận."
 }

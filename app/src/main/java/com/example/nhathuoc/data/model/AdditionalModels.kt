@@ -72,6 +72,20 @@ data class NotificationDto(
 )
 
 @Serializable
+data class PushTokenRequest(
+    val fcmToken: String,
+    val platform: String = "ANDROID",
+    val deviceId: String? = null,
+    val appVersion: String? = null
+)
+
+@Serializable
+data class PushTokenResponse(
+    val id: String,
+    val isActive: Boolean
+)
+
+@Serializable
 data class BannerDto(
     val id: String, // UUID from backend
     val imageUrl: String, // Match schema field name
@@ -95,10 +109,26 @@ data class BannerDto(
 data class ChatSessionDto(
     val id: String,
     val userId: String,
+    val userName: String? = null,
+    val userPhone: String? = null,
+    val userEmail: String? = null,
     val productId: String? = null,
     val status: String,
     val createdAt: String,
-    val lastMessage: ChatMessageDto? = null
+    val lastMessage: ChatMessageDto? = null,
+    val productName: String? = null,
+    val productImageUrl: String? = null,
+    val productPrice: Double? = null,
+    val productUnit: String? = null,
+    val consultantId: String? = null,
+    val consultantName: String? = null,
+    val consultantRole: String? = null,
+    val consultantQualificationTitle: String? = null,
+    val consultantQualificationSpecialty: String? = null,
+    val consultantQualificationInstitution: String? = null,
+    val consultantQualificationDocumentUrl: String? = null,
+    val consultantQualificationDocumentType: String? = null,
+    val consultantVerified: Boolean? = null
 )
 
 @Serializable
@@ -112,6 +142,21 @@ data class ChatMessageDto(
     val type: String = "TEXT",
     val metadata: String? = null,
     val createdAt: String
+)
+
+@Serializable
+data class ChatProductRecommendation(
+    val productId: String,
+    val productName: String,
+    val productImage: String? = null,
+    val price: Double,
+    val productUnit: String? = null,
+    val categoryId: String? = null,
+    val description: String = "",
+    val reason: String = "",
+    val dosageInstructions: String? = null,
+    val warnings: String? = null,
+    val alternatives: List<String> = emptyList()
 )
 
 @Serializable
@@ -145,11 +190,10 @@ data class PharmacistDto(
     val avatarUrl: String?
 )
 
-// Inventory management models (for future shop/admin integration)
+// Product-level stock management models (for future shop/admin integration)
 @Serializable
-data class CreateBatchRequest(
+data class CreateStockReceiptRequest(
     val productId: String, // UUID from backend
-    val lotNumber: String? = null,
     val mfgDate: String? = null, // Manufacturing date
     val expDate: String? = null, // Expiry date
     val quantity: Int,
@@ -158,11 +202,10 @@ data class CreateBatchRequest(
 )
 
 @Serializable
-data class BatchDto(
+data class StockEntryDto(
     val id: String, // UUID from backend
     val productId: String, // UUID from backend
     val product: ProductDto,
-    val lotNumber: String?,
     val mfgDate: String?,
     val expDate: String?,
     val quantity: Int,
@@ -176,7 +219,7 @@ data class BatchDto(
 @Serializable
 data class ExpiringAlert(
     val id: String, // UUID from backend
-    val batch: BatchDto,
+    val stockEntry: StockEntryDto,
     val daysUntilExpiry: Int,
     val alertLevel: String // "warning", "critical"
 )
@@ -208,7 +251,7 @@ data class PrescriptionDto(
 data class PaymentDto(
     val id: String, // UUID from backend
     val orderId: String, // UUID from backend
-    val method: String, // "COD", "VNPAY", "MOMO", "ZALOPAY"
+    val method: String, // "COD", "MOMO", "ZALOPAY"
     val status: String, // "UNPAID", "PENDING", "COMPLETED", "FAILED", "REFUNDED"
     val amount: Double,
     val transactionId: String? = null, // External transaction ID
@@ -219,34 +262,3 @@ data class PaymentDto(
     val updatedAt: String
 )
 
-// Health Article model based on health_articles table
-@Serializable
-data class HealthArticleDto(
-    val id: String, // UUID from backend
-    val title: String,
-    val slug: String,
-    val content: String,
-    val excerpt: String? = null,
-    val imageUrl: String? = null,
-    val author: String,
-    val category: String,
-    val tags: List<String> = emptyList(),
-    val viewCount: Int = 0,
-    val isPublished: Boolean = true,
-    val publishedAt: String? = null,
-    val createdAt: String,
-    val updatedAt: String
-)
-
-// Disease Category model based on disease_categories table
-@Serializable
-data class DiseaseCategoryDto(
-    val id: String, // UUID from backend
-    val name: String,
-    val description: String? = null,
-    val iconUrl: String? = null,
-    val sortOrder: Int = 0,
-    val isActive: Boolean = true,
-    val createdAt: String,
-    val updatedAt: String
-)

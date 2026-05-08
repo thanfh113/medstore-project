@@ -224,6 +224,9 @@ private fun ProductListCard(
     product: ProductDto,
     onClick: () -> Unit
 ) {
+    val normalizedRisk = product.riskClassification.uppercase()
+    val canOrderOnline = normalizedRisk != "C" && normalizedRisk != "D"
+
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
@@ -324,6 +327,36 @@ private fun ProductListCard(
                     )
                 }
             }
+
+            if (!canOrderOnline) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    "Loại $normalizedRisk - Cần tư vấn",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFFE65100),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFFFF3E0), RoundedCornerShape(50))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                if (product.stock > 0) "Còn ${product.stock} ${product.unit}" else "Hết hàng",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (product.stock > 0) GreenTop else Color(0xFFE53935),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        if (product.stock > 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                        RoundedCornerShape(50)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
 
             Spacer(modifier = Modifier.height(4.dp))
 

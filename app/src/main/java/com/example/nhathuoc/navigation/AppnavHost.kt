@@ -54,7 +54,6 @@ import com.example.nhathuoc.ui.screen.miniscreen.ProductDetailScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ProductListScreen
 import com.example.nhathuoc.ui.screen.miniscreen.RegisterScreen
 // Note: AddressSelectionScreen not registered in NavHost; AddressBookScreen is used instead
-import com.example.nhathuoc.util.AuthenticatedAction
 import com.example.nhathuoc.viewmodel.CartViewModel
 import com.example.nhathuoc.viewmodel.CheckoutViewModel
 import com.example.nhathuoc.viewmodel.ProductDetailViewModel
@@ -115,6 +114,9 @@ fun AppnavHost(navController: NavHostController) {
             val productId = backStackEntry.arguments?.getString("productId")
             ChatScreen(
                 onBack = { navController.popBackStack() },
+                onProductClick = { id ->
+                    navController.navigate("ProductDetailScreen/${Uri.encode(id)}")
+                },
                 productId = productId
             )
         }
@@ -161,7 +163,9 @@ fun AppnavHost(navController: NavHostController) {
                         "CHAT" -> navController.navigate("ChatScreen")
                         "REWARD" -> navController.navigate("RewardScreen")
                         "REVIEW" -> {
-                            if (!refId.isNullOrBlank()) navController.navigate("ProductDetailScreen/$refId")
+                            if (!refId.isNullOrBlank()) {
+                                navController.navigate("ProductDetailScreen/${Uri.encode(refId)}?openReview=true")
+                            }
                         }
                         else -> Unit
                     }
@@ -171,10 +175,17 @@ fun AppnavHost(navController: NavHostController) {
 
         // â”€â”€ Product Detail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         composable(
-            route = "ProductDetailScreen/{productId}",
-            arguments = listOf(navArgument("productId") { type = NavType.StringType })
+            route = "ProductDetailScreen/{productId}?openReview={openReview}",
+            arguments = listOf(
+                navArgument("productId") { type = NavType.StringType },
+                navArgument("openReview") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
         ) { backStackEntry ->
             val productId = backStackEntry.arguments?.getString("productId") ?: ""
+            val openReview = backStackEntry.arguments?.getBoolean("openReview") ?: false
             val cartViewModel: CartViewModel = hiltViewModel()
 
             if (productId.startsWith("mock-")) {
@@ -199,8 +210,13 @@ fun AppnavHost(navController: NavHostController) {
                     iconBg = mockProduct.iconBg,
                     imageResIds = mockProduct.imageResIds,
                     imageResId = mockProduct.imageResId,
+                    sku = dto.sku,
+                    stockQuantity = dto.stock,
                     productType = dto.productType,
-                    registrationNumber = dto.registrationNumber
+                    registrationNumber = dto.registrationNumber,
+                    riskClassification = dto.riskClassification,
+                    requiresCertification = dto.requiresCertification || dto.isPrescription,
+                    requiresConsultation = dto.requiresConsultation
                 )
 
                 ProductDetailScreen(
@@ -210,20 +226,21 @@ fun AppnavHost(navController: NavHostController) {
                         navController.navigate("ChatScreen")
                     },
                     onFindPharmacy = { navController.navigate("FindPharmacyScreen") },
-                    onAddToCart = {
+                    onAddToCart = { _ ->
                         Toast.makeText(
                             context,
                             "Sản phẩm demo - vui lòng chọn sản phẩm thật.",
                             Toast.LENGTH_SHORT
                         ).show()
                     },
-                    onBuyNow = {
+                    onBuyNow = { _ ->
                         Toast.makeText(
                             context,
                             "Sản phẩm demo - vui lòng chọn sản phẩm thật.",
                             Toast.LENGTH_SHORT
                         ).show()
-                    }
+                    },
+                    openReviewOnStart = openReview
                 )
             } else {
                 // â”€â”€ Real product: load from API via ProductDetailViewModel â”€â”€
@@ -331,14 +348,21 @@ fun AppnavHost(navController: NavHostController) {
                             imageResId = null,
                             imageUrl = remoteImageUrls.firstOrNull(),
                             imageUrls = remoteImageUrls,
+                            sku = dto.sku,
+                            stockQuantity = dto.stock,
                             productType = dto.productType,
                             registrationNumber = dto.registrationNumber,
+                            riskClassification = dto.riskClassification,
+                            requiresCertification = dto.requiresCertification || dto.isPrescription,
+                            requiresConsultation = dto.requiresConsultation,
                             certificates = certificates.map { cert ->
                                 com.example.nhathuoc.ui.screen.miniscreen.ProductCertificate(
                                     id = cert.id,
                                     type = "REGISTRATION",
                                     name = cert.name,
                                     fileUrl = cert.documentUrl.orEmpty(),
+                                    fileType = cert.fileType,
+                                    resourceType = cert.resourceType ?: cert.cloudinaryResourceType,
                                     issuedBy = cert.issuer,
                                     issuedAt = cert.issueDate,
                                     expiresAt = cert.expiryDate
@@ -346,12 +370,16 @@ fun AppnavHost(navController: NavHostController) {
                             }
                         )
 
-                        val addToCartAction = AuthenticatedAction(context, navController) {
-                            cartViewModel.addToCart(
-                                productId = dto.id,
-                                quantity = 1,
-                                unit = dto.unit
-                            )
+                        val addToCartAction: (Int) -> Unit = { quantity ->
+                            if (isLoggedIn.value) {
+                                cartViewModel.addToCart(
+                                    productId = dto.id,
+                                    quantity = quantity,
+                                    unit = dto.unit
+                                )
+                            } else {
+                                navController.navigate("LoginScreen")
+                            }
                         }
 
                         ProductDetailScreen(
@@ -361,13 +389,19 @@ fun AppnavHost(navController: NavHostController) {
                                 navController.navigate("ChatScreen?productId=${Uri.encode(dto.id)}")
                             },
                             onFindPharmacy = { navController.navigate("FindPharmacyScreen") },
-                            onAddToCart = {
-                                addToCartAction()
+                            onAddToCart = { quantity ->
+                                addToCartAction(quantity)
                                 Toast.makeText(context, "Đã thêm vào giỏ hàng", Toast.LENGTH_SHORT).show()
                             },
-                            onBuyNow = {
-                                addToCartAction()
-                                navController.navigate("CheckoutScreen")
+                            onBuyNow = { quantity ->
+                                if (isLoggedIn.value) {
+                                    navController.currentBackStackEntry?.savedStateHandle?.set("directProductId", dto.id)
+                                    navController.currentBackStackEntry?.savedStateHandle?.set("directQuantity", quantity)
+                                    navController.currentBackStackEntry?.savedStateHandle?.set("directUnit", dto.unit)
+                                    navController.navigate("CheckoutScreen")
+                                } else {
+                                    navController.navigate("LoginScreen")
+                                }
                             },
                             reviewSummary = reviewSummary,
                             reviews = reviews,
@@ -376,6 +410,8 @@ fun AppnavHost(navController: NavHostController) {
                                 is UiState.Error -> submitState.message
                                 else -> null
                             },
+                            openReviewOnStart = openReview,
+                            reviewSubmitted = reviewSubmitState is UiState.Success,
                             onSubmitReview = { rating, title, comment, attachments ->
                                 detailViewModel.submitReview(dto.id, rating, title, comment, attachments)
                             },
@@ -395,6 +431,30 @@ fun AppnavHost(navController: NavHostController) {
             val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
             OrderDetailScreen(
                 orderId = orderId,
+                onBack = { navController.popBackStack() },
+                onOpenProduct = { productId, openReview ->
+                    navController.navigate("ProductDetailScreen/${Uri.encode(productId)}?openReview=$openReview")
+                },
+                onResumePayment = { pendingOrderId, paymentMethod ->
+                    navController.currentBackStackEntry?.savedStateHandle?.set("resumeOrderId", pendingOrderId)
+                    navController.currentBackStackEntry?.savedStateHandle?.set("resumePaymentMethod", paymentMethod)
+                    navController.navigate("CheckoutScreen")
+                }
+            )
+        }
+        composable(
+            route = "CategoryProductScreen/{categoryId}/{categoryTitle}",
+            arguments = listOf(
+                navArgument("categoryId") { type = NavType.StringType },
+                navArgument("categoryTitle") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val categoryId = Uri.decode(backStackEntry.arguments?.getString("categoryId") ?: "")
+            val categoryTitle = Uri.decode(backStackEntry.arguments?.getString("categoryTitle") ?: categoryId)
+            CategoryProductScreen(
+                categoryId = categoryId,
+                categoryTitle = categoryTitle,
+                navController = navController,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -405,7 +465,8 @@ fun AppnavHost(navController: NavHostController) {
             val rawName = backStackEntry.arguments?.getString("categoryName") ?: ""
             val categoryName = Uri.decode(rawName).replace("_", " ")
             CategoryProductScreen(
-                categoryName = categoryName,
+                categoryId = categoryName,
+                categoryTitle = categoryName,
                 navController = navController,
                 onBack = { navController.popBackStack() }
             )
@@ -431,6 +492,8 @@ fun AppnavHost(navController: NavHostController) {
                     navController.popBackStack()
                 },
                 onAddNewAddress = { navController.navigate("AddAddressScreen") },
+                onEditAddress = { id -> navController.navigate("EditAddressScreen/${Uri.encode(id)}") },
+                onDeleteAddress = { id -> checkoutViewModel.deleteAddress(id) },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -447,6 +510,34 @@ fun AppnavHost(navController: NavHostController) {
                 },
                 onBack = { navController.popBackStack() }
             )
+        }
+        composable(
+            route = "EditAddressScreen/{addressId}",
+            arguments = listOf(navArgument("addressId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val checkoutEntry = remember(backStackEntry) {
+                navController.getBackStackEntry("CheckoutScreen")
+            }
+            val checkoutViewModel: CheckoutViewModel = hiltViewModel(checkoutEntry)
+            val state by checkoutViewModel.checkoutState.collectAsState()
+            val addressId = backStackEntry.arguments?.getString("addressId").orEmpty()
+            val editingAddress = state.addresses.firstOrNull { it.id == addressId }
+
+            if (editingAddress == null) {
+                LaunchedEffect(addressId) {
+                    Toast.makeText(context, "Không tìm thấy địa chỉ cần sửa", Toast.LENGTH_SHORT).show()
+                    navController.popBackStack()
+                }
+            } else {
+                CreateAddressScreen(
+                    initialAddress = editingAddress,
+                    onSave = { request ->
+                        checkoutViewModel.updateAddress(addressId, request)
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
         composable(
             route = "OrderConfirmationScreen/{orderId}",

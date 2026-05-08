@@ -50,6 +50,19 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun confirmOrderReceived(orderId: String): NetworkResult<MessageResponse> {
+        return try {
+            val response = apiService.confirmOrderReceived(orderId)
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
     suspend fun getComplaints(): NetworkResult<List<ComplaintDto>> {
         return try {
             val response = apiService.getComplaints()

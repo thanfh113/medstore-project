@@ -23,6 +23,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -39,7 +40,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +50,7 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import com.example.nhathuoc.data.model.ProductReviewSummaryDto
 import com.example.nhathuoc.data.model.ReviewDto
+import com.example.nhathuoc.data.remote.BackendUrlResolver
 import com.example.nhathuoc.ui.theme.GreenLight
 private val GreenTop = Color(0xFF2E7D32)
 
@@ -59,6 +63,8 @@ data class ProductCertificate(
     val type: String = "REGISTRATION",     // REGISTRATION | IMPORT_LICENSE | COA | GMP | OTHER
     val name: String,                       // T�n gi?y t? / s? hi?u
     val fileUrl: String = "",              // URL ?nh ho?c PDF
+    val fileType: String? = null,
+    val resourceType: String? = null,
     val issuedBy: String? = null,          // Co quan c?p
     val issuedAt: String? = null,          // Ng�y c?p
     val expiresAt: String? = null          // Ng�y h?t h?n
@@ -92,8 +98,13 @@ data class ProductDetail(
     val imageUrl: String? = null,              // remote image URL (from backend)
     val imageUrls: List<String> = emptyList(), // remote gallery URLs (from backend)
     val isAuthentic: Boolean = true,
+    val sku: String? = null,
+    val stockQuantity: Int = 0,
     val productType: String = "MEDICINE",
     val registrationNumber: String? = null,
+    val riskClassification: String = "A",
+    val requiresCertification: Boolean = false,
+    val requiresConsultation: Boolean = false,
     val certificates: List<ProductCertificate> = emptyList()
 )
 
@@ -105,19 +116,21 @@ fun ProductDetailScreen(
     onBack: () -> Unit = {},
     onChat: () -> Unit = {},
     onFindPharmacy: () -> Unit = {},
-    onAddToCart: () -> Unit = {},
-    onBuyNow: () -> Unit = onAddToCart,
+    onAddToCart: (Int) -> Unit = {},
+    onBuyNow: (Int) -> Unit = onAddToCart,
     reviewSummary: ProductReviewSummaryDto? = null,
     reviews: List<ReviewDto> = emptyList(),
     reviewSubmitting: Boolean = false,
     reviewSubmitMessage: String? = null,
+    openReviewOnStart: Boolean = false,
+    reviewSubmitted: Boolean = false,
     onSubmitReview: ((Int, String, String, List<Uri>) -> Unit)? = null,
     onReportReview: ((String) -> Unit)? = null
 ) {
     val remoteImageUrls = remember(product.imageUrls, product.imageUrl) {
         product.imageUrls.ifEmpty {
             listOfNotNull(product.imageUrl?.takeIf { it.isNotBlank() })
-        }
+        }.map { BackendUrlResolver.resolveFileUrl(it) }
     }
     val imageCount = when {
         product.imageResIds.isNotEmpty() -> product.imageResIds.size
@@ -129,12 +142,41 @@ fun ProductDetailScreen(
     )
     val thumbListState = androidx.compose.foundation.lazy.rememberLazyListState()
     var showCertSheet by remember { mutableStateOf(false) }
+    val normalizedRisk = product.riskClassification.uppercase()
+    val inStock = product.stockQuantity > 0
+    val canOrderOnline = normalizedRisk != "C" && normalizedRisk != "D" && inStock
+    var selectedQuantity by remember(product.id) { mutableStateOf(1) }
+    LaunchedEffect(product.stockQuantity) {
+        selectedQuantity = selectedQuantity.coerceIn(1, product.stockQuantity.coerceAtLeast(1))
+    }
+    val unavailableMessage = when {
+        !inStock -> "Sản phẩm đang hết hàng. Bạn có thể nhắn tư vấn để được báo khi có hàng."
+        normalizedRisk == "C" || normalizedRisk == "D" ->
+            "Sản phẩm loại $normalizedRisk cần tư vấn/ký kết tại nhà thuốc, chưa hỗ trợ đặt online."
+        else -> ""
+    }
+    val productCode = remember(product.sku, product.registrationNumber, product.id) {
+        product.sku?.takeIf { it.isNotBlank() }
+            ?: product.registrationNumber?.takeIf { it.isNotBlank() }
+            ?: product.id.takeLast(8)
+    }
+    val effectiveReviewCount = listOf(reviewSummary?.totalReviews ?: 0, reviews.size, product.reviewCount).maxOrNull() ?: 0
+    val effectiveRating = when {
+        reviewSummary != null && reviewSummary.totalReviews > 0 -> reviewSummary.averageRating.toFloat()
+        reviews.isNotEmpty() -> reviews.map { it.rating }.average().toFloat()
+        else -> product.rating
+    }
+    val effectiveCommentCount = if (reviews.isNotEmpty()) {
+        reviews.count { !it.comment.isNullOrBlank() }
+    } else {
+        product.commentCount
+    }
 
     // Certificate bottom sheet
     if (showCertSheet) {
         CertificateBottomSheet(
             registrationNumber = product.registrationNumber,
-            productType        = product.productType,
+            riskClassification = normalizedRisk,
             certificates       = product.certificates,
             onDismiss          = { showCertSheet = false }
         )
@@ -147,7 +189,15 @@ fun ProductDetailScreen(
                 onChat = onChat,
                 onFindPharmacy = onFindPharmacy,
                 onAddToCart    = onAddToCart,
-                onBuyNow       = onBuyNow
+                onBuyNow       = onBuyNow,
+                canOrderOnline = canOrderOnline,
+                restrictedMessage = unavailableMessage,
+                stockQuantity = product.stockQuantity,
+                unit = product.unit,
+                selectedQuantity = selectedQuantity,
+                onQuantityChange = { quantity ->
+                    selectedQuantity = quantity.coerceIn(1, product.stockQuantity.coerceAtLeast(1))
+                }
             )
         }
     ) { innerPadding ->
@@ -274,20 +324,6 @@ fun ProductDetailScreen(
                                 modifier = Modifier.size(22.dp)
                             )
                         }
-                        BadgedBox(badge = {
-                            Badge(containerColor = Color(0xFFFF6D00)) {
-                                Text("1", color = Color.White, fontSize = 9.sp)
-                            }
-                        }) {
-                            IconButton(onClick = {}) {
-                                Icon(
-                                    Icons.Outlined.ShoppingCart,
-                                    contentDescription = "Giỏ hàng",
-                                    tint = GreenTop,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -368,7 +404,7 @@ fun ProductDetailScreen(
                             "DEVICE"  -> "Thiết bị y tế - kiểm định chất lượng trước khi xuất kho"
                             "SUPPLY"  -> "Vật tư tiêu hao - đảm bảo vô khuẩn theo tiêu chuẩn"
                             "MEDICINE"-> "Sản phẩm cần tư vấn - vui lòng hỏi nhân viên trước khi mua"
-                            else      -> "Mẫu mã sản phẩm có thể thay đổi theo lô hàng"
+                            else      -> "Thông tin sản phẩm được cập nhật theo tồn kho thực tế"
                         },
                         fontSize = 11.sp,
                         color = Color.Gray,
@@ -381,7 +417,7 @@ fun ProductDetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OriginChip(product.origin)
-                        ProductTypeChip(product.productType)
+                        ProductRiskChip(product.riskClassification)
                     }
 
                     Spacer(Modifier.height(8.dp))
@@ -416,18 +452,25 @@ fun ProductDetailScreen(
 
                     Spacer(Modifier.height(8.dp))
 
-                    // ID � Rating � Reviews � Comments
+                    // Product code • Rating • Reviews • Comments
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(product.id, fontSize = 12.sp, color = Color.Gray)
+                        Text(
+                            "Mã: $productCode",
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = 120.dp)
+                        )
                         DotHorizontalDivider()
-                        RatingStars(product.rating)
+                        RatingStars(effectiveRating)
                         DotHorizontalDivider()
-                        Text("${product.reviewCount} đánh giá", fontSize = 12.sp, color = Color.Gray)
+                        Text("${effectiveReviewCount} đánh giá", fontSize = 12.sp, color = Color.Gray)
                         DotHorizontalDivider()
-                        Text("${product.commentCount} bình luận", fontSize = 12.sp, color = Color.Gray)
+                        Text("${effectiveCommentCount} bình luận", fontSize = 12.sp, color = Color.Gray)
                     }
 
                     Spacer(Modifier.height(14.dp))
@@ -462,6 +505,21 @@ fun ProductDetailScreen(
                                 textDecoration = TextDecoration.LineThrough
                             )
                         }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = if (inStock) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                    ) {
+                        Text(
+                            text = if (inStock) "Còn ${product.stockQuantity} ${product.unit}" else "Hết hàng",
+                            color = if (inStock) GreenTop else RedColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
                     }
 
                     Spacer(Modifier.height(10.dp))
@@ -593,6 +651,8 @@ fun ProductDetailScreen(
                 reviews = reviews,
                 isSubmitting = reviewSubmitting,
                 submitMessage = reviewSubmitMessage,
+                openReviewOnStart = openReviewOnStart,
+                reviewSubmitted = reviewSubmitted,
                 onSubmitReview = onSubmitReview,
                 onReportReview = onReportReview
             )
@@ -610,12 +670,26 @@ private fun ReviewsSection(
     reviews: List<ReviewDto>,
     isSubmitting: Boolean,
     submitMessage: String?,
+    openReviewOnStart: Boolean,
+    reviewSubmitted: Boolean,
     onSubmitReview: ((Int, String, String, List<Uri>) -> Unit)?,
     onReportReview: ((String) -> Unit)?
 ) {
     var showDialog by remember { mutableStateOf(false) }
     val averageRating = summary?.averageRating ?: 0.0
     val totalReviews = summary?.totalReviews ?: reviews.size
+
+    LaunchedEffect(openReviewOnStart, onSubmitReview) {
+        if (openReviewOnStart && onSubmitReview != null) {
+            showDialog = true
+        }
+    }
+
+    LaunchedEffect(reviewSubmitted) {
+        if (reviewSubmitted) {
+            showDialog = false
+        }
+    }
 
     if (showDialog && onSubmitReview != null) {
         ReviewInputDialog(
@@ -703,16 +777,25 @@ private fun ReviewInputDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Viết đánh giá") },
+        containerColor = Color.White,
+        titleContentColor = GreenTop,
+        textContentColor = Color(0xFF1A1A1A),
+        title = { Text("Viết đánh giá", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Chọn số sao", fontWeight = FontWeight.SemiBold)
+                Text("Chọn số sao", fontWeight = FontWeight.SemiBold, color = Color(0xFF1A1A1A))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (1..5).forEach { value ->
                         FilterChip(
                             selected = rating == value,
                             onClick = { rating = value },
                             label = { Text("$value") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = Color.White,
+                                labelColor = Color(0xFF333333),
+                                selectedContainerColor = Color(0xFFE8F5E9),
+                                selectedLabelColor = GreenTop
+                            ),
                             leadingIcon = {
                                 Icon(
                                     Icons.Filled.Star,
@@ -729,14 +812,24 @@ private fun ReviewInputDialog(
                     onValueChange = { title = it },
                     label = { Text("Tiêu đề") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenTop,
+                        focusedLabelColor = GreenTop,
+                        cursorColor = GreenTop
+                    )
                 )
                 OutlinedTextField(
                     value = comment,
                     onValueChange = { comment = it },
                     label = { Text("Nội dung đánh giá") },
                     minLines = 3,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenTop,
+                        focusedLabelColor = GreenTop,
+                        cursorColor = GreenTop
+                    )
                 )
                 OutlinedButton(
                     onClick = { filePicker.launch(arrayOf("image/*", "application/pdf")) },
@@ -765,25 +858,44 @@ private fun ReviewInputDialog(
                             onClick = { attachments = attachments.filterNot { it.uri == attachment.uri } },
                             enabled = !isSubmitting
                         ) {
-                            Text("Xóa")
+                            Text("Xóa", color = RedColor)
                         }
                     }
                 }
                 if (!errorMessage.isNullOrBlank()) {
-                    Text(errorMessage, color = Color(0xFFB45309), fontSize = 12.sp)
+                    Surface(
+                        color = Color(0xFFFFEBEE),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            errorMessage,
+                            color = Color(0xFFC62828),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = { onSubmit(rating, title, comment, attachments.map { it.uri }) },
-                enabled = !isSubmitting && comment.isNotBlank()
+                enabled = !isSubmitting && comment.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GreenTop,
+                    contentColor = Color.White
+                )
             ) {
                 Text(if (isSubmitting) "Đang gửi..." else "Gửi")
             }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss, enabled = !isSubmitting) {
+            OutlinedButton(
+                onClick = onDismiss,
+                enabled = !isSubmitting,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop)
+            ) {
                 Text("Đóng")
             }
         }
@@ -826,8 +938,9 @@ private fun ReviewRow(
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 itemsIndexed(review.attachments) { _, attachment ->
                     if (attachment.fileType.equals("IMAGE", ignoreCase = true)) {
+                        val attachmentUrl = BackendUrlResolver.resolveFileUrl(attachment.fileUrl)
                         AsyncImage(
-                            model = attachment.fileUrl,
+                            model = attachmentUrl,
                             contentDescription = "Review attachment",
                             modifier = Modifier
                                 .size(72.dp)
@@ -983,9 +1096,40 @@ private fun ProductTypeChip(productType: String) {
 
 // Hi?n th? 1 d�ng gi?y t? r�t g?n
 @Composable
+private fun ProductRiskChip(riskClassification: String) {
+    val normalizedRisk = riskClassification.trim().uppercase()
+    val (label, chipColor) = when (normalizedRisk) {
+        "A" -> "Loại A" to Color(0xFF2E7D32)
+        "B" -> "Loại B" to Color(0xFF1565C0)
+        "C" -> "Loại C" to Color(0xFFE65100)
+        "D" -> "Loại D" to Color(0xFFC62828)
+        else -> "Chưa phân loại" to Color(0xFF757575)
+    }
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = chipColor.copy(alpha = 0.12f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, chipColor.copy(alpha = 0.45f))
+    ) {
+        Text(
+            label,
+            fontSize = 11.sp,
+            color = chipColor,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+        )
+    }
+}
+
+@Composable
 private fun CertificatePreviewRow(cert: ProductCertificate) {
     val context = LocalContext.current
-    val hasFile = cert.fileUrl.isNotBlank()
+    val resolvedFileUrl = remember(cert.fileUrl) {
+        BackendUrlResolver.resolveFileUrl(cert.fileUrl)
+    }
+    val hasFile = resolvedFileUrl.isNotBlank()
+    val isPdf = cert.fileType?.equals("PDF", ignoreCase = true) == true ||
+        cert.resourceType?.equals("raw", ignoreCase = true) == true ||
+        resolvedFileUrl.isPdfUrl()
     val (icon, iconColor) = when (cert.type) {
         "REGISTRATION"   -> Pair(Icons.Outlined.AssignmentTurnedIn, Color(0xFF2E7D32))
         "IMPORT_LICENSE" -> Pair(Icons.Outlined.LocalShipping,       Color(0xFF1565C0))
@@ -999,7 +1143,7 @@ private fun CertificatePreviewRow(cert: ProductCertificate) {
             .clip(RoundedCornerShape(8.dp))
             .background(Color(0xFFF5F7FA))
             .clickable(enabled = hasFile) {
-                context.openCertificateDocument(cert.fileUrl, cert.name)
+                context.openCertificateDocument(resolvedFileUrl, cert.name, isPdf)
             }
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1007,18 +1151,33 @@ private fun CertificatePreviewRow(cert: ProductCertificate) {
         Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(cert.name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1A1A1A))
+            Text(
+                cert.name,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF1A1A1A),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             if (!cert.issuedBy.isNullOrBlank()) {
                 Text(cert.issuedBy, fontSize = 11.sp, color = Color.Gray)
             }
         }
         if (hasFile) {
-            Text(
-                if (cert.fileUrl.isPdfUrl()) "Xem/Tải" else "Mở",
-                fontSize = 11.sp,
-                color = GreenTop,
-                fontWeight = FontWeight.SemiBold
-            )
+            Spacer(Modifier.width(8.dp))
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = GreenTop.copy(alpha = 0.10f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, GreenTop.copy(alpha = 0.30f))
+            ) {
+                Text(
+                    if (isPdf) "Tải" else "Mở",
+                    fontSize = 11.sp,
+                    color = GreenTop,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
         } else if (!cert.expiresAt.isNullOrBlank()) {
             Text("Hết hạn: ${cert.expiresAt}", fontSize = 10.sp, color = Color(0xFFE65100))
         }
@@ -1048,47 +1207,39 @@ private fun detectPickedFileType(mimeType: String?, name: String): String {
     }
 }
 
-private fun Context.openCertificateDocument(url: String, title: String) {
-    if (url.isBlank()) return
+private fun Context.openCertificateDocument(url: String, title: String, isPdf: Boolean = url.isPdfUrl()) {
+    val targetUrl = BackendUrlResolver.resolveFileUrl(url)
+    if (targetUrl.isBlank()) return
 
-    if (url.isPdfUrl()) {
-        val pdfIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(Uri.parse(url), "application/pdf")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        runCatching {
-            startActivity(pdfIntent)
-        }.onFailure { throwable ->
-            if (throwable is ActivityNotFoundException) {
-                downloadCertificateDocument(url, title)
-            } else {
-                Toast.makeText(this, "Không mở được PDF, đang tải xuống", Toast.LENGTH_SHORT).show()
-                downloadCertificateDocument(url, title)
-            }
-        }
+    if (isPdf || targetUrl.isPdfUrl()) {
+        downloadCertificateDocument(targetUrl, title, isPdf = true)
         return
     }
 
     runCatching {
         startActivity(
-            Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
     }.onFailure {
-        Toast.makeText(this, "Không mở được tài liệu", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Không mở được tài liệu, đang tải xuống", Toast.LENGTH_SHORT).show()
+        downloadCertificateDocument(targetUrl, title, isPdf = false)
     }
 }
 
-private fun Context.downloadCertificateDocument(url: String, title: String) {
-    val fileName = buildCertificateFileName(url, title)
+private fun Context.downloadCertificateDocument(url: String, title: String, isPdf: Boolean = url.isPdfUrl()) {
+    val targetUrl = BackendUrlResolver.resolveFileUrl(url)
+    val fileName = buildCertificateFileName(targetUrl, title, isPdf)
     runCatching {
-        val request = DownloadManager.Request(Uri.parse(url))
+        val request = DownloadManager.Request(Uri.parse(targetUrl))
             .setTitle(fileName)
             .setDescription("Đang tải giấy tờ chứng nhận")
-            .setMimeType(if (url.isPdfUrl()) "application/pdf" else null)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setAllowedOverMetered(true)
             .setAllowedOverRoaming(true)
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+        if (isPdf) {
+            request.setMimeType("application/pdf")
+        }
 
         getSystemService(DownloadManager::class.java).enqueue(request)
         Toast.makeText(this, "Đang tải xuống: $fileName", Toast.LENGTH_SHORT).show()
@@ -1103,8 +1254,8 @@ private fun String.isPdfUrl(): Boolean {
     return path.lowercase().endsWith(".pdf")
 }
 
-private fun buildCertificateFileName(url: String, title: String): String {
-    val extension = if (url.isPdfUrl()) ".pdf" else ""
+private fun buildCertificateFileName(url: String, title: String, isPdf: Boolean = url.isPdfUrl()): String {
+    val extension = if (isPdf) ".pdf" else ""
     val rawName = title.ifBlank {
         runCatching { Uri.parse(url).lastPathSegment.orEmpty().substringBefore('?') }
             .getOrDefault("certificate")
@@ -1125,7 +1276,7 @@ private fun buildCertificateFileName(url: String, title: String): String {
 @Composable
 private fun CertificateBottomSheet(
     registrationNumber: String?,
-    productType: String,
+    riskClassification: String,
     certificates: List<ProductCertificate>,
     onDismiss: () -> Unit
 ) {
@@ -1159,7 +1310,7 @@ private fun CertificateBottomSheet(
                 Spacer(Modifier.width(8.dp))
                 Column {
                     Text("Loại sản phẩm", fontSize = 11.sp, color = Color.Gray)
-                    ProductTypeChip(productType)
+                    ProductRiskChip(riskClassification)
                 }
             }
 
@@ -1246,9 +1397,23 @@ private fun InfoRow(icon: ImageVector, iconTint: Color, text: String) {
 private fun ProductBottomBar(
     onChat: () -> Unit,
     onFindPharmacy: () -> Unit,
-    onAddToCart: () -> Unit,
-    onBuyNow: () -> Unit
+    onAddToCart: (Int) -> Unit,
+    onBuyNow: (Int) -> Unit,
+    canOrderOnline: Boolean,
+    restrictedMessage: String,
+    stockQuantity: Int,
+    unit: String,
+    selectedQuantity: Int,
+    onQuantityChange: (Int) -> Unit
 ) {
+    var quantityText by remember { mutableStateOf(selectedQuantity.toString()) }
+
+    LaunchedEffect(selectedQuantity) {
+        if (quantityText.toIntOrNull() != selectedQuantity) {
+            quantityText = selectedQuantity.toString()
+        }
+    }
+
     Surface(
         color = Color.White,
         shadowElevation = 8.dp,
@@ -1268,6 +1433,98 @@ private fun ProductBottomBar(
                         Brush.horizontalGradient(listOf(GreenTop, GreenLight))
                     )
             )
+            if (!canOrderOnline) {
+                Text(
+                    text = restrictedMessage,
+                    color = RedColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                Button(
+                    onClick = onChat,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(25.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
+                ) {
+                    Icon(Icons.Outlined.SupportAgent, null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Tư vấn với nhân viên", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            "Còn $stockQuantity $unit",
+                            color = GreenTop,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "Chọn số lượng mua ngay",
+                            color = Color(0xFF6B7280),
+                            fontSize = 11.sp
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        IconButton(
+                            onClick = { onQuantityChange(selectedQuantity - 1) },
+                            enabled = selectedQuantity > 1,
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE8F5E9))
+                        ) {
+                            Icon(Icons.Default.Remove, contentDescription = "Giảm", tint = GreenTop)
+                        }
+                        OutlinedTextField(
+                            value = quantityText,
+                            onValueChange = { raw ->
+                                val digits = raw.filter(Char::isDigit).take(4)
+                                quantityText = digits
+                                digits.toIntOrNull()?.let { value ->
+                                    onQuantityChange(value.coerceIn(1, stockQuantity))
+                                }
+                            },
+                            modifier = Modifier.width(64.dp),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = LocalTextStyle.current.copy(
+                                color = Color(0xFF111827),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                textAlign = TextAlign.Center
+                            ),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = GreenTop,
+                                unfocusedBorderColor = Color(0xFFE5E7EB),
+                                cursorColor = GreenTop
+                            )
+                        )
+                        IconButton(
+                            onClick = { onQuantityChange(selectedQuantity + 1) },
+                            enabled = selectedQuantity < stockQuantity,
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE8F5E9))
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Tăng", tint = GreenTop)
+                        }
+                    }
+                }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1294,13 +1551,14 @@ private fun ProductBottomBar(
 
                 // Thêm vào giỏ hàng
                 OutlinedButton(
-                    onClick = onAddToCart,
+                    onClick = { onAddToCart(selectedQuantity) },
+                    enabled = canOrderOnline,
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop),
-                    border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(width = 1.5.dp)
+                    border = ButtonDefaults.outlinedButtonBorder(enabled = canOrderOnline).copy(width = 1.5.dp)
                 ) {
                     Icon(Icons.Outlined.ShoppingCart, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
@@ -1309,7 +1567,8 @@ private fun ProductBottomBar(
 
                 // Mua ngay -> cart/checkout
                 Button(
-                    onClick = onBuyNow,
+                    onClick = { onBuyNow(selectedQuantity) },
+                    enabled = canOrderOnline,
                     modifier = Modifier
                         .weight(1.4f)
                         .height(48.dp),
@@ -1323,6 +1582,7 @@ private fun ProductBottomBar(
                         color = Color.White
                     )
                 }
+            }
             }
         }
     }

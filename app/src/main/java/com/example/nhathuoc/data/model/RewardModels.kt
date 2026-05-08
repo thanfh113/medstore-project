@@ -72,7 +72,10 @@ data class RedeemResponse(
 
 @Serializable
 data class RedeemRewardResultDto(
-    val redemptionId: String
+    val redemptionId: String,
+    val rewardType: String? = null,
+    val status: String? = null,
+    val issuedVoucherCode: String? = null
 )
 
 @Serializable

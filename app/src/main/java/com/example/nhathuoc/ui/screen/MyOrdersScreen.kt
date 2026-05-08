@@ -29,6 +29,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -166,6 +167,14 @@ fun MyOrdersScreen(
                                     order = order,
                                     onClick = {
                                         navController?.navigate("OrderDetailScreen/${order.id}")
+                                    },
+                                    onResumePayment = {
+                                        navController?.currentBackStackEntry?.savedStateHandle?.set("resumeOrderId", order.id)
+                                        navController?.currentBackStackEntry?.savedStateHandle?.set(
+                                            "resumePaymentMethod",
+                                            order.paymentMethod.uppercase()
+                                        )
+                                        navController?.navigate("CheckoutScreen")
                                     }
                                 )
                             }
@@ -250,8 +259,10 @@ private fun EmptyState(
 @Composable
 private fun OrderCard(
     order: OrderDto,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onResumePayment: () -> Unit
 ) {
+    val canResumePayment = canResumeGatewayPayment(order)
     Surface(
         shape = RoundedCornerShape(18.dp),
         color = Color.White,
@@ -352,6 +363,21 @@ private fun OrderCard(
                             color = GreenTop
                         )
                     }
+                }
+            }
+
+            if (canResumePayment) {
+                OutlinedButton(
+                    onClick = onResumePayment,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        text = "Tiếp tục thanh toán",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GreenTop
+                    )
                 }
             }
 
@@ -484,6 +510,16 @@ private fun isOnlineOrder(order: OrderDto): Boolean {
     return !order.orderCode.startsWith("POS-", ignoreCase = true)
 }
 
+private fun canResumeGatewayPayment(order: OrderDto): Boolean {
+    val method = order.paymentMethod.uppercase()
+    val paymentStatus = order.paymentStatus.uppercase()
+    val orderStatus = order.status.uppercase()
+    return isOnlineOrder(order) &&
+        method in setOf("MOMO", "ZALOPAY") &&
+        paymentStatus == "PENDING" &&
+        orderStatus !in setOf("CANCELLED", "RETURNED", "DELIVERED")
+}
+
 private fun labelForPickupType(pickupType: String): String {
     return when (pickupType.uppercase()) {
         "PICKUP" -> "Nhận tại cửa hàng"
@@ -495,7 +531,7 @@ private fun labelForPaymentMethod(method: String): String {
     return when (method.uppercase()) {
         "COD" -> "COD"
         "MOMO" -> "MoMo"
-        "VNPAY" -> "VNPay"
+        "VNPAY" -> "Thanh toán online"
         "ZALOPAY" -> "ZaloPay"
         else -> method
     }

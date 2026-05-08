@@ -39,6 +39,15 @@ interface ApiService {
     @POST(ApiConstants.USER_ADDRESS_ADD)
     suspend fun addAddress(@Body request: AddAddressRequest): Response<AddAddressResponse>
 
+    @PUT(ApiConstants.USER_ADDRESS_BY_ID)
+    suspend fun updateAddress(
+        @Path("id") id: String,
+        @Body request: AddAddressRequest
+    ): Response<AddAddressResponse>
+
+    @DELETE(ApiConstants.USER_ADDRESS_BY_ID)
+    suspend fun deleteAddress(@Path("id") id: String): Response<Unit>
+
     @GET(ApiConstants.PRODUCTS)
     suspend fun getProducts(
         @Query("category") category: String? = null,
@@ -86,9 +95,6 @@ interface ApiService {
     @GET(ApiConstants.CATEGORY_BY_ID)
     suspend fun getCategoryById(@Path("id") categoryId: String): Response<DataMessageResponse<CategoryDto>>
 
-    @GET(ApiConstants.CATEGORY_ATTRIBUTES)
-    suspend fun getCategoryAttributes(@Path("id") categoryId: String): Response<DataMessageResponse<List<CategoryAttributeDto>>>
-
     @GET(ApiConstants.CART)
     suspend fun getCart(): Response<CartDto>
 
@@ -109,9 +115,6 @@ interface ApiService {
 
     @POST(ApiConstants.PAYMENTS_MOMO_INIT)
     suspend fun initMomoPayment(@Body request: PaymentInitRequest): Response<DataMessageResponse<PaymentInitData>>
-
-    @POST(ApiConstants.PAYMENTS_VNPAY_INIT)
-    suspend fun initVnPayPayment(@Body request: PaymentInitRequest): Response<DataMessageResponse<PaymentInitData>>
 
     @POST(ApiConstants.PAYMENTS_ZALOPAY_INIT)
     suspend fun initZaloPayPayment(@Body request: PaymentInitRequest): Response<DataMessageResponse<PaymentInitData>>
@@ -137,6 +140,9 @@ interface ApiService {
         @Path("orderId") orderId: String,
         @Body request: CancelOrderRequest
     ): Response<MessageResponse>
+
+    @POST(ApiConstants.ORDER_CONFIRM_RECEIVED)
+    suspend fun confirmOrderReceived(@Path("orderId") orderId: String): Response<MessageResponse>
 
     @GET(ApiConstants.COMPLAINTS)
     suspend fun getComplaints(): Response<DataMessageResponse<List<ComplaintDto>>>
@@ -177,19 +183,6 @@ interface ApiService {
     @POST(ApiConstants.REWARD_REDEEM)
     suspend fun redeem(@Body request: RedeemRequest): Response<DataMessageResponse<RedeemRewardResultDto>>
 
-    @GET(ApiConstants.PHARMACIES)
-    suspend fun searchPharmacies(
-        @Query("latitude") latitude: Double? = null,
-        @Query("longitude") longitude: Double? = null,
-        @Query("radius") radius: Double? = null,
-        @Query("keyword") keyword: String? = null,
-        @Query("page") page: Int = 1,
-        @Query("limit") limit: Int = 20
-    ): Response<PaginatedResponse<PharmacyDto>>
-
-    @GET(ApiConstants.PHARMACY_BY_ID)
-    suspend fun getPharmacyById(@Path("id") pharmacyId: String): Response<PharmacyDto>
-
     @GET(ApiConstants.NOTIFICATIONS)
     suspend fun getNotifications(
         @Query("page") page: Int = 1,
@@ -202,6 +195,15 @@ interface ApiService {
     @POST(ApiConstants.NOTIFICATIONS_READ_ALL)
     suspend fun markAllNotificationsAsRead(): Response<MessageResponse>
 
+    @POST(ApiConstants.NOTIFICATION_PUSH_TOKEN)
+    suspend fun registerPushToken(@Body request: PushTokenRequest): Response<DataMessageResponse<PushTokenResponse>>
+
+    @DELETE(ApiConstants.NOTIFICATION_PUSH_TOKEN)
+    suspend fun deactivatePushToken(
+        @Query("deviceId") deviceId: String? = null,
+        @Query("fcmToken") fcmToken: String? = null
+    ): Response<MessageResponse>
+
     @GET(ApiConstants.BANNERS)
     suspend fun getBanners(
         @Query("position") position: String? = null,
@@ -210,12 +212,6 @@ interface ApiService {
 
     @GET(ApiConstants.BANNER_BY_ID)
     suspend fun getBannerById(@Path("id") bannerId: String): Response<DataMessageResponse<BannerDto>>
-
-    @POST(ApiConstants.INVENTORY_BATCHES)
-    suspend fun createBatch(@Body request: CreateBatchRequest): Response<BatchDto>
-
-    @GET(ApiConstants.INVENTORY_ALERTS_EXPIRING)
-    suspend fun getExpiringAlerts(@Query("days") days: Int = 30): Response<ExpiringAlertsResponse>
 
     @Multipart
     @POST(ApiConstants.UPLOAD_FILE)
@@ -233,35 +229,6 @@ interface ApiService {
 
     @GET(ApiConstants.SHOP_BY_ID)
     suspend fun getShopById(@Path("id") shopId: String): Response<ShopDto>
-
-    @GET(ApiConstants.PRESCRIPTIONS)
-    suspend fun getPrescriptions(
-        @Query("status") status: String? = null,
-        @Query("page") page: Int = 1,
-        @Query("limit") limit: Int = 10
-    ): Response<PaginatedResponse<PrescriptionDto>>
-
-    @POST(ApiConstants.PRESCRIPTIONS)
-    suspend fun uploadPrescription(@Body request: PrescriptionDto): Response<PrescriptionDto>
-
-    @GET(ApiConstants.PRESCRIPTION_BY_ID)
-    suspend fun getPrescriptionById(@Path("id") prescriptionId: String): Response<PrescriptionDto>
-
-    @GET(ApiConstants.HEALTH_ARTICLES)
-    suspend fun getHealthArticles(
-        @Query("category") category: String? = null,
-        @Query("page") page: Int = 1,
-        @Query("limit") limit: Int = 20
-    ): Response<PaginatedResponse<HealthArticleDto>>
-
-    @GET(ApiConstants.HEALTH_ARTICLE_BY_SLUG)
-    suspend fun getHealthArticleBySlug(@Path("slug") slug: String): Response<HealthArticleDto>
-
-    @GET(ApiConstants.DISEASE_CATEGORIES)
-    suspend fun getDiseaseCategories(): Response<List<DiseaseCategoryDto>>
-
-    @GET(ApiConstants.PAYMENT_METHODS)
-    suspend fun getPaymentMethods(@Query("isActive") isActive: Boolean = true): Response<List<String>>
 
     @GET(ApiConstants.CHAT_SESSIONS)
     suspend fun getChatSessions(): Response<DataMessageResponse<List<ChatSessionDto>>>

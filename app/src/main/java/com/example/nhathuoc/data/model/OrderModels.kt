@@ -22,7 +22,7 @@ data class OrderDto(
     val pointsUsed: Int = 0, // Renamed from rewardPointsUsed
     val pointsEarned: Int = 0, // Renamed from rewardPointsEarned
     val total: Double, // Changed from String to numeric
-    val paymentMethod: String, // "COD", "VNPAY", "MOMO", "ZALOPAY"
+    val paymentMethod: String, // "COD", "MOMO", "ZALOPAY"
     val paymentStatus: String, // "UNPAID", "PENDING", "COMPLETED", "FAILED", "REFUNDED"
     val shippingAddress: UserAddress? = null, // Keep for backward compatibility
     val note: String? = null, // Changed from notes to note (singular)

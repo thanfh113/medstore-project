@@ -21,7 +21,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -37,8 +40,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -55,9 +63,13 @@ fun AddressBookScreen(
     selectedAddressId: String?,
     onAddressSelected: (String) -> Unit,
     onAddNewAddress: () -> Unit,
+    onEditAddress: (String) -> Unit = {},
+    onDeleteAddress: (String) -> Unit = {},
     onBack: () -> Unit
 ) {
     BackHandler(onBack = onBack)
+
+    var pendingDelete by remember { mutableStateOf<UserAddress?>(null) }
 
     Scaffold(
         topBar = {
@@ -100,42 +112,12 @@ fun AddressBookScreen(
         containerColor = Color(0xFFF5F7FA)
     ) { innerPadding ->
         if (addresses.isEmpty()) {
-            Box(
+            EmptyAddressState(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.LocationOn,
-                            contentDescription = null,
-                            tint = GreenTop,
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Bạn chưa có địa chỉ nào",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = GreenTop,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Thêm địa chỉ để tiếp tục đặt hàng.",
-                            color = Color(0xFF6B7280)
-                        )
-                    }
-                }
-            }
+                    .padding(24.dp)
+            )
         } else {
             LazyColumn(
                 modifier = Modifier
@@ -148,12 +130,75 @@ fun AddressBookScreen(
                     AddressCard(
                         address = address,
                         selected = address.id == selectedAddressId,
-                        onClick = { onAddressSelected(address.id) }
+                        onClick = { onAddressSelected(address.id) },
+                        onEdit = { onEditAddress(address.id) },
+                        onDelete = { pendingDelete = address }
                     )
                 }
                 item {
                     Spacer(modifier = Modifier.height(84.dp))
                 }
+            }
+        }
+    }
+
+    pendingDelete?.let { address ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Xóa địa chỉ?") },
+            text = { Text("Địa chỉ của ${address.recipientName} sẽ bị xóa khỏi sổ địa chỉ.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteAddress(address.id)
+                        pendingDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
+                ) {
+                    Text("Xóa")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun EmptyAddressState(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.LocationOn,
+                    contentDescription = null,
+                    tint = GreenTop,
+                    modifier = Modifier.size(36.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Bạn chưa có địa chỉ nào",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = GreenTop,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Thêm địa chỉ để tiếp tục đặt hàng.",
+                    color = Color(0xFF6B7280)
+                )
             }
         }
     }
@@ -163,7 +208,9 @@ fun AddressBookScreen(
 private fun AddressCard(
     address: UserAddress,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -197,7 +244,7 @@ private fun AddressCard(
                         color = Color(0xFF4B5563)
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (address.isDefault) {
                         AssistChip(
                             onClick = {},
@@ -220,24 +267,45 @@ private fun AddressCard(
             }
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = buildString {
-                    append(address.fullAddress)
-                    if (address.ward.isNotBlank()) append(", ${address.ward}")
-                    if (address.district.isNotBlank()) append(", ${address.district}")
-                    if (address.province.isNotBlank()) append(", ${address.province}")
-                },
+                text = buildAddressLine(address),
                 color = Color(0xFF374151),
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(10.dp))
-            OutlinedButton(
-                onClick = onClick,
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop)
-            ) {
-                Text(if (selected) "Đang chọn" else "Chọn địa chỉ")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    onClick = onClick,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop)
+                ) {
+                    Text(if (selected) "Đang chọn" else "Chọn")
+                }
+                OutlinedButton(
+                    onClick = onEdit,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop)
+                ) {
+                    Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Sửa")
+                }
+                OutlinedButton(
+                    onClick = onDelete,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53935))
+                ) {
+                    Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Xóa")
+                }
             }
         }
     }
+}
+
+private fun buildAddressLine(address: UserAddress): String {
+    return listOf(address.fullAddress, address.ward, address.district, address.province)
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .distinct()
+        .joinToString(", ")
 }

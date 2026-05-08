@@ -10,16 +10,25 @@ import com.example.nhathuoc.data.model.CodPaymentRequest
 import com.example.nhathuoc.data.model.NetworkResult
 import com.example.nhathuoc.data.model.PaymentInitRequest
 import com.example.nhathuoc.data.model.PaymentStatusDto
+import com.example.nhathuoc.data.model.ProductDto
 import com.example.nhathuoc.data.model.RewardVoucherDto
 import com.example.nhathuoc.data.model.UserAddress
 import com.example.nhathuoc.data.repository.AddressRepository
 import com.example.nhathuoc.data.repository.CartRepository
 import com.example.nhathuoc.data.repository.CheckoutRepository
+import com.example.nhathuoc.data.repository.ProductRepository
 import com.example.nhathuoc.data.repository.RewardRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.text.Normalizer
+import java.util.Locale
+import kotlin.math.atan2
+import kotlin.math.cos
 import javax.inject.Inject
 import kotlin.math.floor
 import kotlin.math.min
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +37,23 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val PAYMENT_RETURN_URL = "nhathuoc://payment-return"
+private const val SHOP_LAT = 20.9802
+private const val SHOP_LNG = 105.7870
+private const val INNER_CITY_RADIUS_KM = 12.0
+private val INNER_HANOI_DISTRICTS = setOf(
+    "ba dinh",
+    "hoan kiem",
+    "tay ho",
+    "long bien",
+    "cau giay",
+    "dong da",
+    "hai ba trung",
+    "hoang mai",
+    "thanh xuan",
+    "ha dong",
+    "nam tu liem",
+    "bac tu liem"
+)
 
 data class CheckoutState(
     val addresses: List<UserAddress> = emptyList(),
@@ -52,6 +78,11 @@ data class CheckoutState(
     val maxUsableRewardPoints: Int = 0,
     val estimatedRewardPoints: Int = 0,
     val total: Double = 0.0,
+    val selectedCartItemIds: List<String> = emptyList(),
+    val isDirectCheckout: Boolean = false,
+    val directProductId: String? = null,
+    val directQuantity: Int = 1,
+    val directUnit: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
     val paymentStatus: PaymentStatusDto? = null
@@ -62,6 +93,7 @@ class CheckoutViewModel @Inject constructor(
     private val checkoutRepository: CheckoutRepository,
     private val addressRepository: AddressRepository,
     private val cartRepository: CartRepository,
+    private val productRepository: ProductRepository,
     private val rewardRepository: RewardRepository
 ) : ViewModel() {
     private val _checkoutState = MutableStateFlow(CheckoutState())
@@ -108,20 +140,31 @@ class CheckoutViewModel @Inject constructor(
             when (val result = cartRepository.getCart()) {
                 is NetworkResult.Success -> {
                     val cart = result.data.data
-                    val estimatedRewardPoints = cart.items.sumOf { item ->
-                        (item.product?.rewardPoints ?: 0) * item.quantity
-                    }
                     _checkoutState.update { state ->
-                        state.copy(
-                            cartItems = cart.items,
-                            totalItems = cart.totalItems,
-                            subtotal = cart.subtotal,
-                            cartDiscount = cart.discount,
-                            discount = cart.discount,
-                            estimatedRewardPoints = estimatedRewardPoints,
-                            pointsInput = "",
-                            pointsToUse = 0
-                        )
+                        if (state.isDirectCheckout) {
+                            state
+                        } else {
+                            val selectedIds = state.selectedCartItemIds.toSet()
+                            val checkoutItems = if (selectedIds.isEmpty()) {
+                                cart.items
+                            } else {
+                                cart.items.filter { it.id in selectedIds }
+                            }
+                            val subtotal = checkoutItems.sumOf { it.totalPrice }
+                            val estimatedRewardPoints = checkoutItems.sumOf { item ->
+                                (item.product?.rewardPoints ?: 0) * item.quantity
+                            }
+                            state.copy(
+                                cartItems = checkoutItems,
+                                totalItems = checkoutItems.sumOf { it.quantity },
+                                subtotal = subtotal,
+                                cartDiscount = 0.0,
+                                discount = 0.0,
+                                estimatedRewardPoints = estimatedRewardPoints,
+                                pointsInput = "",
+                                pointsToUse = 0
+                            )
+                        }
                     }
                 }
                 is NetworkResult.Error -> {
@@ -187,8 +230,116 @@ class CheckoutViewModel @Inject constructor(
         }
     }
 
+    fun startDirectCheckout(productId: String, quantity: Int = 1, unit: String? = null) {
+        if (productId.isBlank()) return
+        val normalizedQuantity = quantity.coerceAtLeast(1)
+        val current = _checkoutState.value
+        if (
+            current.isDirectCheckout &&
+            current.directProductId == productId &&
+            current.directQuantity == normalizedQuantity &&
+            current.directUnit == unit
+        ) {
+            return
+        }
+
+        viewModelScope.launch {
+            _checkoutState.update {
+                it.copy(
+                    isDirectCheckout = true,
+                    directProductId = productId,
+                    directQuantity = normalizedQuantity,
+                    directUnit = unit,
+                    isLoading = true,
+                    error = null
+                )
+            }
+
+            when (val result = productRepository.getProductById(productId)) {
+                is NetworkResult.Success -> {
+                    val product = result.data.product
+                    val directUnit = unit?.takeIf { it.isNotBlank() } ?: product.unit
+                    val item = product.toDirectCartItem(normalizedQuantity, directUnit)
+                    val subtotal = item.totalPrice
+                    _checkoutState.update { state ->
+                        state.copy(
+                            cartItems = listOf(item),
+                            totalItems = normalizedQuantity,
+                            subtotal = subtotal,
+                            cartDiscount = 0.0,
+                            discount = 0.0,
+                            estimatedRewardPoints = product.rewardPoints * normalizedQuantity,
+                            pointsInput = "",
+                            pointsToUse = 0,
+                            isLoading = false
+                        )
+                    }
+                    recalculateTotals()
+                }
+                is NetworkResult.Error -> {
+                    _checkoutState.update {
+                        it.copy(isLoading = false, error = result.message)
+                    }
+                }
+                is NetworkResult.Exception -> {
+                    _checkoutState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.e.localizedMessage ?: "Không thể tải sản phẩm mua ngay"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun startSelectedCartCheckout(selectedItemIds: List<String>) {
+        val normalizedIds = selectedItemIds.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        _checkoutState.update { state ->
+            val selectedSet = normalizedIds.toSet()
+            val checkoutItems = if (selectedSet.isEmpty()) {
+                state.cartItems
+            } else {
+                state.cartItems.filter { it.id in selectedSet }
+            }
+            state.copy(
+                selectedCartItemIds = normalizedIds,
+                isDirectCheckout = false,
+                directProductId = null,
+                directQuantity = 1,
+                directUnit = null,
+                cartItems = checkoutItems,
+                totalItems = checkoutItems.sumOf { it.quantity },
+                subtotal = checkoutItems.sumOf { it.totalPrice },
+                cartDiscount = 0.0,
+                discount = 0.0,
+                pointsInput = "",
+                pointsToUse = 0,
+                error = null
+            )
+        }
+        loadCheckoutData()
+    }
+
+    private fun ProductDto.toDirectCartItem(quantity: Int, selectedUnit: String): CartItemDto {
+        return CartItemDto(
+            id = "direct-$id",
+            productId = id,
+            productName = name.trim(),
+            productPrice = price,
+            productImageUrl = imageUrl,
+            quantity = quantity,
+            unit = selectedUnit,
+            subtotal = price * quantity,
+            isAvailable = isActive && stock >= quantity,
+            stock = stock,
+            product = this
+        )
+    }
+
     fun selectAddress(id: String) {
         _checkoutState.update { it.copy(selectedAddressId = id) }
+        recalculateTotals()
     }
 
     fun addAddress(request: AddAddressRequest) {
@@ -204,6 +355,7 @@ class CheckoutViewModel @Inject constructor(
                             isLoading = false
                         )
                     }
+                    recalculateTotals()
                 }
                 is NetworkResult.Error -> {
                     _checkoutState.update { it.copy(isLoading = false, error = result.message) }
@@ -213,6 +365,70 @@ class CheckoutViewModel @Inject constructor(
                         it.copy(
                             isLoading = false,
                             error = result.e.localizedMessage ?: "Không thể thêm địa chỉ"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun updateAddress(addressId: String, request: AddAddressRequest) {
+        viewModelScope.launch {
+            _checkoutState.update { it.copy(isLoading = true, error = null) }
+            when (val result = addressRepository.updateAddress(addressId, request)) {
+                is NetworkResult.Success -> {
+                    val address = result.data.address
+                    _checkoutState.update { state ->
+                        state.copy(
+                            addresses = state.addresses.map { if (it.id == address.id) address else it },
+                            selectedAddressId = state.selectedAddressId ?: address.id,
+                            isLoading = false
+                        )
+                    }
+                    recalculateTotals()
+                }
+                is NetworkResult.Error -> {
+                    _checkoutState.update { it.copy(isLoading = false, error = result.message) }
+                }
+                is NetworkResult.Exception -> {
+                    _checkoutState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.e.localizedMessage ?: "Không thể cập nhật địa chỉ"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun deleteAddress(addressId: String) {
+        viewModelScope.launch {
+            _checkoutState.update { it.copy(isLoading = true, error = null) }
+            when (val result = addressRepository.deleteAddress(addressId)) {
+                is NetworkResult.Success -> {
+                    _checkoutState.update { state ->
+                        val remaining = state.addresses.filterNot { it.id == addressId }
+                        val selected = state.selectedAddressId
+                            ?.takeIf { it != addressId && remaining.any { address -> address.id == it } }
+                            ?: remaining.firstOrNull { it.isDefault }?.id
+                            ?: remaining.firstOrNull()?.id
+                        state.copy(
+                            addresses = remaining,
+                            selectedAddressId = selected,
+                            isLoading = false
+                        )
+                    }
+                    recalculateTotals()
+                }
+                is NetworkResult.Error -> {
+                    _checkoutState.update { it.copy(isLoading = false, error = result.message) }
+                }
+                is NetworkResult.Exception -> {
+                    _checkoutState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.e.localizedMessage ?: "Không thể xóa địa chỉ"
                         )
                     }
                 }
@@ -319,7 +535,7 @@ class CheckoutViewModel @Inject constructor(
                 requestedPoints.coerceAtMost(maxUsableRewardPoints)
             }
             val pointsValue = appliedPoints * 1000.0
-            val shipping = if (state.subtotal >= 500_000.0 || state.subtotal <= 0.0) 0.0 else 30_000.0
+            val shipping = estimateShippingFee(state, state.subtotal)
             val taxableAmount = (state.subtotal - combinedDiscount - pointsValue).coerceAtLeast(0.0)
             val tax = taxableAmount * 0.10
             state.copy(
@@ -346,6 +562,45 @@ class CheckoutViewModel @Inject constructor(
         return min(availablePoints, orderCap)
     }
 
+    private fun estimateShippingFee(state: CheckoutState, subtotal: Double): Double {
+        if (subtotal <= 0.0 || subtotal >= 500_000.0) return 0.0
+
+        val address = state.addresses.firstOrNull { it.id == state.selectedAddressId }
+            ?: return 0.0
+        val province = normalizeLocationText(address.province)
+        val provinceCode = address.provinceCode.orEmpty()
+        val lat = address.latitude
+        val lng = address.longitude
+        val isHanoi = provinceCode == "01" || province.contains("ha noi")
+
+        if (lat != null && lng != null) {
+            if (isHanoi || province.isBlank() && provinceCode.isBlank()) {
+                return if (distanceFromShopKm(lat, lng) <= INNER_CITY_RADIUS_KM) 10_000.0 else 20_000.0
+            }
+        }
+
+        if (!isHanoi) {
+            return 30_000.0
+        }
+
+        val district = normalizeLocationText(address.district)
+        return if (district in INNER_HANOI_DISTRICTS) 10_000.0 else 20_000.0
+    }
+
+    private fun normalizeLocationText(value: String?): String {
+        val normalized = Normalizer.normalize(value.orEmpty(), Normalizer.Form.NFD)
+        return normalized.replace("\\p{Mn}+".toRegex(), "").lowercase(Locale.ROOT)
+    }
+
+    private fun distanceFromShopKm(lat: Double, lng: Double): Double {
+        val earthRadiusKm = 6371.0
+        val dLat = Math.toRadians(lat - SHOP_LAT)
+        val dLng = Math.toRadians(lng - SHOP_LNG)
+        val a = sin(dLat / 2).pow(2.0) +
+            cos(Math.toRadians(SHOP_LAT)) * cos(Math.toRadians(lat)) * sin(dLng / 2).pow(2.0)
+        return earthRadiusKm * 2 * atan2(sqrt(a), sqrt(1 - a))
+    }
+
     fun createOrder(returnUrl: String = PAYMENT_RETURN_URL) {
         val currentState = _checkoutState.value
         if (currentState.selectedAddressId == null) {
@@ -365,7 +620,13 @@ class CheckoutViewModel @Inject constructor(
                 paymentMethod = currentState.paymentMethod,
                 rewardPointsToUse = currentState.pointsToUse,
                 promoCode = resolveActivePromoCode(currentState),
-                notes = currentState.note.ifBlank { null }
+                notes = currentState.note.ifBlank { null },
+                selectedCartItemIds = currentState.selectedCartItemIds.takeIf {
+                    !currentState.isDirectCheckout && it.isNotEmpty()
+                },
+                directProductId = currentState.directProductId.takeIf { currentState.isDirectCheckout },
+                directQuantity = currentState.directQuantity.takeIf { currentState.isDirectCheckout },
+                directUnit = currentState.directUnit.takeIf { currentState.isDirectCheckout }
             )
 
             when (val result = checkoutRepository.checkout(request)) {
@@ -386,7 +647,6 @@ class CheckoutViewModel @Inject constructor(
                     val paymentReturnUrl = buildPaymentReturnUrl(order.id, returnUrl)
                     when (currentState.paymentMethod) {
                         "MOMO" -> initiateOnlinePayment(order.id, paymentReturnUrl, "MOMO")
-                        "VNPAY" -> initiateOnlinePayment(order.id, paymentReturnUrl, "VNPAY")
                         "ZALOPAY" -> initiateOnlinePayment(order.id, paymentReturnUrl, "ZALOPAY")
                         else -> createCodPayment(order.id)
                     }
@@ -418,7 +678,6 @@ class CheckoutViewModel @Inject constructor(
         val request = PaymentInitRequest(orderId = orderId, returnUrl = returnUrl)
         val result = when (method) {
             "MOMO" -> checkoutRepository.initMomoPayment(request)
-            "VNPAY" -> checkoutRepository.initVnPayPayment(request)
             "ZALOPAY" -> checkoutRepository.initZaloPayPayment(request)
             else -> null
         }
