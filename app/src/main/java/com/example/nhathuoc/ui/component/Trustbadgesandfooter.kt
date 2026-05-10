@@ -104,26 +104,18 @@ fun HomeFooter(
         HorizontalDivider(color = Color(0xFFEEEEEE))
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "© 2007 - 2026 Công ty Cổ Phần Vật Tư Y Tế Hạ Tiến Thành",
+            text = "©2026 Công ty Tư Y Tế Hà Tiến Thành",
             fontSize = 11.sp,
             color = Color.Gray,
             textAlign = TextAlign.Center
         )
         Text(
-            text = "Số ĐKKD 0315275368 cấp ngày 17/09/2019 tại\nSở Kế hoạch Đầu tư TPHCM",
+            text = "Số ĐKKD 0315275368 cấp ngày 17/09/2019 tại\nSở Kế hoạch Đầu tư Hà Nội",
             fontSize = 11.sp,
             color = Color.Gray,
             textAlign = TextAlign.Center,
             lineHeight = 16.sp
         )
         Spacer(Modifier.height(6.dp))
-        Text(
-            text = "Địa chỉ: 379-381 Hai Bà Trưng, P.8, Q.3,\nPhường Xuân Hòa, TP. HCM.",
-            fontSize = 11.sp,
-            color = Color.Gray,
-            textAlign = TextAlign.Center,
-            lineHeight = 16.sp
-        )
-        Spacer(Modifier.height(16.dp))
     }
 }

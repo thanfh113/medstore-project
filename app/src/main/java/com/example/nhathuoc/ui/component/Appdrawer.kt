@@ -97,7 +97,6 @@ val defaultDrawerMenuItems = listOf(
         DrawerMenuItem("Vật tư phòng xét nghiệm", categoryId = "cat-lab-consumables"),
         DrawerMenuItem("Dụng cụ lấy mẫu", categoryId = "cat-sample-container"),
     )),
-    DrawerMenuItem("Hệ thống cửa hàng"),
 )
 
 
@@ -119,7 +118,7 @@ fun rememberDrawerState() = remember { DrawerState() }
 @Composable
 fun AppDrawer(
     drawerState: DrawerState,
-    userName: String = "Bảo Ngọc",
+    userName: String = "Thành",
     rewardPoints: Int = 246,
     notificationCount: Int = 3,
     onMenuItemClick: (DrawerMenuItem) -> Unit = {},

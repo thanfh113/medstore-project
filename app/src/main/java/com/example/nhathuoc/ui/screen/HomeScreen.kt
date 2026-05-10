@@ -57,7 +57,6 @@ fun HomeScreen(modifier: Modifier = Modifier, navController: NavController? = nu
             if (item.label != "Thông báo") {
                 drawerState.close()
                 when (item.label) {
-                    "Hệ thống cửa hàng" -> navController?.navigate("FindPharmacyScreen")
                     else -> {
                         val categoryId = item.categoryId ?: item.label
                         navController?.navigate("CategoryProductScreen/${Uri.encode(categoryId)}/${Uri.encode(item.label)}")
@@ -155,7 +154,6 @@ private fun HomeScreenContent(
                     ChatBanner(hasNewMessage = true, onChatClick = onChatClick)
                 }
             }
-            item { QuickAccessRow(navController = navController, modifier = Modifier.padding(horizontal = 16.dp)) }
             item {
                 PromoBannerPager(
                     items = promoItems,
@@ -217,7 +215,6 @@ private fun HomeScreenContent(
                     }
                 )
             }
-            item { FeaturedCategoriesGrid(navController = navController, modifier = Modifier.padding(horizontal = 16.dp)) }
             item { TrustBadgesGrid(modifier = Modifier.padding(horizontal = 16.dp)) }
             item { HomeFooter(modifier = Modifier.padding(horizontal = 16.dp)) }
         }
@@ -280,10 +277,8 @@ private fun HomeScreenContent(
                     .padding(bottom = 8.dp, start = 20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Outlined.Search, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("Thanh toán điện tử - Giao hàng toàn quốc ", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
-                Text("Đặt ngay", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)
+                Text("Thanh toán điện tử", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
             }
 
             Row(
@@ -350,9 +345,6 @@ private fun HomeSearchBar() {
             Icon(Icons.Outlined.Search, null, tint = Color.Gray, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
             Text("Tìm thiết bị, vật tư, dụng cụ y tế...", color = Color.Gray, fontSize = 14.sp, modifier = Modifier.weight(1f))
-            Icon(Icons.Outlined.Mic, "Voice", tint = GreenTop, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
-            Icon(Icons.Outlined.CameraAlt, "Camera", tint = GreenTop, modifier = Modifier.size(20.dp))
         }
     }
 }

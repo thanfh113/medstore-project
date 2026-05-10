@@ -28,13 +28,8 @@ data class QuickAccessItem(
 )
 
 val defaultQuickAccessItems = listOf(
-    QuickAccessItem(Icons.Outlined.MedicalServices,  "Tìm\nthiết bị",       route = "MedicalSuppliesQuoteScreen"),
-    QuickAccessItem(Icons.Outlined.RequestQuote,     "Yêu cầu\nbáo giá",    route = "MedicalSuppliesQuoteScreen"),
     QuickAccessItem(Icons.Outlined.Receipt,          "Đơn của\ntôi",        route = "MyOrdersScreen"),
-    QuickAccessItem(Icons.Outlined.LocalShipping,    "Theo dõi\ngiao hàng", route = ""),
-    QuickAccessItem(Icons.Outlined.Store,            "Cửa hàng\ngần nhất",  route = "FindPharmacyScreen"),
-    QuickAccessItem(Icons.Outlined.SupportAgent,     "Hỗ trợ\nkỹ thuật",   route = ""),
-    QuickAccessItem(Icons.Outlined.Assignment,       "Hướng dẫn\nsử dụng", route = ""),
+    QuickAccessItem(Icons.Outlined.LocalShipping,    "Theo dõi\ngiao hàng", route = "OrderConfirmationScreen"),
 )
 
 @Composable

@@ -43,9 +43,7 @@ import com.example.nhathuoc.ui.screen.miniscreen.CategoryProductScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ChatScreen
 import com.example.nhathuoc.ui.screen.miniscreen.CheckoutFlowScreen
 import com.example.nhathuoc.ui.screen.miniscreen.CreateAddressScreen
-import com.example.nhathuoc.ui.screen.miniscreen.FindPharmacyScreen
 import com.example.nhathuoc.ui.screen.miniscreen.LoginScreen
-import com.example.nhathuoc.ui.screen.miniscreen.MedicalSuppliesQuoteScreen
 import com.example.nhathuoc.ui.screen.miniscreen.NotificationScreen
 import com.example.nhathuoc.ui.screen.miniscreen.OrderConfirmationScreen
 import com.example.nhathuoc.ui.screen.miniscreen.OrderDetailScreen
@@ -120,9 +118,6 @@ fun AppnavHost(navController: NavHostController) {
                 productId = productId
             )
         }
-        composable("MedicalSuppliesQuoteScreen") {
-            MedicalSuppliesQuoteScreen(onBack = { navController.popBackStack() })
-        }
         composable("MyOrdersScreen") {
             MyOrdersScreen(
                 onBack = { navController.popBackStack() },
@@ -144,9 +139,6 @@ fun AppnavHost(navController: NavHostController) {
                 complaintId = complaintId,
                 onBack = { navController.popBackStack() }
             )
-        }
-        composable("FindPharmacyScreen") {
-            FindPharmacyScreen(onBack = { navController.popBackStack() })
         }
         composable("NotificationScreen") {
             NotificationScreen(

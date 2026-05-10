@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -105,9 +106,9 @@ fun CheckoutFlowScreen(
         it.code.equals(state.selectedVoucherCode, ignoreCase = true)
     }
     val hasPendingGatewayOrder = activeOrderId != null &&
-        activeOrderPaymentMethod == state.paymentMethod &&
-        state.paymentMethod != "COD" &&
-        state.paymentStatus?.status != "COMPLETED"
+            activeOrderPaymentMethod == state.paymentMethod &&
+            state.paymentMethod != "COD" &&
+            state.paymentStatus?.status != "COMPLETED"
     val primaryActionLabel = when {
         hasPendingGatewayOrder -> "Tiếp tục thanh toán"
         state.paymentMethod == "COD" -> "Đặt hàng"
@@ -339,12 +340,28 @@ fun CheckoutFlowScreen(
                     title = "Địa chỉ giao hàng",
                     icon = Icons.Filled.LocationOn,
                     action = {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { navController.navigate("AddressSelectionScreen") }) {
-                                Text(if (selectedAddress == null) "Chọn địa chỉ" else "Thay đổi")
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(
+                                onClick = { navController.navigate("AddressSelectionScreen") },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    if (selectedAddress == null) "Chọn" else "Đổi",
+                                    color = GreenTop,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
-                            TextButton(onClick = { navController.navigate("AddAddressScreen") }) {
-                                Text("Thêm mới")
+                            TextButton(
+                                onClick = { navController.navigate("AddAddressScreen") },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    "+ Thêm",
+                                    color = GreenTop,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -488,24 +505,29 @@ private fun CheckoutSectionCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                // Title chiếm phần còn lại SAU khi action đã đo xong
                 Row(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f, fill = false),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(icon, contentDescription = null, tint = GreenTop)
-                    Spacer(modifier = Modifier.size(10.dp))
+                    Icon(icon, contentDescription = null, tint = GreenTop, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         title,
                         fontWeight = FontWeight.Bold,
                         color = GreenTop,
-                        fontSize = 18.sp,
+                        fontSize = 15.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                action?.invoke()
+                // Action buttons không bị clip và không đẩy title
+                if (action != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    action()
+                }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             content()
         }
     }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
@@ -502,8 +503,8 @@ private fun CartItemCard(
     val draftQuantity = quantityText.toIntOrNull()
     val quantityError = quantityText.isNotBlank() && (draftQuantity == null || draftQuantity !in 1..maxQuantity)
     val canSaveQuantity = draftQuantity != null &&
-        draftQuantity in 1..maxQuantity &&
-        draftQuantity != item.quantity
+            draftQuantity in 1..maxQuantity &&
+            draftQuantity != item.quantity
 
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -604,44 +605,84 @@ private fun CartItemCard(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
+                    // Stepper gọn: nút tròn − | số | nút tròn +
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(0.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFF3F7F4))
                     ) {
+                        // Nút giảm
                         IconButton(
                             onClick = { onQuantityChange(item.quantity - 1) },
                             enabled = item.quantity > 1,
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(40.dp)
                         ) {
-                            Icon(Icons.Filled.Remove, contentDescription = "Giảm", tint = CartGreen)
+                            Icon(
+                                Icons.Filled.Remove,
+                                contentDescription = "Giảm",
+                                tint = if (item.quantity > 1) CartGreen else Color(0xFFBDBDBD),
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-                        OutlinedTextField(
-                            value = quantityText,
-                            onValueChange = { input ->
-                                quantityText = input.filter { it.isDigit() }.take(4)
-                            },
-                            singleLine = true,
-                            isError = quantityError,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                textAlign = TextAlign.Center,
-                                fontWeight = FontWeight.Bold
-                            ),
+                        // Số lượng — bấm để nhập tay
+                        Surface(
+                            color = Color.White,
+                            shape = RoundedCornerShape(8.dp),
                             modifier = Modifier
-                                .width(68.dp)
-                                .height(48.dp)
-                        )
+                                .defaultMinSize(minWidth = 42.dp)
+                                .padding(vertical = 4.dp)
+                        ) {
+                            androidx.compose.foundation.text.BasicTextField(
+                                value = quantityText,
+                                onValueChange = { input ->
+                                    quantityText = input.filter { it.isDigit() }.take(4)
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    textAlign = TextAlign.Center,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = if (quantityError) CartRed else Color(0xFF1A1A1A)
+                                ),
+                                modifier = Modifier
+                                    .width(42.dp)
+                                    .padding(vertical = 6.dp),
+                                decorationBox = { inner ->
+                                    Box(contentAlignment = Alignment.Center) { inner() }
+                                }
+                            )
+                        }
+                        // Nút tăng
                         IconButton(
                             onClick = { onQuantityChange(item.quantity + 1) },
                             enabled = item.quantity < maxQuantity,
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(40.dp)
                         ) {
-                            Icon(Icons.Filled.Add, contentDescription = "Tăng", tint = CartGreen)
+                            Icon(
+                                Icons.Filled.Add,
+                                contentDescription = "Tăng",
+                                tint = if (item.quantity < maxQuantity) CartGreen else Color(0xFFBDBDBD),
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-                        if (canSaveQuantity) {
-                            TextButton(onClick = { onQuantityChange(draftQuantity!!) }) {
-                                Text("Lưu", color = CartGreen, fontWeight = FontWeight.Bold)
-                            }
+                    }
+                    // Nút Lưu nhỏ nếu người dùng chỉnh tay
+                    if (canSaveQuantity) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = CartGreen,
+                            onClick = { onQuantityChange(draftQuantity!!) }
+                        ) {
+                            Text(
+                                "Lưu",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
                         }
                     }
                 }

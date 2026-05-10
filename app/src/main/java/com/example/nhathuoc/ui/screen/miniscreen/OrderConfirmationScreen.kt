@@ -1,16 +1,24 @@
 ﻿package com.example.nhathuoc.ui.screen.miniscreen
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.ListAlt
+import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -18,6 +26,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.nhathuoc.ui.theme.GreenTop
+
+private val GreenLight = Color(0xFFE8F5E9)
+private val GreenMid = Color(0xFF81C784)
+private val GreenDark = Color(0xFF2E7D32)
+private val TextPrimary = Color(0xFF1B2B1F)
+private val TextSecondary = Color(0xFF5A7A62)
+private val BgGray = Color(0xFFF3F7F4)
 
 @Composable
 fun OrderConfirmationScreen(
@@ -27,100 +42,234 @@ fun OrderConfirmationScreen(
     onNavigateHome: () -> Unit = { navController?.navigate("MainScreen") },
     onNavigateToOrders: () -> Unit = { navController?.navigate("MyOrdersScreen") }
 ) {
-    Column(
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+
+    val iconScale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "iconScale"
+    )
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F7FA))
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFFF0FDF4), BgGray),
+                    startY = 0f,
+                    endY = 600f
+                )
+            )
     ) {
-        Surface(
-            shape = CircleShape,
-            color = Color(0xFFE8F5E9),
-            modifier = Modifier.size(100.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            // Animated success icon
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .scale(iconScale)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(Color(0xFFE8F5E9), Color(0xFFB2DFDB))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
                     imageVector = Icons.Filled.CheckCircle,
                     contentDescription = "Thành công",
                     tint = GreenTop,
-                    modifier = Modifier.size(60.dp)
+                    modifier = Modifier.size(72.dp)
                 )
             }
-        }
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(28.dp))
 
-        Text(
-            text = if (useMockData) "Đặt hàng thử nghiệm thành công!" else "Đặt hàng thành công!",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF1A1A1A)
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "Cảm ơn bạn đã mua sắm. Đơn hàng của bạn đang được xử lý.",
-            fontSize = 14.sp,
-            color = Color.Gray,
-            textAlign = TextAlign.Center,
-            lineHeight = 20.sp,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            color = Color.White,
-            shadowElevation = 2.dp
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.ReceiptLong,
-                    contentDescription = "Mã đơn hàng",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(24.dp)
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(400, delayMillis = 200)) + slideInVertically(
+                    initialOffsetY = { 30 },
+                    animationSpec = tween(400, delayMillis = 200)
                 )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text("Mã đơn hàng", fontSize = 12.sp, color = Color.Gray)
-                    Text(orderId, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = if (useMockData) "Đặt thử nghiệm thành công!" else "Đặt hàng thành công!",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = GreenDark,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Đơn hàng đang được xử lý.\nChúng tôi sẽ liên hệ sớm nhất có thể.",
+                        fontSize = 14.sp,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 21.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(28.dp))
+
+            // Order ID card
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(400, delayMillis = 350)) + slideInVertically(
+                    initialOffsetY = { 30 },
+                    animationSpec = tween(400, delayMillis = 350)
+                )
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White,
+                    shadowElevation = 2.dp
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Mã đơn hàng", fontSize = 13.sp, color = TextSecondary)
+                            Icon(
+                                Icons.Outlined.ContentCopy,
+                                contentDescription = "Copy",
+                                tint = GreenTop,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Text(
+                            orderId,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GreenDark,
+                            letterSpacing = 0.5.sp
+                        )
+                        HorizontalDivider(color = Color(0xFFE0EDE3))
+                        // Status steps
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceAround
+                        ) {
+                            StatusStep(label = "Đã đặt", done = true)
+                            StatusDivider()
+                            StatusStep(label = "Xác nhận", done = false)
+                            StatusDivider()
+                            StatusStep(label = "Đang giao", done = false)
+                            StatusDivider()
+                            StatusStep(label = "Đã nhận", done = false)
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(36.dp))
+
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(400, delayMillis = 500)) + slideInVertically(
+                    initialOffsetY = { 30 },
+                    animationSpec = tween(400, delayMillis = 500)
+                )
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Button(
+                        onClick = onNavigateToOrders,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(0.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.ListAlt,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Xem đơn hàng",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = onNavigateHome,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFB2DFDB)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop)
+                    ) {
+                        Icon(
+                            Icons.Outlined.Home,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Về trang chủ", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        Button(
-            onClick = onNavigateHome,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
-            shape = RoundedCornerShape(26.dp)
-        ) {
-            Text("Về trang chủ", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedButton(
-            onClick = onNavigateToOrders,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(26.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, GreenTop),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop)
-        ) {
-            Text("Xem đơn hàng", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        }
     }
+}
+
+@Composable
+private fun StatusStep(label: String, done: Boolean) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(if (done) GreenTop else Color(0xFFE0EDE3)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (done) {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+        Text(
+            label,
+            fontSize = 10.sp,
+            color = if (done) GreenTop else TextSecondary,
+            fontWeight = if (done) FontWeight.Bold else FontWeight.Normal
+        )
+    }
+}
+
+@Composable
+private fun StatusDivider() {
+    Box(
+        modifier = Modifier
+            .padding(bottom = 14.dp)
+            .width(20.dp)
+            .height(2.dp)
+            .background(Color(0xFFE0EDE3))
+    )
 }

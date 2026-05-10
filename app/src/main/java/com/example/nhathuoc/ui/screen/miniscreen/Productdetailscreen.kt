@@ -46,6 +46,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import com.example.nhathuoc.data.model.ProductReviewSummaryDto
@@ -222,14 +224,13 @@ fun ProductDetailScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(product.iconBg.copy(alpha = 0.15f + page * 0.05f)),
+                            .background(product.iconBg.copy(alpha = 0.08f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(160.dp)
-                                .clip(CircleShape)
-                                .background(product.iconBg),
+                                .fillMaxSize()
+                                .padding(24.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             val currentImageResId = if (product.imageResIds.isNotEmpty() && page < product.imageResIds.size) {
@@ -560,7 +561,7 @@ fun ProductDetailScreen(
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Text("Thông tin nổi bật", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
                     Spacer(Modifier.height(10.dp))
-                    InfoRow(Icons.Outlined.LocalShipping,  GreenTop,           "Giao nhanh 2 giờ - hỏa tốc toàn quốc")
+                    InfoRow(Icons.Outlined.LocalShipping,  GreenTop,           "Giao nhanh")
                     InfoRow(Icons.Outlined.VerifiedUser,   Color(0xFF2E7D32),  "Vật tư chính hãng, có giấy phép lưu hành")
                     InfoRow(Icons.Outlined.SwapHoriz,      Color(0xFFE65100),  "Đổi trả trong 30 ngày nếu lỗi nhà sản xuất")
                     InfoRow(Icons.Outlined.SupportAgent,   Color(0xFF6A1B9A),  "Kỹ thuật viên hỗ trợ kỹ thuật 24/7")
@@ -634,9 +635,9 @@ fun ProductDetailScreen(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         "${product.name} là vật tư y tế chính hãng, nguồn gốc ${product.origin}, " +
-                        "thương hiệu ${product.brand}. " +
-                        "Sản phẩm đạt tiêu chuẩn kiểm định chất lượng, được cấp phép lưu hành " +
-                        "và phân phối bởi hệ thống MedStore.",
+                                "thương hiệu ${product.brand}. " +
+                                "Sản phẩm đạt tiêu chuẩn kiểm định chất lượng, được cấp phép lưu hành " +
+                                "và phân phối bởi hệ thống MedStore.",
                         fontSize = 13.sp,
                         color = Color(0xFF555555),
                         lineHeight = 20.sp
@@ -775,131 +776,306 @@ private fun ReviewInputDialog(
         attachments = (attachments + picked).distinctBy { it.uri }.take(5)
     }
 
-    AlertDialog(
+    // Dùng Dialog custom thay AlertDialog để tránh bị cắt nội dung + nút
+    Dialog(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
-        titleContentColor = GreenTop,
-        textContentColor = Color(0xFF1A1A1A),
-        title = { Text("Viết đánh giá", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Chọn số sao", fontWeight = FontWeight.SemiBold, color = Color(0xFF1A1A1A))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    (1..5).forEach { value ->
-                        FilterChip(
-                            selected = rating == value,
-                            onClick = { rating = value },
-                            label = { Text("$value") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = Color.White,
-                                labelColor = Color(0xFF333333),
-                                selectedContainerColor = Color(0xFFE8F5E9),
-                                selectedLabelColor = GreenTop
-                            ),
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Filled.Star,
-                                    contentDescription = null,
-                                    tint = GoldColor,
-                                    modifier = Modifier.size(16.dp)
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            tonalElevation = 6.dp
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // ── Header ─────────────────────────────────────────────────
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 24.dp, start = 24.dp, end = 24.dp, bottom = 0.dp)
+                ) {
+                    Text(
+                        "Viết đánh giá",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = GreenTop
+                    )
+                    Text(
+                        "Chia sẻ trải nghiệm của bạn về sản phẩm",
+                        fontSize = 13.sp,
+                        color = Color(0xFF5A7A62),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+
+                // ── Scrollable body ────────────────────────────────────────
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 480.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // Star picker — tap trực tiếp lên ngôi sao
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Đánh giá của bạn",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp,
+                            color = Color(0xFF374151)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // 5 ngôi sao tap được, to rõ
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                (1..5).forEach { value ->
+                                    Icon(
+                                        imageVector = if (value <= rating) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                                        contentDescription = "$value sao",
+                                        tint = if (value <= rating) GoldColor else Color(0xFFD1D5DB),
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clickable(
+                                                indication = null,
+                                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                                            ) { rating = value }
+                                    )
+                                }
+                            }
+                            // Label mô tả mức sao
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = starLabelBg(rating)
+                            ) {
+                                Text(
+                                    starLabel(rating),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = starLabelFg(rating),
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                 )
                             }
+                        }
+                    }
+
+                    // Bonus điểm hint khi chọn 5 sao
+                    if (rating == 5) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFFFFBEB)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text("⭐", fontSize = 14.sp)
+                                Text(
+                                    "Đánh giá 5 sao sẽ được cộng +200 điểm thưởng!",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF92400E)
+                                )
+                            }
+                        }
+                    }
+
+                    // Tiêu đề
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Tiêu đề (tuỳ chọn)", fontSize = 13.sp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GreenTop,
+                            focusedLabelColor = GreenTop,
+                            unfocusedBorderColor = Color(0xFFE0EDE3),
+                            cursorColor = GreenTop
+                        )
+                    )
+
+                    // Nội dung đánh giá
+                    OutlinedTextField(
+                        value = comment,
+                        onValueChange = { comment = it },
+                        label = { Text("Nội dung đánh giá *", fontSize = 13.sp) },
+                        placeholder = { Text("Bạn cảm thấy thế nào về sản phẩm?", fontSize = 13.sp, color = Color(0xFFB0BEC5)) },
+                        minLines = 3,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GreenTop,
+                            focusedLabelColor = GreenTop,
+                            unfocusedBorderColor = Color(0xFFE0EDE3),
+                            cursorColor = GreenTop
+                        )
+                    )
+
+                    // Đính kèm file
+                    OutlinedButton(
+                        onClick = { filePicker.launch(arrayOf("image/*", "application/pdf")) },
+                        enabled = !isSubmitting && attachments.size < 5,
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0EDE3)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop)
+                    ) {
+                        Icon(Icons.Outlined.AttachFile, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Thêm ảnh / PDF  (${attachments.size}/5)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
-                }
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Tiêu đề") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenTop,
-                        focusedLabelColor = GreenTop,
-                        cursorColor = GreenTop
-                    )
-                )
-                OutlinedTextField(
-                    value = comment,
-                    onValueChange = { comment = it },
-                    label = { Text("Nội dung đánh giá") },
-                    minLines = 3,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenTop,
-                        focusedLabelColor = GreenTop,
-                        cursorColor = GreenTop
-                    )
-                )
-                OutlinedButton(
-                    onClick = { filePicker.launch(arrayOf("image/*", "application/pdf")) },
-                    enabled = !isSubmitting,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Outlined.AttachFile, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Thêm ảnh/PDF (${attachments.size}/5)")
-                }
-                attachments.forEach { attachment ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "${attachment.fileType} • ${attachment.name}",
-                            fontSize = 12.sp,
-                            color = Color(0xFF555555),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(
-                            onClick = { attachments = attachments.filterNot { it.uri == attachment.uri } },
-                            enabled = !isSubmitting
+
+                    // Danh sách file đính kèm
+                    if (attachments.isNotEmpty()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            attachments.forEach { att ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFFF0F4F1)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(
+                                                if (att.fileType == "IMAGE") Icons.Outlined.Image else Icons.Outlined.PictureAsPdf,
+                                                contentDescription = null,
+                                                tint = GreenTop,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Text(
+                                                att.name,
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF374151),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        TextButton(
+                                            onClick = { attachments = attachments.filterNot { it.uri == att.uri } },
+                                            enabled = !isSubmitting,
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text("Xóa", color = RedColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Error banner
+                    if (!errorMessage.isNullOrBlank()) {
+                        Surface(
+                            color = Color(0xFFFFEBEE),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Xóa", color = RedColor)
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Outlined.ErrorOutline, null, tint = RedColor, modifier = Modifier.size(16.dp))
+                                Text(errorMessage, color = Color(0xFFC62828), fontSize = 12.sp)
+                            }
                         }
                     }
                 }
-                if (!errorMessage.isNullOrBlank()) {
-                    Surface(
-                        color = Color(0xFFFFEBEE),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
+
+                // ── Action buttons — LUÔN hiển thị, không bị cắt ────────
+                HorizontalDivider(color = Color(0xFFE0EDE3))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        enabled = !isSubmitting,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0EDE3)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF374151))
                     ) {
-                        Text(
-                            errorMessage,
-                            color = Color(0xFFC62828),
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(10.dp)
-                        )
+                        Text("Đóng", fontWeight = FontWeight.SemiBold)
+                    }
+                    Button(
+                        onClick = { onSubmit(rating, title, comment, attachments.map { it.uri }) },
+                        enabled = !isSubmitting && comment.isNotBlank(),
+                        modifier = Modifier.weight(2f).height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = GreenTop,
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFB0C4B1)
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(0.dp)
+                    ) {
+                        if (isSubmitting) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Filled.Star, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Gửi đánh giá", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onSubmit(rating, title, comment, attachments.map { it.uri }) },
-                enabled = !isSubmitting && comment.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = GreenTop,
-                    contentColor = Color.White
-                )
-            ) {
-                Text(if (isSubmitting) "Đang gửi..." else "Gửi")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(
-                onClick = onDismiss,
-                enabled = !isSubmitting,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop)
-            ) {
-                Text("Đóng")
-            }
         }
-    )
+    }
+}
+
+// Helpers cho star label
+private fun starLabel(rating: Int) = when (rating) {
+    1 -> "Rất tệ"
+    2 -> "Không tốt"
+    3 -> "Bình thường"
+    4 -> "Hài lòng"
+    5 -> "Tuyệt vời ★"
+    else -> ""
+}
+
+private fun starLabelBg(rating: Int) = when (rating) {
+    1, 2 -> Color(0xFFFFEBEE)
+    3    -> Color(0xFFFFF3E0)
+    4    -> Color(0xFFE8F5E9)
+    5    -> Color(0xFFE8F5E9)
+    else -> Color(0xFFF3F4F6)
+}
+
+private fun starLabelFg(rating: Int) = when (rating) {
+    1, 2 -> Color(0xFFE53935)
+    3    -> Color(0xFFD97706)
+    4    -> GreenTop
+    5    -> GreenTop
+    else -> Color(0xFF6B7280)
 }
 
 @Composable
@@ -1128,8 +1304,8 @@ private fun CertificatePreviewRow(cert: ProductCertificate) {
     }
     val hasFile = resolvedFileUrl.isNotBlank()
     val isPdf = cert.fileType?.equals("PDF", ignoreCase = true) == true ||
-        cert.resourceType?.equals("raw", ignoreCase = true) == true ||
-        resolvedFileUrl.isPdfUrl()
+            cert.resourceType?.equals("raw", ignoreCase = true) == true ||
+            resolvedFileUrl.isPdfUrl()
     val (icon, iconColor) = when (cert.type) {
         "REGISTRATION"   -> Pair(Icons.Outlined.AssignmentTurnedIn, Color(0xFF2E7D32))
         "IMPORT_LICENSE" -> Pair(Icons.Outlined.LocalShipping,       Color(0xFF1565C0))
@@ -1525,64 +1701,64 @@ private fun ProductBottomBar(
                         }
                     }
                 }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Chat / tư vấn kỹ thuật
-                Box(
+                Row(
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(Brush.verticalGradient(listOf(GreenTop, GreenLight)))
-                        .clickable { onChat() },
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Outlined.SupportAgent,
-                        contentDescription = "Tư vấn kỹ thuật",
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+                    // Chat / tư vấn kỹ thuật
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(Brush.verticalGradient(listOf(GreenTop, GreenLight)))
+                            .clickable { onChat() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Outlined.SupportAgent,
+                            contentDescription = "Tư vấn kỹ thuật",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
 
-                // Thêm vào giỏ hàng
-                OutlinedButton(
-                    onClick = { onAddToCart(selectedQuantity) },
-                    enabled = canOrderOnline,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop),
-                    border = ButtonDefaults.outlinedButtonBorder(enabled = canOrderOnline).copy(width = 1.5.dp)
-                ) {
-                    Icon(Icons.Outlined.ShoppingCart, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Vào giỏ", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                }
+                    // Thêm vào giỏ hàng
+                    OutlinedButton(
+                        onClick = { onAddToCart(selectedQuantity) },
+                        enabled = canOrderOnline,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop),
+                        border = ButtonDefaults.outlinedButtonBorder(enabled = canOrderOnline).copy(width = 1.5.dp)
+                    ) {
+                        Icon(Icons.Outlined.ShoppingCart, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Vào giỏ", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    }
 
-                // Mua ngay -> cart/checkout
-                Button(
-                    onClick = { onBuyNow(selectedQuantity) },
-                    enabled = canOrderOnline,
-                    modifier = Modifier
-                        .weight(1.4f)
-                        .height(48.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
-                ) {
-                    Text(
-                        "Mua ngay",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
+                    // Mua ngay -> cart/checkout
+                    Button(
+                        onClick = { onBuyNow(selectedQuantity) },
+                        enabled = canOrderOnline,
+                        modifier = Modifier
+                            .weight(1.4f)
+                            .height(48.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
+                    ) {
+                        Text(
+                            "Mua ngay",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
                 }
-            }
             }
         }
     }

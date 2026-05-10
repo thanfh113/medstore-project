@@ -1,19 +1,31 @@
 package com.example.nhathuoc.ui.screen.miniscreen
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
+import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -21,6 +33,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.util.ValidationUtils
+
+private val GreenLight = Color(0xFFE8F5E9)
+private val GreenMid = Color(0xFFA5D6A7)
+private val TextPrimary = Color(0xFF1B2B1F)
+private val TextSecondary = Color(0xFF5A7A62)
+private val BgGray = Color(0xFFF3F7F4)
+private val ErrorRed = Color(0xFFE53935)
+private val DividerColor = Color(0xFFE0EDE3)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,47 +62,71 @@ fun AddAddressScreen(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Thêm địa chỉ mới", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowBackIosNew,
-                            contentDescription = "Quay lại",
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.White
+            Surface(shadowElevation = 2.dp, color = Color.White) {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "Thêm địa chỉ mới",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                "Điền thông tin giao hàng",
+                                fontSize = 12.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(BgGray),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.ArrowBackIosNew,
+                                    contentDescription = "Quay lại",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = GreenTop
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color.White
+                        ,
+                        titleContentColor = Color(0xFF1B2B1F),
+                        navigationIconContentColor = Color(0xFF1B2B1F)
+                    )
                 )
-            )
+            }
         },
         bottomBar = {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color.White,
-                shadowElevation = 8.dp
+                shadowElevation = 12.dp
             ) {
-                Box(
+                Column(
                     modifier = Modifier
                         .navigationBarsPadding()
-                        .padding(16.dp)
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     Button(
                         onClick = {
-                            // Validate
                             val (isNameValid, nameErrMsg) = ValidationUtils.isValidFullName(name)
                             nameError = nameErrMsg
-
                             val (isPhoneValid, phoneErrMsg) = ValidationUtils.isValidVietnamesePhone(phone)
                             phoneError = phoneErrMsg
-
                             val isAddressValid = ValidationUtils.isRequired(specificAddress) && ValidationUtils.isRequired(province)
-                            addressError = if (!isAddressValid) "Vui lòng nhập đầy đủ Tỉnh/Thành phố và Địa chỉ cụ thể" else null
-
+                            addressError = if (!isAddressValid) "Vui lòng nhập Tỉnh/Thành phố và Địa chỉ cụ thể" else null
                             if (isNameValid && isPhoneValid && isAddressValid) {
-                                // Tạo chuỗi địa chỉ đầy đủ
                                 val parts = listOf(specificAddress, ward, district, province).filter { it.isNotBlank() }
                                 val fullAddress = parts.joinToString(", ")
                                 onSave(name, phone, fullAddress, isDefault)
@@ -90,124 +134,263 @@ fun AddAddressScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp),
-                        shape = RoundedCornerShape(25.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                     ) {
-                        Text("Lưu địa chỉ", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            "Lưu địa chỉ",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            letterSpacing = 0.5.sp
+                        )
                     }
                 }
             }
         },
-        containerColor = Color(0xFFF5F7FA)
+        containerColor = BgGray
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Thông tin liên hệ
-            Text("Thông tin liên hệ", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
-            
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it; nameError = null },
-                label = { Text("Họ và tên") },
-                isError = nameError != null,
-                supportingText = if (nameError != null) { { Text(nameError!!) } } else null,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GreenTop)
-            )
-
-            OutlinedTextField(
-                value = phone,
-                onValueChange = { phone = it; phoneError = null },
-                label = { Text("Số điện thoại") },
-                isError = phoneError != null,
-                supportingText = if (phoneError != null) { { Text(phoneError!!) } } else null,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GreenTop)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Địa chỉ
-            Text("Địa chỉ giao hàng", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
-
-            OutlinedTextField(
-                value = province,
-                onValueChange = { province = it; addressError = null },
-                label = { Text("Tỉnh / Thành phố") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GreenTop)
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = district,
-                    onValueChange = { district = it },
-                    label = { Text("Quận / Huyện") },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GreenTop)
+            // === CONTACT SECTION ===
+            FormSection(
+                title = "Thông tin liên hệ",
+                icon = Icons.Outlined.Badge
+            ) {
+                StyledTextField(
+                    value = name,
+                    onValueChange = { name = it; nameError = null },
+                    label = "Họ và tên người nhận",
+                    placeholder = "Nguyễn Văn A",
+                    leadingIcon = Icons.Outlined.Badge,
+                    error = nameError,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                 )
-                OutlinedTextField(
-                    value = ward,
-                    onValueChange = { ward = it },
-                    label = { Text("Phường / Xã") },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GreenTop)
+                Spacer(Modifier.height(4.dp))
+                StyledTextField(
+                    value = phone,
+                    onValueChange = { phone = it; phoneError = null },
+                    label = "Số điện thoại",
+                    placeholder = "0912 345 678",
+                    leadingIcon = Icons.Outlined.Phone,
+                    error = phoneError,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Phone,
+                        imeAction = ImeAction.Next
+                    )
                 )
             }
 
-            OutlinedTextField(
-                value = specificAddress,
-                onValueChange = { specificAddress = it; addressError = null },
-                label = { Text("Địa chỉ cụ thể (Số nhà, Tên đường...)") },
-                isError = addressError != null,
-                supportingText = if (addressError != null) { { Text(addressError!!) } } else null,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GreenTop)
-            )
+            // === ADDRESS SECTION ===
+            FormSection(
+                title = "Địa chỉ giao hàng",
+                icon = Icons.Outlined.LocationOn
+            ) {
+                StyledTextField(
+                    value = province,
+                    onValueChange = { province = it; addressError = null },
+                    label = "Tỉnh / Thành phố",
+                    placeholder = "TP. Hồ Chí Minh",
+                    leadingIcon = Icons.Outlined.LocationOn,
+                    error = null,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        StyledTextField(
+                            value = district,
+                            onValueChange = { district = it },
+                            label = "Quận / Huyện",
+                            placeholder = "Quận 1",
+                            leadingIcon = null,
+                            error = null,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        StyledTextField(
+                            value = ward,
+                            onValueChange = { ward = it },
+                            label = "Phường / Xã",
+                            placeholder = "Phường Bến Nghé",
+                            leadingIcon = null,
+                            error = null,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                StyledTextField(
+                    value = specificAddress,
+                    onValueChange = { specificAddress = it; addressError = null },
+                    label = "Địa chỉ cụ thể",
+                    placeholder = "Số nhà, tên đường...",
+                    leadingIcon = Icons.Outlined.Home,
+                    error = addressError,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    singleLine = false,
+                    minLines = 2
+                )
+            }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Tùy chọn đặt làm mặc định
+            // === DEFAULT TOGGLE ===
             Surface(
-                modifier = Modifier.fillMaxWidth().clickable { isDefault = !isDefault },
-                color = Color.Transparent
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = if (isDefault) GreenLight else Color.White,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.5.dp,
+                    if (isDefault) GreenTop else DividerColor
+                )
             ) {
                 Row(
-                    modifier = Modifier.padding(vertical = 8.dp),
+                    modifier = Modifier
+                        .clickable { isDefault = !isDefault }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Đặt làm địa chỉ mặc định", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Column {
+                        Text(
+                            "Đặt làm địa chỉ mặc định",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isDefault) GreenTop else TextPrimary
+                        )
+                        Text(
+                            "Dùng cho mọi đơn hàng tiếp theo",
+                            fontSize = 12.sp,
+                            color = if (isDefault) TextSecondary else Color(0xFF9CA3AF)
+                        )
+                    }
                     Switch(
                         checked = isDefault,
                         onCheckedChange = { isDefault = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = GreenTop)
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = GreenTop,
+                            uncheckedThumbColor = Color.White,
+                            uncheckedTrackColor = Color(0xFFCDD5CF)
+                        )
                     )
                 }
+            }
+
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun FormSection(
+    title: String,
+    icon: ImageVector,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        shadowElevation = 1.dp
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 14.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(GreenLight),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, contentDescription = null, tint = GreenTop, modifier = Modifier.size(18.dp))
+                }
+                Text(
+                    title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    letterSpacing = 0.2.sp
+                )
+            }
+            HorizontalDivider(color = DividerColor, thickness = 1.dp, modifier = Modifier.padding(bottom = 14.dp))
+            content()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StyledTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    leadingIcon: ImageVector?,
+    error: String?,
+    keyboardOptions: KeyboardOptions,
+    singleLine: Boolean = true,
+    minLines: Int = 1
+) {
+    Column {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(label, fontSize = 13.sp) },
+            placeholder = { Text(placeholder, color = Color(0xFFB0BEC5), fontSize = 14.sp) },
+            leadingIcon = if (leadingIcon != null) {
+                {
+                    Icon(
+                        leadingIcon,
+                        contentDescription = null,
+                        tint = if (error != null) ErrorRed else GreenTop,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            } else null,
+            isError = error != null,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            keyboardOptions = keyboardOptions,
+            singleLine = singleLine,
+            minLines = minLines,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = GreenTop,
+                unfocusedBorderColor = DividerColor,
+                errorBorderColor = ErrorRed,
+                focusedLabelColor = GreenTop,
+                unfocusedLabelColor = TextSecondary,
+                errorLabelColor = ErrorRed,
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color(0xFFFAFCFA)
+            )
+        )
+        AnimatedVisibility(
+            visible = error != null,
+            enter = fadeIn() + slideInVertically(),
+            exit = fadeOut()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 12.dp, top = 4.dp)
+            ) {
+                Text(
+                    text = error ?: "",
+                    color = ErrorRed,
+                    fontSize = 12.sp
+                )
             }
         }
     }

@@ -6,11 +6,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBackIosNew
-import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,6 +22,12 @@ import androidx.compose.ui.unit.sp
 import com.example.nhathuoc.data.model.UserAddressDto
 import com.example.nhathuoc.ui.theme.GreenTop
 
+private val GreenLight = Color(0xFFE8F5E9)
+private val TextPrimary = Color(0xFF1B2B1F)
+private val TextSecondary = Color(0xFF5A7A62)
+private val BgGray = Color(0xFFF3F7F4)
+private val DividerColor = Color(0xFFE0EDE3)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddressSelectionScreen(
@@ -34,50 +39,65 @@ fun AddressSelectionScreen(
 ) {
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Chọn địa chỉ giao hàng", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowBackIosNew,
-                            contentDescription = "Quay lại",
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.White
+            Surface(shadowElevation = 2.dp, color = Color.White) {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "Chọn địa chỉ giao hàng",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                "${addresses.size} địa chỉ",
+                                fontSize = 12.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(BgGray),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Filled.ArrowBackIosNew,
+                                    contentDescription = "Quay lại",
+                                    tint = GreenTop,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
                 )
-            )
+            }
         },
         bottomBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
-                shadowElevation = 8.dp
-            ) {
-                Box(
+            Surface(color = Color.White, shadowElevation = 12.dp) {
+                Button(
+                    onClick = onAddNewAddress,
                     modifier = Modifier
+                        .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(16.dp)
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                    elevation = ButtonDefaults.buttonElevation(0.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = onAddNewAddress,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
-                        shape = RoundedCornerShape(25.dp),
-                        border = BorderStroke(1.dp, GreenTop),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop)
-                    ) {
-                        Icon(Icons.Filled.Add, contentDescription = "Thêm", modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Thêm địa chỉ mới", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Thêm địa chỉ mới", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             }
         },
-        containerColor = Color(0xFFF5F7FA)
+        containerColor = BgGray
     ) { padding ->
         if (addresses.isEmpty()) {
             Box(
@@ -86,7 +106,36 @@ fun AddressSelectionScreen(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Bạn chưa có địa chỉ nào lưu sẵn.", color = Color.Gray, fontSize = 15.sp)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(GreenLight),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.LocationOn,
+                            contentDescription = null,
+                            tint = GreenTop,
+                            modifier = Modifier.size(42.dp)
+                        )
+                    }
+                    Text(
+                        "Chưa có địa chỉ nào",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = TextPrimary
+                    )
+                    Text(
+                        "Thêm địa chỉ để tiếp tục đặt hàng.",
+                        color = TextSecondary,
+                        fontSize = 14.sp
+                    )
+                }
             }
         } else {
             LazyColumn(
@@ -94,52 +143,96 @@ fun AddressSelectionScreen(
                     .fillMaxSize()
                     .padding(padding),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(addresses, key = { it.id }) { address ->
                     val isSelected = selectedAddressId == address.id
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
                             .clickable { onAddressSelected(address.id) },
-                        color = if (isSelected) Color(0xFFE8F5E9) else Color.White,
-                        border = BorderStroke(1.5.dp, if (isSelected) GreenTop else Color.Transparent),
-                        shadowElevation = 1.dp
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isSelected) GreenLight else Color.White,
+                        border = BorderStroke(
+                            if (isSelected) 2.dp else 1.dp,
+                            if (isSelected) GreenTop else DividerColor
+                        ),
+                        shadowElevation = if (isSelected) 0.dp else 1.dp
                     ) {
                         Row(
                             modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Icon(Icons.Filled.LocationOn, "Location", tint = GreenTop)
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(if (isSelected) GreenTop else Color(0xFFF0F4F1)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Filled.LocationOn,
+                                    contentDescription = null,
+                                    tint = if (isSelected) Color.White else GreenTop,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+
                             Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(address.recipientName ?: "Chưa có tên", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        address.recipientName ?: "Chưa có tên",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = if (isSelected) Color(0xFF2E7D32) else TextPrimary
+                                    )
                                     if (address.isDefault) {
-                                        Spacer(modifier = Modifier.width(8.dp))
                                         Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = GreenTop.copy(alpha = 0.1f)
+                                            shape = RoundedCornerShape(20.dp),
+                                            color = if (isSelected) GreenTop else Color(0xFFE8F5E9)
                                         ) {
                                             Text(
                                                 "Mặc định",
                                                 fontSize = 10.sp,
-                                                color = GreenTop,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) Color.White else GreenTop,
+                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                             )
                                         }
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(address.phone ?: "Chưa có SĐT", fontSize = 13.sp, color = Color.Gray)
-                                val fullAddr = "${address.address}, ${address.ward ?: ""}, ${address.district ?: ""}, ${address.province ?: ""}".replace(Regex(", ,|, $"), "")
-                                Text(fullAddr, fontSize = 13.sp, color = Color.DarkGray, modifier = Modifier.padding(top = 4.dp))
+                                Spacer(Modifier.height(3.dp))
+                                Text(
+                                    address.phone ?: "Chưa có SĐT",
+                                    fontSize = 13.sp,
+                                    color = TextSecondary
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                val fullAddr = listOf(address.address, address.ward, address.district, address.province)
+                                    .filterNotNull()
+                                    .filter { it.isNotBlank() }
+                                    .joinToString(", ")
+                                Text(
+                                    fullAddr,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF4B5563),
+                                    lineHeight = 18.sp
+                                )
                             }
-                            RadioButton(selected = isSelected, onClick = { onAddressSelected(address.id) })
+
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = { onAddressSelected(address.id) },
+                                colors = RadioButtonDefaults.colors(selectedColor = GreenTop)
+                            )
                         }
                     }
                 }
+                item { Spacer(Modifier.height(80.dp)) }
             }
         }
     }
