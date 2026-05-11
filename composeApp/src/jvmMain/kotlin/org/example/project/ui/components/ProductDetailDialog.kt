@@ -36,6 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import org.example.project.data.models.Product
+import org.example.project.data.models.ProductCertificate
+import java.awt.Desktop
+import java.net.URI
 
 @Composable
 fun ProductDetailDialog(
@@ -156,6 +159,29 @@ fun ProductDetailDialog(
                         )
                     }
                 }
+
+                if (product.certificates.isNotEmpty()) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text("Giấy tờ & chứng minh", fontWeight = FontWeight.SemiBold)
+                            product.registrationNumber?.takeIf { it.isNotBlank() }?.let {
+                                DetailRow("Số lưu hành", it)
+                            }
+                            product.certificates.forEach { certificate ->
+                                CertificatePreviewItem(certificate)
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -176,6 +202,42 @@ fun ProductDetailDialog(
             }
         }
     )
+}
+
+@Composable
+private fun CertificatePreviewItem(certificate: ProductCertificate) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(certificate.name.ifBlank { "Giấy tờ sản phẩm" }, fontWeight = FontWeight.Medium)
+                Text(
+                    "${certificate.fileType.ifBlank { "FILE" }} • ${certificate.issuer ?: "Chưa có đơn vị cấp"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(onClick = { openExternalUrl(certificate.fileUrl) }) {
+                Text("Mở")
+            }
+        }
+    }
+}
+
+private fun openExternalUrl(url: String) {
+    runCatching {
+        if (url.isNotBlank() && Desktop.isDesktopSupported()) {
+            Desktop.getDesktop().browse(URI(url))
+        }
+    }
 }
 
 @Composable

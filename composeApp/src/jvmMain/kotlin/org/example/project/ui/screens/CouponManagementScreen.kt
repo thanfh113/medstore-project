@@ -4,11 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -21,12 +21,13 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -40,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.example.project.data.repositories.AdminRewardProductDto
 import org.example.project.data.repositories.CouponDto
@@ -50,19 +52,15 @@ import org.example.project.presentation.viewmodels.CouponAdminViewModel
 @Composable
 fun CouponManagementScreen(viewModel: CouponAdminViewModel) {
     val state by viewModel.uiState.collectAsState()
-    val discountOptions = listOf(
-        "PERCENT" to "Giảm theo %",
-        "FIXED_AMOUNT" to "Giảm tiền cố định"
-    )
-    val rewardTypeOptions = listOf(
-        "VOUCHER" to "Voucher giảm giá",
-        "ITEM" to "Quà vật lý"
-    )
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabs = listOf("Mã giảm giá", "Quà đổi điểm")
+    val discountOptions = listOf("PERCENT" to "Giảm theo %", "FIXED_AMOUNT" to "Giảm tiền cố định")
+    val rewardTypeOptions = listOf("VOUCHER" to "Voucher giảm giá", "ITEM" to "Quà vật lý")
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Quản lý coupon và đổi điểm", fontWeight = FontWeight.Bold) },
+                title = { Text("Quản lý khuyến mãi & đổi điểm", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.primary
@@ -78,11 +76,17 @@ fun CouponManagementScreen(viewModel: CouponAdminViewModel) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            TabRow(selectedTabIndex = selectedTab) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(title) }
+                    )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Button(onClick = viewModel::loadData, enabled = !state.isLoading) {
                     Text(if (state.isLoading) "Đang tải..." else "Tải lại")
                 }
@@ -90,71 +94,330 @@ fun CouponManagementScreen(viewModel: CouponAdminViewModel) {
                 state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
 
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    CouponTemplateFormCard(
-                        state = state,
-                        discountOptions = discountOptions,
-                        onSubmit = viewModel::submitCoupon,
-                        onCancelEdit = viewModel::cancelCouponEdit,
-                        onCodeChange = viewModel::updateCode,
-                        onNameChange = viewModel::updateName,
-                        onDescriptionChange = viewModel::updateDescription,
-                        onDiscountTypeChange = viewModel::updateDiscountType,
-                        onDiscountValueChange = viewModel::updateDiscountValue,
-                        onMinOrderChange = viewModel::updateMinOrder,
-                        onMaxDiscountChange = viewModel::updateMaxDiscount,
-                        onUsageLimitChange = viewModel::updateUsageLimit,
-                        onUsagePerUserChange = viewModel::updateUsagePerUser,
-                        onToggleActive = viewModel::toggleCouponIsActive,
-                        onToggleTemplate = viewModel::toggleRewardVoucherTemplate
-                    )
+            when (selectedTab) {
+                0 -> CouponTab(state = state, discountOptions = discountOptions, viewModel = viewModel)
+                1 -> RewardProductTab(state = state, rewardTypeOptions = rewardTypeOptions, viewModel = viewModel)
+            }
+        }
+    }
+}
 
-                    RewardProductFormCard(
-                        state = state,
-                        rewardTypeOptions = rewardTypeOptions,
-                        templateCoupons = state.coupons.filter { it.isRewardVoucherTemplate },
-                        onSubmit = viewModel::submitRewardProduct,
-                        onCancelEdit = viewModel::cancelRewardProductEdit,
-                        onRewardNameChange = viewModel::updateRewardName,
-                        onRewardDescriptionChange = viewModel::updateRewardDescription,
-                        onRewardImageUrlChange = viewModel::updateRewardImageUrl,
-                        onRewardPointCostChange = viewModel::updateRewardPointCost,
-                        onRewardStockChange = viewModel::updateRewardStock,
-                        onRewardTypeChange = viewModel::updateRewardType,
-                        onRewardCategoryChange = viewModel::updateRewardCategory,
-                        onRewardCouponCodeChange = viewModel::updateRewardCouponCode,
-                        onRewardTermsChange = viewModel::updateRewardTerms,
-                        onRewardPriceTextChange = viewModel::updateRewardPriceText,
-                        onRewardSortOrderChange = viewModel::updateRewardSortOrder,
-                        onToggleRewardActive = viewModel::toggleRewardIsActive
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CouponTab(
+    state: CouponAdminUiState,
+    discountOptions: List<Pair<String, String>>,
+    viewModel: CouponAdminViewModel
+) {
+    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(
+            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            CouponTemplateFormCard(
+                state = state,
+                discountOptions = discountOptions,
+                onSubmit = viewModel::submitCoupon,
+                onCancelEdit = viewModel::cancelCouponEdit,
+                onCodeChange = viewModel::updateCode,
+                onNameChange = viewModel::updateName,
+                onDescriptionChange = viewModel::updateDescription,
+                onDiscountTypeChange = viewModel::updateDiscountType,
+                onDiscountValueChange = viewModel::updateDiscountValue,
+                onMinOrderChange = viewModel::updateMinOrder,
+                onMaxDiscountChange = viewModel::updateMaxDiscount,
+                onUsageLimitChange = viewModel::updateUsageLimit,
+                onUsagePerUserChange = viewModel::updateUsagePerUser,
+                onToggleActive = viewModel::toggleCouponIsActive,
+                onToggleTemplate = viewModel::toggleRewardVoucherTemplate
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier.weight(1.2f),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Danh sách (${state.coupons.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    val templateCount = state.coupons.count { it.isRewardVoucherTemplate }
+                    if (templateCount > 0) {
+                        Text(
+                            "$templateCount template voucher",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+            }
+            if (state.coupons.isEmpty()) {
+                item {
+                    Text(
+                        "Chưa có coupon nào. Điền form bên trái để tạo mới.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.outline
                     )
                 }
+            }
+            items(state.coupons, key = { it.code }) { coupon ->
+                CouponItemCard(
+                    coupon = coupon,
+                    onEdit = viewModel::editCoupon,
+                    onToggleActive = viewModel::toggleCouponFromList
+                )
+            }
+        }
+    }
+}
 
-                Column(
-                    modifier = Modifier
-                        .weight(1.15f)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    CouponTemplateListCard(
-                        coupons = state.coupons,
-                        onEdit = viewModel::editCoupon,
-                        onToggleActive = viewModel::toggleCouponFromList
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RewardProductTab(
+    state: CouponAdminUiState,
+    rewardTypeOptions: List<Pair<String, String>>,
+    viewModel: CouponAdminViewModel
+) {
+    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(
+            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            RewardProductFormCard(
+                state = state,
+                rewardTypeOptions = rewardTypeOptions,
+                templateCoupons = state.coupons.filter { it.isRewardVoucherTemplate },
+                onSubmit = viewModel::submitRewardProduct,
+                onCancelEdit = viewModel::cancelRewardProductEdit,
+                onRewardNameChange = viewModel::updateRewardName,
+                onRewardDescriptionChange = viewModel::updateRewardDescription,
+                onRewardImageUrlChange = viewModel::updateRewardImageUrl,
+                onRewardPointCostChange = viewModel::updateRewardPointCost,
+                onRewardStockChange = viewModel::updateRewardStock,
+                onRewardTypeChange = viewModel::updateRewardType,
+                onRewardCategoryChange = viewModel::updateRewardCategory,
+                onRewardCouponCodeChange = viewModel::updateRewardCouponCode,
+                onRewardTermsChange = viewModel::updateRewardTerms,
+                onRewardPriceTextChange = viewModel::updateRewardPriceText,
+                onRewardSortOrderChange = viewModel::updateRewardSortOrder,
+                onToggleRewardActive = viewModel::toggleRewardIsActive
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier.weight(1.2f),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "Catalog đổi điểm (${state.rewardProducts.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
-                    RewardProductListCard(
-                        rewardProducts = state.rewardProducts,
-                        onEdit = viewModel::editRewardProduct,
-                        onToggleActive = viewModel::toggleRewardProductFromList
+                    Text(
+                        "Voucher tự phát mã khi duyệt. Quà vật lý cần admin xử lý thủ công.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
                     )
+                }
+            }
+            if (state.rewardProducts.isEmpty()) {
+                item {
+                    Text(
+                        "Chưa có quà đổi điểm nào.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+            }
+            items(state.rewardProducts, key = { it.name }) { reward ->
+                RewardProductItemCard(
+                    reward = reward,
+                    onEdit = viewModel::editRewardProduct,
+                    onToggleActive = viewModel::toggleRewardProductFromList
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CouponItemCard(
+    coupon: CouponDto,
+    onEdit: (CouponDto) -> Unit,
+    onToggleActive: (CouponDto) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(coupon.code, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        coupon.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    if (coupon.isActive) "Đang dùng" else "Tạm tắt",
+                    color = if (coupon.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            coupon.description?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                AssistChip(
+                    onClick = {},
+                    label = {
+                        Text(
+                            if (coupon.discountType == "PERCENT") "Giảm ${coupon.discountValue}%"
+                            else "Giảm ${formatCouponVnd(coupon.discountValue)}"
+                        )
+                    }
+                )
+                coupon.minOrderTotal?.let {
+                    AssistChip(onClick = {}, label = { Text("Đơn min ${formatCouponVnd(it)}") })
+                }
+                coupon.maxDiscountAmount?.let {
+                    AssistChip(onClick = {}, label = { Text("Max ${formatCouponVnd(it)}") })
+                }
+                coupon.usageLimit?.let {
+                    AssistChip(onClick = {}, label = { Text("Giới hạn $it lần") })
+                }
+                coupon.usagePerUserLimit?.let {
+                    AssistChip(onClick = {}, label = { Text("Mỗi user $it") })
+                }
+                if (coupon.isRewardVoucherTemplate) {
+                    AssistChip(onClick = {}, label = { Text("Template voucher") })
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Đã dùng: ${coupon.usedCount} lần",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { onEdit(coupon) }) { Text("Sửa") }
+                    OutlinedButton(onClick = { onToggleActive(coupon) }) {
+                        Text(if (coupon.isActive) "Tắt" else "Bật")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RewardProductItemCard(
+    reward: AdminRewardProductDto,
+    onEdit: (AdminRewardProductDto) -> Unit,
+    onToggleActive: (AdminRewardProductDto) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        reward.name,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        if (reward.rewardType == "VOUCHER") "Voucher giảm giá" else "Quà vật lý",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Text(
+                    if (reward.isActive) "Đang hoạt động" else "Tạm tắt",
+                    color = if (reward.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            reward.description?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                AssistChip(onClick = {}, label = { Text("${reward.pointCost} điểm") })
+                AssistChip(onClick = {}, label = { Text("Tồn: ${reward.stock}") })
+                reward.category?.takeIf { it.isNotBlank() }?.let {
+                    AssistChip(onClick = {}, label = { Text(it) })
+                }
+            }
+            if (reward.rewardType == "VOUCHER") {
+                Text(
+                    "Template: ${reward.couponCode ?: "Chưa gắn"}${reward.couponName?.let { " ($it)" } ?: ""}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            reward.terms?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    "Điều kiện: $it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    reward.updatedAt?.takeIf { it.isNotBlank() }?.let { "Cập nhật: ${it.take(16)}" } ?: "",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { onEdit(reward) }) { Text("Sửa") }
+                    OutlinedButton(onClick = { onToggleActive(reward) }) {
+                        Text(if (reward.isActive) "Tắt" else "Bật")
+                    }
                 }
             }
         }
@@ -191,16 +454,30 @@ private fun CouponTemplateFormCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Coupon template / Mẫu giảm giá", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                state.editingCouponId?.let { AssistChip(onClick = {}, label = { Text("Đang sửa") }) }
+                Text(
+                    if (state.editingCouponId != null) "Sửa coupon template" else "Tạo coupon template",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
             Text(
-                "Đây là khuôn điều kiện giảm giá: kiểu giảm, đơn tối thiểu, giới hạn lượt dùng. Reward voucher sẽ sinh mã riêng cho từng user khi admin duyệt đổi điểm.",
-                style = MaterialTheme.typography.bodyMedium
+                "Mã template định nghĩa điều kiện giảm giá. Nếu đánh dấu làm template voucher, reward product có thể gắn vào để phát mã riêng cho từng user.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline
             )
 
-            OutlinedTextField(state.code, onCodeChange, label = { Text("Mã template") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(state.name, onNameChange, label = { Text("Tên chương trình") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(
+                value = state.code,
+                onValueChange = onCodeChange,
+                label = { Text("Mã template") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = state.name,
+                onValueChange = onNameChange,
+                label = { Text("Tên chương trình") },
+                modifier = Modifier.fillMaxWidth()
+            )
             OutlinedTextField(
                 value = state.description,
                 onValueChange = onDescriptionChange,
@@ -222,10 +499,7 @@ private fun CouponTemplateFormCard(
                     discountOptions.forEach { (value, label) ->
                         DropdownMenuItem(
                             text = { Text(label) },
-                            onClick = {
-                                onDiscountTypeChange(value)
-                                expanded = false
-                            }
+                            onClick = { onDiscountTypeChange(value); expanded = false }
                         )
                     }
                 }
@@ -248,14 +522,14 @@ private fun CouponTemplateFormCard(
             OutlinedTextField(
                 value = state.maxDiscountAmount,
                 onValueChange = onMaxDiscountChange,
-                label = { Text("Giảm tối đa") },
+                label = { Text("Giảm tối đa (VND)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
                 value = state.usageLimit,
                 onValueChange = onUsageLimitChange,
-                label = { Text("Tổng lượt dùng") },
+                label = { Text("Tổng lượt dùng (để trống = không giới hạn)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -275,14 +549,14 @@ private fun CouponTemplateFormCard(
                     Text(
                         when {
                             state.isSubmittingCoupon -> "Đang lưu..."
-                            state.editingCouponId != null -> "Lưu coupon"
-                            else -> "Tạo coupon template"
+                            state.editingCouponId != null -> "Lưu thay đổi"
+                            else -> "Tạo coupon"
                         }
                     )
                 }
                 if (state.editingCouponId != null) {
                     OutlinedButton(onClick = onCancelEdit, enabled = !state.isSubmittingCoupon) {
-                        Text("Hủy sửa")
+                        Text("Hủy")
                     }
                 }
             }
@@ -319,13 +593,15 @@ private fun RewardProductFormCard(
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Reward product / Quà đổi điểm", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                state.editingRewardProductId?.let { AssistChip(onClick = {}, label = { Text("Đang sửa") }) }
-            }
             Text(
-                "Reward product là thứ user đổi bằng điểm. Với loại Voucher, hãy gắn coupon template để backend phát mã riêng khi admin duyệt.",
-                style = MaterialTheme.typography.bodyMedium
+                if (state.editingRewardProductId != null) "Sửa quà đổi điểm" else "Tạo quà đổi điểm",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                "Voucher: gắn coupon template để backend phát mã riêng khi admin duyệt. Quà vật lý: xử lý thủ công qua tab Đổi điểm.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline
             )
 
             ExposedDropdownMenuBox(expanded = rewardTypeExpanded, onExpandedChange = { rewardTypeExpanded = it }) {
@@ -333,7 +609,7 @@ private fun RewardProductFormCard(
                     value = rewardTypeOptions.firstOrNull { it.first == state.rewardType }?.second ?: state.rewardType,
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Loại reward") },
+                    label = { Text("Loại quà") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = rewardTypeExpanded) },
                     modifier = Modifier.fillMaxWidth().menuAnchor()
                 )
@@ -341,39 +617,57 @@ private fun RewardProductFormCard(
                     rewardTypeOptions.forEach { (value, label) ->
                         DropdownMenuItem(
                             text = { Text(label) },
-                            onClick = {
-                                onRewardTypeChange(value)
-                                rewardTypeExpanded = false
-                            }
+                            onClick = { onRewardTypeChange(value); rewardTypeExpanded = false }
                         )
                     }
                 }
             }
 
-            OutlinedTextField(state.rewardName, onRewardNameChange, label = { Text("Tên reward") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(
+                value = state.rewardName,
+                onValueChange = onRewardNameChange,
+                label = { Text("Tên quà") },
+                modifier = Modifier.fillMaxWidth()
+            )
             OutlinedTextField(
                 value = state.rewardDescription,
                 onValueChange = onRewardDescriptionChange,
-                label = { Text("Mô tả reward") },
+                label = { Text("Mô tả") },
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth()
             )
-            OutlinedTextField(
-                value = state.rewardPointCost,
-                onValueChange = onRewardPointCostChange,
-                label = { Text("Số điểm cần đổi") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = state.rewardStock,
-                onValueChange = onRewardStockChange,
-                label = { Text("Số lượng phát hành / tồn") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(state.rewardCategory, onRewardCategoryChange, label = { Text("Nhóm reward") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(state.rewardPriceText, onRewardPriceTextChange, label = { Text("Nhãn giá trị hiển thị") }, modifier = Modifier.fillMaxWidth())
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = state.rewardPointCost,
+                    onValueChange = onRewardPointCostChange,
+                    label = { Text("Điểm cần đổi") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = state.rewardStock,
+                    onValueChange = onRewardStockChange,
+                    label = { Text("Số lượng tồn") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = state.rewardCategory,
+                    onValueChange = onRewardCategoryChange,
+                    label = { Text("Nhóm") },
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = state.rewardPriceText,
+                    onValueChange = onRewardPriceTextChange,
+                    label = { Text("Nhãn giá trị") },
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
             if (state.rewardType == "VOUCHER") {
                 ExposedDropdownMenuBox(expanded = couponExpanded, onExpandedChange = { couponExpanded = it }) {
@@ -381,19 +675,22 @@ private fun RewardProductFormCard(
                         value = state.rewardCouponCode,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Coupon template gắn với reward") },
-                        placeholder = { Text("Chọn coupon template") },
+                        label = { Text("Coupon template gắn với voucher") },
+                        placeholder = { Text(if (templateCoupons.isEmpty()) "Chưa có template nào" else "Chọn template") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = couponExpanded) },
                         modifier = Modifier.fillMaxWidth().menuAnchor()
                     )
                     ExposedDropdownMenu(expanded = couponExpanded, onDismissRequest = { couponExpanded = false }) {
+                        if (templateCoupons.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("Chưa có template voucher nào") },
+                                onClick = { couponExpanded = false }
+                            )
+                        }
                         templateCoupons.forEach { coupon ->
                             DropdownMenuItem(
-                                text = { Text("${coupon.code} - ${coupon.name}") },
-                                onClick = {
-                                    onRewardCouponCodeChange(coupon.code)
-                                    couponExpanded = false
-                                }
+                                text = { Text("${coupon.code} — ${coupon.name}") },
+                                onClick = { onRewardCouponCodeChange(coupon.code); couponExpanded = false }
                             )
                         }
                     }
@@ -403,11 +700,16 @@ private fun RewardProductFormCard(
             OutlinedTextField(
                 value = state.rewardTerms,
                 onValueChange = onRewardTermsChange,
-                label = { Text("Điều kiện hiển thị cho user") },
+                label = { Text("Điều kiện áp dụng (hiển thị cho user)") },
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth()
             )
-            OutlinedTextField(state.rewardImageUrl, onRewardImageUrlChange, label = { Text("Ảnh reward") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(
+                value = state.rewardImageUrl,
+                onValueChange = onRewardImageUrlChange,
+                label = { Text("URL ảnh đại diện") },
+                modifier = Modifier.fillMaxWidth()
+            )
             OutlinedTextField(
                 value = state.rewardSortOrder,
                 onValueChange = onRewardSortOrderChange,
@@ -423,14 +725,14 @@ private fun RewardProductFormCard(
                     Text(
                         when {
                             state.isSubmittingRewardProduct -> "Đang lưu..."
-                            state.editingRewardProductId != null -> "Lưu reward product"
-                            else -> "Tạo reward product"
+                            state.editingRewardProductId != null -> "Lưu thay đổi"
+                            else -> "Tạo quà đổi điểm"
                         }
                     )
                 }
                 if (state.editingRewardProductId != null) {
                     OutlinedButton(onClick = onCancelEdit, enabled = !state.isSubmittingRewardProduct) {
-                        Text("Hủy sửa")
+                        Text("Hủy")
                     }
                 }
             }
@@ -447,117 +749,6 @@ private fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean
     ) {
         Text(label, fontWeight = FontWeight.Medium)
         Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-@Composable
-private fun CouponTemplateListCard(
-    coupons: List<CouponDto>,
-    onEdit: (CouponDto) -> Unit,
-    onToggleActive: (CouponDto) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Danh sách coupon template", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            if (coupons.isEmpty()) {
-                Text("Chưa có coupon nào")
-            } else {
-                coupons.forEach { coupon ->
-                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("${coupon.code} - ${coupon.name}", fontWeight = FontWeight.Medium)
-                            Text(if (coupon.isActive) "Đang áp dụng" else "Tạm tắt", color = MaterialTheme.colorScheme.primary)
-                        }
-                        coupon.description?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            AssistChip(onClick = {}, label = {
-                                Text(
-                                    if (coupon.discountType == "PERCENT") {
-                                        "Giảm ${coupon.discountValue}%"
-                                    } else {
-                                        "Giảm ${formatCouponVnd(coupon.discountValue)}"
-                                    }
-                                )
-                            })
-                            coupon.minOrderTotal?.let { AssistChip(onClick = {}, label = { Text("Đơn tối thiểu ${formatCouponVnd(it)}") }) }
-                            coupon.maxDiscountAmount?.let { AssistChip(onClick = {}, label = { Text("Max ${formatCouponVnd(it)}") }) }
-                            coupon.usageLimit?.let { AssistChip(onClick = {}, label = { Text("Limit $it") }) }
-                            coupon.usagePerUserLimit?.let { AssistChip(onClick = {}, label = { Text("Mỗi user $it") }) }
-                            if (coupon.isRewardVoucherTemplate) {
-                                AssistChip(onClick = {}, label = { Text("Template đổi điểm") })
-                            }
-                        }
-                        Text("Đã dùng: ${coupon.usedCount}", style = MaterialTheme.typography.bodySmall)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { onEdit(coupon) }) { Text("Sửa") }
-                            OutlinedButton(onClick = { onToggleActive(coupon) }) { Text(if (coupon.isActive) "Tắt" else "Bật") }
-                        }
-                        HorizontalDivider()
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RewardProductListCard(
-    rewardProducts: List<AdminRewardProductDto>,
-    onEdit: (AdminRewardProductDto) -> Unit,
-    onToggleActive: (AdminRewardProductDto) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Catalog đổi điểm", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(
-                "Voucher đổi điểm dùng stock làm số lượng phát hành. Điều kiện đơn tối thiểu nằm ở coupon template gắn với reward.",
-                style = MaterialTheme.typography.bodySmall
-            )
-            if (rewardProducts.isEmpty()) {
-                Text("Chưa có reward product nào")
-            } else {
-                rewardProducts.forEach { reward ->
-                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(reward.name, fontWeight = FontWeight.Medium)
-                            Text("${reward.pointCost} điểm", color = MaterialTheme.colorScheme.primary)
-                        }
-                        reward.description?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            AssistChip(onClick = {}, label = { Text(if (reward.rewardType == "VOUCHER") "Voucher" else "Quà vật lý") })
-                            AssistChip(onClick = {}, label = { Text("Tồn ${reward.stock}") })
-                            AssistChip(onClick = {}, label = { Text(if (reward.isActive) "Đang hoạt động" else "Tạm tắt") })
-                            reward.category?.takeIf { it.isNotBlank() }?.let { AssistChip(onClick = {}, label = { Text(it) }) }
-                        }
-                        if (reward.rewardType == "VOUCHER") {
-                            Text(
-                                "Coupon gắn: ${reward.couponCode ?: "-"}${reward.couponName?.let { " - $it" } ?: ""}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                        reward.terms?.takeIf { it.isNotBlank() }?.let { Text("Điều kiện: $it", style = MaterialTheme.typography.bodySmall) }
-                        reward.updatedAt?.takeIf { it.isNotBlank() }?.let { Text("Cập nhật: ${it.take(16)}", style = MaterialTheme.typography.bodySmall) }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { onEdit(reward) }) { Text("Sửa") }
-                            OutlinedButton(onClick = { onToggleActive(reward) }) { Text(if (reward.isActive) "Tắt" else "Bật") }
-                        }
-                        HorizontalDivider()
-                    }
-                }
-            }
-        }
     }
 }
 

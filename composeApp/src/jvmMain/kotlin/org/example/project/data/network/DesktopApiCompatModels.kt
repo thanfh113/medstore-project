@@ -12,11 +12,28 @@ data class ProductImagePayload(
 )
 
 @Serializable
+data class ProductCertificatePayload(
+    val type: String = "MOH_LICENSE",
+    val name: String,
+    val fileUrl: String,
+    val fileType: String = "IMAGE",
+    val publicId: String? = null,
+    val resourceType: String = "image",
+    val thumbnailUrl: String? = null,
+    val issueDate: String? = null,
+    val expireDate: String? = null,
+    val issuer: String? = null,
+    val isActive: Boolean = true
+)
+
+@Serializable
 data class UpdateProductRequest(
     val categoryId: String,
     val name: String,
+    val shortDescription: String? = null,
     val description: String? = null,
     val brand: String? = null,
+    val manufacturer: String? = null,
     val origin: String? = null,
     val sku: String? = null,
     val unit: String,
@@ -33,9 +50,11 @@ data class UpdateProductRequest(
     val riskClassification: String = "A",
     val requiresCertification: Boolean = false,
     val requiresConsultation: Boolean = false,
+    val targetAudience: String = "ALL",
     val isActive: Boolean = true,
     val attributes: Map<String, String> = emptyMap(),
-    val images: List<ProductImagePayload> = emptyList()
+    val images: List<ProductImagePayload> = emptyList(),
+    val certificates: List<ProductCertificatePayload> = emptyList()
 )
 
 @Serializable
@@ -86,4 +105,3 @@ data class ResponseTimeAnalytics(
     val maxResponseTimeMinutes: Double = 0.0,
     val totalResponses: Int = 0
 )
-

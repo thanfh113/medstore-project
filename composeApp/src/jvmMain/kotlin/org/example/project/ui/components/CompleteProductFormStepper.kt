@@ -38,7 +38,7 @@ import org.example.project.data.models.topLevelProductCategories
  * wizard only exposes the fields needed for the DATN e-commerce flow.
  */
 data class CompleteProductFormData(
-    // Group 1: Basic Information (Thông tin cơ bản)
+    // Group 1: Basic Information
     val productName: String = "",
     val sku: String = "",
     val categoryId: String = "",
@@ -50,13 +50,13 @@ data class CompleteProductFormData(
     val fullDescription: String = "",
     val targetAudience: String = "ALL",
     
-    // Group 2: Healthcare Specific (Đặc thù Y tế)
+    // Group 2: Healthcare Specific
     val registrationNumber: String = "",
     val riskClassification: String = "A",
     val requiresConsultation: Boolean = false,
     val requiresCertification: Boolean = false,
     
-    // Group 3: Pricing & Images (Giá bán & Hình ảnh)
+    // Group 3: Pricing & Images
     val price: Double = 0.0,
     val originalPrice: Double? = null,
     val discountPct: Int = 0,
@@ -66,7 +66,7 @@ data class CompleteProductFormData(
     // Group 4: Inventory
     val firstStockData: StockData? = null,
     
-    // Group 5: Certificates (Chứng từ kèm theo)
+    // Group 5: Certificates
     val certificates: List<CertificateData> = emptyList()
 )
 
@@ -360,6 +360,16 @@ private fun Step1BasicInfo(
                 singleLine = true
             )
         }
+
+        item {
+            FormField(
+                label = "SKU / mã nội bộ",
+                value = data.sku,
+                onValueChange = { onUpdate(data.copy(sku = it)) },
+                placeholder = "VD: OMR-HEM-7120",
+                singleLine = true
+            )
+        }
         
         // Category
         item {
@@ -394,6 +404,29 @@ private fun Step1BasicInfo(
                     )
                 }
             }
+        }
+
+        item {
+            DropdownField(
+                label = "Phân loại thiết bị *",
+                value = "Loại ${data.riskClassification}",
+                options = listOf(
+                    "Loại A - bán online" to "A",
+                    "Loại B - bán online" to "B",
+                    "Loại C - cần tư vấn/ký kết" to "C",
+                    "Loại D - cần tư vấn/ký kết" to "D"
+                ),
+                onSelect = { selectedRisk ->
+                    val restrictedOnline = selectedRisk == "C" || selectedRisk == "D"
+                    onUpdate(
+                        data.copy(
+                            riskClassification = selectedRisk,
+                            requiresCertification = restrictedOnline,
+                            requiresConsultation = restrictedOnline
+                        )
+                    )
+                }
+            )
         }
         
         // Unit (Required)
@@ -443,6 +476,16 @@ private fun Step1BasicInfo(
                 onValueChange = { onUpdate(data.copy(shortDescription = it, fullDescription = it)) },
                 placeholder = "Mô tả ngắn gọn đặc điểm, công dụng, lưu ý",
                 maxLines = 4
+            )
+        }
+
+        item {
+            FormField(
+                label = "Nhà sản xuất",
+                value = data.manufacturer,
+                onValueChange = { onUpdate(data.copy(manufacturer = it)) },
+                placeholder = "VD: Omron Healthcare, Công ty thiết bị y tế ABC",
+                singleLine = true
             )
         }
     }
@@ -656,8 +699,8 @@ private fun Step2HealthcareSpecific(
                         onUpdate(
                             data.copy(
                                 riskClassification = selectedRisk,
-                                requiresCertification = data.requiresCertification || restrictedOnline,
-                                requiresConsultation = data.requiresConsultation || restrictedOnline
+                                requiresCertification = restrictedOnline,
+                                requiresConsultation = restrictedOnline
                             )
                         )
                     }
@@ -772,6 +815,24 @@ private fun Step3PricingImages(
                 placeholder = "VD: 950000",
                 keyboardType = KeyboardType.Decimal,
                 singleLine = true
+            )
+        }
+
+        item {
+            FormField(
+                label = "Điểm thưởng cộng sau khi mua",
+                value = if (data.rewardPoints == 0) "" else data.rewardPoints.toString(),
+            onValueChange = { value ->
+                onUpdate(data.copy(rewardPoints = value.filter { ch -> ch.isDigit() }.toIntOrNull() ?: 0))
+            },
+                placeholder = "VD: 200",
+                keyboardType = KeyboardType.Number,
+                singleLine = true
+            )
+            Text(
+                text = "Điểm này được cộng khi đơn hoàn tất. Quy đổi khi thanh toán: 1 điểm = 1đ.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -1162,7 +1223,10 @@ private fun resourceTypeForMedia(mediaType: String): String {
 
 private fun isStepValid(step: Int, formData: CompleteProductFormData): Boolean {
     return when (step) {
-        0 -> formData.productName.isNotBlank() && formData.categoryId.isNotBlank() && formData.unit.isNotBlank()
+        0 -> formData.productName.isNotBlank() &&
+            formData.categoryId.isNotBlank() &&
+            formData.unit.isNotBlank() &&
+            formData.riskClassification.isNotBlank()
         1 -> formData.price > 0.0
         2 -> {
             val certificate = formData.certificates.firstOrNull()
@@ -1178,6 +1242,7 @@ private fun isFormComplete(formData: CompleteProductFormData): Boolean {
     return formData.productName.isNotBlank() &&
             formData.categoryId.isNotBlank() &&
             formData.unit.isNotBlank() &&
+            formData.riskClassification.isNotBlank() &&
             formData.price > 0.0
 }
 

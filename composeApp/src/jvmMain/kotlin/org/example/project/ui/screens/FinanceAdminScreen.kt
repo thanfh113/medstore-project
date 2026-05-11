@@ -1,34 +1,20 @@
 package org.example.project.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import org.example.project.data.repositories.FinanceSummaryDto
 import org.example.project.presentation.viewmodels.FinanceDashboardViewModel
 import org.example.project.presentation.viewmodels.FinanceUiState
 
@@ -37,10 +23,9 @@ import org.example.project.presentation.viewmodels.FinanceUiState
 fun FinanceAdminScreen(viewModel: FinanceDashboardViewModel) {
     val state by viewModel.uiState.collectAsState()
     var retriedAuth by remember { mutableStateOf(false) }
+    var exportMessage by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        viewModel.loadSummary()
-    }
+    LaunchedEffect(Unit) { viewModel.loadSummary() }
 
     LaunchedEffect(state) {
         val current = state
@@ -53,52 +38,161 @@ fun FinanceAdminScreen(viewModel: FinanceDashboardViewModel) {
         }
     }
 
+    LaunchedEffect(exportMessage) {
+        if (exportMessage != null) {
+            delay(3500)
+            exportMessage = null
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Tài chính ADMIN", fontWeight = FontWeight.Bold) },
+                title = { Text("Báo cáo tài chính", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.primary
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
+        snackbarHost = {
+            exportMessage?.let { msg ->
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                    Snackbar(modifier = Modifier.padding(16.dp)) { Text(msg) }
+                }
+            }
+        },
         containerColor = MaterialTheme.colorScheme.background
-    ) { paddingValues ->
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(padding)
                 .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(
+            // ── Action bar ──────────────────────────────────────────────
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
                     onClick = { viewModel.loadSummary() },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Tải lại dữ liệu")
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Tải lại")
+                }
+                Button(
+                    onClick = {
+                        val data = (state as? FinanceUiState.Success)?.data ?: return@Button
+                        val csv = buildFinanceCsv(data)
+                        val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Lưu báo cáo CSV", java.awt.FileDialog.SAVE)
+                        dialog.file = "bao_cao_tai_chinh.csv"
+                        dialog.isVisible = true
+                        val dir = dialog.directory
+                        val file = dialog.file
+                        if (dir != null && file != null) {
+                            val fn = if (file.endsWith(".csv")) file else "$file.csv"
+                            runCatching {
+                                val bomCsv = "﻿$csv"
+                                java.io.File(dir, fn).writeText(bomCsv, Charsets.UTF_8)
+                            }
+                                .onSuccess { exportMessage = "✓ Đã xuất: $fn" }
+                                .onFailure { exportMessage = "Xuất thất bại: ${it.message}" }
+                        }
+                    },
+                    enabled = state is FinanceUiState.Success,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Xuất CSV")
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
 
+            // ── States ──────────────────────────────────────────────────
             when (val ui = state) {
-                is FinanceUiState.Loading -> Text("Đang tải dữ liệu tài chính...")
-                is FinanceUiState.Error -> Text(ui.message, color = MaterialTheme.colorScheme.error)
+                is FinanceUiState.Loading -> {
+                    Box(modifier = Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+                is FinanceUiState.Error -> {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = ui.message,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
                 is FinanceUiState.Success -> {
+                    val d = ui.data
+
+                    // ── Revenue ────────────────────────────────────────
+                    FinanceSectionLabel("Doanh thu")
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        FinanceCard("Gross", formatVND(ui.data.grossRevenue), Modifier.weight(1f))
-                        FinanceCard("Online", formatVND(ui.data.onlineRevenue), Modifier.weight(1f))
-                        FinanceCard("POS", formatVND(ui.data.posRevenue), Modifier.weight(1f))
+                        FinanceCard(
+                            title = "Doanh thu gộp",
+                            value = formatVND(d.grossRevenue),
+                            valueColor = Color(0xFF1B5E20),
+                            modifier = Modifier.weight(1f)
+                        )
+                        FinanceCard(
+                            title = "Kênh online",
+                            value = formatVND(d.onlineRevenue),
+                            valueColor = Color(0xFF1565C0),
+                            modifier = Modifier.weight(1f)
+                        )
+                        FinanceCard(
+                            title = "Kênh POS",
+                            value = formatVND(d.posRevenue),
+                            valueColor = Color(0xFF6A1B9A),
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // ── Cost & profit ──────────────────────────────────
+                    FinanceSectionLabel("Chi phí & Lợi nhuận")
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        FinanceCard("Discount", formatVND(ui.data.totalDiscount), Modifier.weight(1f))
-                        FinanceCard("Expenses", formatVND(ui.data.totalExpenses), Modifier.weight(1f))
-                        FinanceCard("Net Profit", formatVND(ui.data.netProfit), Modifier.weight(1f))
+                        FinanceCard(
+                            title = "Chiết khấu",
+                            value = formatVND(d.totalDiscount),
+                            valueColor = Color(0xFFE65100),
+                            modifier = Modifier.weight(1f)
+                        )
+                        FinanceCard(
+                            title = "Chi phí",
+                            value = formatVND(d.totalExpenses),
+                            valueColor = Color(0xFFB71C1C),
+                            modifier = Modifier.weight(1f)
+                        )
+                        FinanceCard(
+                            title = "Lợi nhuận thuần",
+                            value = formatVND(d.netProfit),
+                            valueColor = if (d.netProfit >= 0) Color(0xFF1B5E20) else Color(0xFFB71C1C),
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("So don thanh cong: ${ui.data.successfulOrderCount}")
-                    Text("So phieu chi: ${ui.data.expenseCount}")
+
+                    // ── Order stats ────────────────────────────────────
+                    FinanceSectionLabel("Thống kê")
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        FinanceStatCard(
+                            label = "Đơn thành công",
+                            count = d.successfulOrderCount.toString(),
+                            modifier = Modifier.weight(1f)
+                        )
+                        FinanceStatCard(
+                            label = "Phiếu chi",
+                            count = d.expenseCount.toString(),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.weight(1f))
+                    }
                 }
             }
         }
@@ -106,13 +200,75 @@ fun FinanceAdminScreen(viewModel: FinanceDashboardViewModel) {
 }
 
 @Composable
-private fun FinanceCard(title: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(title, style = MaterialTheme.typography.bodySmall)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+private fun FinanceSectionLabel(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontWeight = FontWeight.SemiBold
+    )
+}
+
+@Composable
+private fun FinanceCard(title: String, value: String, valueColor: Color, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(text = title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = valueColor)
         }
     }
 }
 
+@Composable
+private fun FinanceStatCard(label: String, count: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(text = label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = count, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+fun formatVND(value: Double): String = "%,.0f đ".format(value).replace(",", ".")
+
+private fun csvMoney(value: Double): String = value.toLong().toString()
+
+private fun buildFinanceCsv(d: FinanceSummaryDto): String = buildString {
+    val now = java.time.LocalDateTime.now()
+    val dateStr = "%02d/%02d/%04d %02d:%02d".format(
+        now.dayOfMonth, now.monthValue, now.year, now.hour, now.minute
+    )
+
+    appendLine("BÁO CÁO TÀI CHÍNH VẬT TƯ Y TẾ")
+    appendLine("Ngày xuất,${dateStr}")
+    appendLine()
+
+    appendLine("=== DOANH THU ===")
+    appendLine("Chỉ số,Giá trị (VNĐ)")
+    appendLine("Doanh thu gộp,${csvMoney(d.grossRevenue)}")
+    appendLine("Kênh online,${csvMoney(d.onlineRevenue)}")
+    appendLine("Kênh POS,${csvMoney(d.posRevenue)}")
+    appendLine()
+
+    appendLine("=== CHI PHÍ & CHIẾT KHẤU ===")
+    appendLine("Chỉ số,Giá trị (VNĐ)")
+    appendLine("Tổng chiết khấu,${csvMoney(d.totalDiscount)}")
+    appendLine("Tổng chi phí,${csvMoney(d.totalExpenses)}")
+    appendLine()
+
+    appendLine("=== LỢI NHUẬN ===")
+    appendLine("Chỉ số,Giá trị (VNĐ)")
+    appendLine("Lợi nhuận thuần,${csvMoney(d.netProfit)}")
+    appendLine()
+
+    appendLine("=== ĐƠN HÀNG ===")
+    appendLine("Chỉ số,Số lượng")
+    appendLine("Đơn hàng thành công,${d.successfulOrderCount}")
+    appendLine("Phiếu chi,${d.expenseCount}")
+}

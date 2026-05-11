@@ -26,11 +26,14 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.example.project.data.models.Product
 import org.example.project.data.models.ProductCategory
+import org.example.project.data.models.ProductCertificate
 import org.example.project.data.models.ProductImage
 import org.example.project.data.models.RiskClassification
+import org.example.project.data.network.ProductCertificatePayload
 import org.example.project.data.network.ProductImagePayload
 import org.example.project.data.network.UpdateProductRequest
 import java.io.File
+import kotlin.math.roundToInt
 
 @Serializable
 private data class ProductListEnvelope(
@@ -60,6 +63,22 @@ private data class BackendProductImageDto(
     val mediaType: String = "IMAGE",
     val publicId: String? = null,
     val sortOrder: Int = 0
+)
+
+@Serializable
+private data class BackendProductCertificateDto(
+    val id: String? = null,
+    val type: String = "MOH_LICENSE",
+    val name: String,
+    val fileUrl: String,
+    val fileType: String = "IMAGE",
+    val publicId: String? = null,
+    val resourceType: String = "image",
+    val thumbnailUrl: String? = null,
+    val issueDate: String? = null,
+    val expireDate: String? = null,
+    val issuer: String? = null,
+    val isActive: Boolean = true
 )
 
 @Serializable
@@ -94,7 +113,8 @@ private data class BackendProductDto(
     val flashSaleEnd: String? = null,
     val createdAt: String,
     val updatedAt: String,
-    val images: List<BackendProductImageDto> = emptyList()
+    val images: List<BackendProductImageDto> = emptyList(),
+    val certificates: List<BackendProductCertificateDto> = emptyList()
 )
 
 @Serializable
@@ -129,7 +149,8 @@ private data class ProductCertificateRequestPayload(
     val thumbnailUrl: String? = null,
     val issueDate: String? = null,
     val expireDate: String? = null,
-    val issuer: String? = null
+    val issuer: String? = null,
+    val isActive: Boolean = true
 )
 
 @Serializable
@@ -698,16 +719,19 @@ class ProductRepository(
         return Product(
             id = id,
             name = name,
+            shortDescription = shortDescription,
             description = description.orEmpty(),
             price = price,
             originalPrice = originalPrice,
             importPrice = importPrice,
+            rewardPoints = rewardPoints,
             categoryId = categoryId ?: "",
             stockQuantity = stock,
             mfgDate = mfgDate,
             expDate = expDate,
             inventoryNote = inventoryNote,
             manufacturer = manufacturer?.ifBlank { null } ?: brand.orEmpty(),
+            brand = brand.orEmpty(),
             origin = origin.orEmpty(),
             sku = sku,
             ceIsoRequired = requiresCertification,
@@ -719,6 +743,9 @@ class ProductRepository(
             registrationNumber = registrationNumber,
             riskClassification = mappedRiskClassification,
             requiresTechnicalConsultation = requiresConsultation,
+            targetAudience = targetAudience,
+            isFlashSale = isFlashSale,
+            flashSaleEnd = flashSaleEnd,
             images = images
                 .sortedBy { it.sortOrder }
                 .map {
@@ -727,6 +754,24 @@ class ProductRepository(
                         url = it.url,
                         publicId = it.publicId,
                         sortOrder = it.sortOrder
+                    )
+                },
+            certificates = certificates
+                .filter { it.isActive }
+                .map {
+                    ProductCertificate(
+                        id = it.id,
+                        type = it.type.ifBlank { "MOH_LICENSE" },
+                        name = it.name,
+                        fileUrl = it.fileUrl,
+                        fileType = it.fileType.ifBlank { "IMAGE" },
+                        publicId = it.publicId,
+                        resourceType = it.resourceType.ifBlank { "image" },
+                        thumbnailUrl = it.thumbnailUrl,
+                        issueDate = it.issueDate,
+                        expireDate = it.expireDate,
+                        issuer = it.issuer,
+                        isActive = it.isActive
                     )
                 }
         )
@@ -747,9 +792,10 @@ class ProductRepository(
         return CreateDesktopProductRequest(
             categoryId = categoryId,
             name = name,
-            shortDescription = null,
+            shortDescription = shortDescription?.ifBlank { null }
+                ?: description.take(160).ifBlank { null },
             description = description.ifBlank { null },
-            brand = manufacturer.ifBlank { null },
+            brand = brand.ifBlank { manufacturer.ifBlank { null } },
             manufacturer = manufacturer.ifBlank { null },
             origin = origin.ifBlank { null },
             sku = sku?.ifBlank { null },
@@ -761,17 +807,17 @@ class ProductRepository(
             mfgDate = mfgDate,
             expDate = expDate,
             inventoryNote = inventoryNote,
-            discountPct = 0,
-            rewardPoints = 0,
+            discountPct = calculateDiscountPercent(originalPrice, price),
+            rewardPoints = rewardPoints,
             registrationNumber = registrationNumber?.ifBlank { null },
             riskClassification = riskClassification.value,
             requiresCertification = ceIsoRequired,
             requiresConsultation = requiresTechnicalConsultation,
-            targetAudience = "ALL",
+            targetAudience = targetAudience.ifBlank { "ALL" },
             isActive = isActive,
             attributes = emptyMap(),
             images = images.toRequestPayload(),
-            certificates = emptyList()
+            certificates = certificates.toCertificateRequestPayload()
         )
     }
 
@@ -779,8 +825,10 @@ class ProductRepository(
         return UpdateProductRequest(
             categoryId = categoryId,
             name = name,
+            shortDescription = shortDescription?.ifBlank { null },
             description = description.ifBlank { null },
-            brand = manufacturer.ifBlank { null },
+            brand = brand.ifBlank { manufacturer.ifBlank { null } },
+            manufacturer = manufacturer.ifBlank { null },
             origin = origin.ifBlank { null },
             sku = sku?.ifBlank { null },
             unit = unit.ifBlank { "Cái" },
@@ -791,15 +839,26 @@ class ProductRepository(
             mfgDate = mfgDate,
             expDate = expDate,
             inventoryNote = inventoryNote,
-            discountPct = 0,
+            discountPct = calculateDiscountPercent(originalPrice, price),
+            rewardPoints = rewardPoints,
             registrationNumber = registrationNumber?.ifBlank { null },
             riskClassification = riskClassification.value,
             requiresCertification = ceIsoRequired,
             requiresConsultation = requiresTechnicalConsultation,
+            targetAudience = targetAudience.ifBlank { "ALL" },
             isActive = isActive,
             attributes = emptyMap(),
-            images = images.toUpdateImagePayload()
+            images = images.toUpdateImagePayload(),
+            certificates = certificates.toUpdateCertificatePayload()
         )
+    }
+
+    private fun calculateDiscountPercent(originalPrice: Double?, price: Double): Int {
+        val original = originalPrice ?: return 0
+        if (original <= 0.0 || price <= 0.0 || original <= price) return 0
+        return (((original - price) / original) * 100.0)
+            .roundToInt()
+            .coerceIn(0, 99)
     }
 
     private fun List<ProductImage>.toRequestPayload(): List<ProductImageRequestPayload> {
@@ -811,6 +870,25 @@ class ProductRepository(
                 sortOrder = index
             )
         }
+    }
+
+    private fun List<ProductCertificate>.toCertificateRequestPayload(): List<ProductCertificateRequestPayload> {
+        return filter { it.isActive && it.name.isNotBlank() && it.fileUrl.isNotBlank() }
+            .map {
+                ProductCertificateRequestPayload(
+                    type = it.type.ifBlank { "MOH_LICENSE" },
+                    name = it.name,
+                    fileUrl = it.fileUrl,
+                    fileType = it.fileType.ifBlank { "IMAGE" },
+                    publicId = it.publicId,
+                    resourceType = it.resourceType.ifBlank { "image" },
+                    thumbnailUrl = it.thumbnailUrl?.ifBlank { null },
+                    issueDate = it.issueDate?.ifBlank { null },
+                    expireDate = it.expireDate?.ifBlank { null },
+                    issuer = it.issuer?.ifBlank { null },
+                    isActive = it.isActive
+                )
+            }
     }
 
     private fun CompleteProductDraft.toCreateRequest(): CreateDesktopProductRequest {
@@ -831,7 +909,7 @@ class ProductRepository(
             mfgDate = mfgDate,
             expDate = expDate,
             inventoryNote = inventoryNote,
-            discountPct = discountPct,
+            discountPct = calculateDiscountPercent(originalPrice, price),
             rewardPoints = rewardPoints,
             registrationNumber = registrationNumber?.ifBlank { null },
             riskClassification = riskClassification,
@@ -878,6 +956,25 @@ class ProductRepository(
                 sortOrder = index
             )
         }
+    }
+
+    private fun List<ProductCertificate>.toUpdateCertificatePayload(): List<ProductCertificatePayload> {
+        return filter { it.isActive && it.name.isNotBlank() && it.fileUrl.isNotBlank() }
+            .map {
+                ProductCertificatePayload(
+                    type = it.type.ifBlank { "MOH_LICENSE" },
+                    name = it.name,
+                    fileUrl = it.fileUrl,
+                    fileType = it.fileType.ifBlank { "IMAGE" },
+                    publicId = it.publicId,
+                    resourceType = it.resourceType.ifBlank { "image" },
+                    thumbnailUrl = it.thumbnailUrl?.ifBlank { null },
+                    issueDate = it.issueDate?.ifBlank { null },
+                    expireDate = it.expireDate?.ifBlank { null },
+                    issuer = it.issuer?.ifBlank { null },
+                    isActive = it.isActive
+                )
+            }
     }
 
     private fun getContentType(extension: String): String {

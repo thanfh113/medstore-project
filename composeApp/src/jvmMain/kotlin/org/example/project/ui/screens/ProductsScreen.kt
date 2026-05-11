@@ -78,8 +78,6 @@ import org.example.project.data.models.topLevelProductCategories
 import org.example.project.data.repositories.ProductDeleteRequestDto
 import org.example.project.presentation.viewmodels.ProductsViewModel
 import org.example.project.ui.components.ProductFormDialog
-import org.example.project.ui.components.CompleteProductFormStepper
-import org.example.project.ui.components.CompleteProductFormData
 import org.example.project.ui.components.ProductDetailDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,6 +106,7 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
                 }
             },
             onCancel = { viewModel.hideCreateDialog() },
+            onUploadCertificate = { file -> viewModel.uploadCertificate(file) },
             isCreating = uiState.isCreating,
             isUpdating = uiState.isUpdating
         )
@@ -138,45 +137,6 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
             categoryName = categoriesById[product.categoryId]?.displayName,
             onDismiss = { selectedProductForPreview = null },
             formatVnd = ::formatVND
-        )
-    }
-
-    // Add Complete Product Form Dialog
-    if (uiState.showCompleteProductForm) {
-        AlertDialog(
-            onDismissRequest = { },
-            modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .clip(RoundedCornerShape(16.dp)),
-            title = { 
-                Text(
-                    "Thêm sản phẩm mới",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
-                )
-            },
-            text = {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    CompleteProductFormStepper(
-                        categories = uiState.categories,
-                        onUploadProductMedia = { file, mediaType ->
-                            viewModel.uploadCompleteProductMedia(file, mediaType)
-                        },
-                        onUploadCertificate = { file ->
-                            viewModel.uploadCertificate(file)
-                        },
-                        onDeleteUploadedAsset = { publicId, resourceType ->
-                            viewModel.deleteUploadedAsset(publicId, resourceType)
-                        },
-                        onSave = { formData ->
-                            viewModel.createCompleteProduct(formData)
-                        },
-                        onCancel = { viewModel.hideCompleteProductForm() }
-                    )
-                }
-            },
-            confirmButton = { },
-            dismissButton = { }
         )
     }
 
@@ -264,8 +224,7 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
                 searchQuery = uiState.searchQuery,
                 canCreateProduct = canCreateProduct,
                 onSearchChange = viewModel::searchProducts,
-                onCreateClick = { viewModel.showCreateDialog() },
-                onCreateCompleteProductClick = { viewModel.showCompleteProductForm() }
+                onCreateClick = { viewModel.showCreateDialog() }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -419,8 +378,7 @@ private fun SearchAndActionsRow(
     searchQuery: String,
     canCreateProduct: Boolean,
     onSearchChange: (String) -> Unit,
-    onCreateClick: () -> Unit,
-    onCreateCompleteProductClick: () -> Unit = {}
+    onCreateClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -442,14 +400,14 @@ private fun SearchAndActionsRow(
         )
 
         Button(
-            onClick = onCreateCompleteProductClick,
+            onClick = onCreateClick,
             enabled = canCreateProduct,
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
             shape = RoundedCornerShape(8.dp)
         ) {
             Icon(Icons.Default.Add, contentDescription = null)
             Spacer(modifier = Modifier.width(4.dp))
-            Text("Thêm", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            Text("Thêm sản phẩm", fontWeight = FontWeight.Bold, fontSize = 11.sp)
         }
     }
 }
@@ -892,10 +850,12 @@ private fun StockReceiptDialog(
     var quantity by remember { mutableStateOf("") }
     var importPrice by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val incomingQuantity = quantity.toIntOrNull() ?: 0
+    val projectedStock = product.stockQuantity + incomingQuantity
 
     AlertDialog(
         onDismissRequest = onCancel,
-        title = { Text("Nhập hàng - ${product.name}") },
+        title = { Text("Nhập thêm tồn kho") },
         text = {
             Column(
                 modifier = Modifier
@@ -919,38 +879,27 @@ private fun StockReceiptDialog(
                     }
                 }
 
-                Text(
-                    "Tồn hiện tại: ${product.stockQuantity} ${product.unit}. Số lượng nhập sẽ được cộng vào tồn kho hiện tại.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp
-                )
-
-                OutlinedTextField(
-                    value = mfgDate,
-                    onValueChange = { mfgDate = it },
-                    label = { Text("Ngày sản xuất", fontSize = 13.sp) },
+                Text(product.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("yyyy-MM-dd", fontSize = 12.sp) },
-                    enabled = !isLoading,
-                    textStyle = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 14.sp)
-                )
-
-                OutlinedTextField(
-                    value = expDate,
-                    onValueChange = { expDate = it },
-                    label = { Text("Hạn sử dụng", fontSize = 13.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("yyyy-MM-dd", fontSize = 12.sp) },
-                    enabled = !isLoading,
-                    textStyle = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 14.sp)
-                )
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Tồn hiện tại: ${product.stockQuantity} ${product.unit}", fontSize = 13.sp)
+                        Text("Sau nhập: $projectedStock ${product.unit}", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Ngày sản xuất/hạn dùng sẽ cập nhật trực tiếp vào sản phẩm để quản lý tồn kho đơn giản.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
 
                 OutlinedTextField(
                     value = quantity,
                     onValueChange = { quantity = it.filter { c -> c.isDigit() } },
-                    label = { Text("Số lượng (bắt buộc)", fontSize = 13.sp) },
+                    label = { Text("Số lượng nhập thêm", fontSize = 13.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -969,6 +918,30 @@ private fun StockReceiptDialog(
                     enabled = !isLoading,
                     textStyle = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 14.sp)
                 )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = mfgDate,
+                        onValueChange = { mfgDate = it },
+                        label = { Text("Ngày sản xuất", fontSize = 13.sp) },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        placeholder = { Text("yyyy-MM-dd", fontSize = 12.sp) },
+                        enabled = !isLoading,
+                        textStyle = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 14.sp)
+                    )
+
+                    OutlinedTextField(
+                        value = expDate,
+                        onValueChange = { expDate = it },
+                        label = { Text("Hạn sử dụng", fontSize = 13.sp) },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        placeholder = { Text("yyyy-MM-dd", fontSize = 12.sp) },
+                        enabled = !isLoading,
+                        textStyle = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 14.sp)
+                    )
+                }
             }
         },
         confirmButton = {

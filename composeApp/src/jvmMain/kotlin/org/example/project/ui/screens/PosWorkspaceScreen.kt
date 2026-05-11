@@ -63,7 +63,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.google.zxing.BarcodeFormat
@@ -109,7 +111,7 @@ fun PosWorkspaceScreen(viewModel: PosViewModel) {
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Box(modifier = Modifier.weight(1f)) {
-                    if (state.currentPaymentStep >= 3 || state.hasActiveOrder) {
+                    if ((state.currentPaymentStep >= 3 || state.hasActiveOrder) && !state.isChangingPaymentMethod) {
                         PosPaymentStage(
                             state = state,
                             viewModel = viewModel
@@ -286,7 +288,8 @@ private fun PosCheckoutWorkspace(
                             PosSelectedItemCard(
                                 item = item,
                                 onDecrease = { viewModel.updateQuantity(item.product.id, item.quantity - 1) },
-                                onIncrease = { viewModel.updateQuantity(item.product.id, item.quantity + 1) }
+                                onIncrease = { viewModel.updateQuantity(item.product.id, item.quantity + 1) },
+                                onQuantityChange = { viewModel.updateQuantity(item.product.id, it) }
                             )
                         }
                     }
@@ -322,6 +325,31 @@ private fun PosInvoiceSidebar(state: PosUiState, viewModel: PosViewModel) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            if (state.isChangingPaymentMethod && state.activeOrderCode != null) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "Đổi phương thức thanh toán",
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            "Đơn ${state.activeOrderCode} • ${formatPosAmount(state.activeOrderTotal ?: 0.0)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
+
             PaymentMethodSelector(
                 selectedMethod = state.paymentMethod,
                 onSelect = viewModel::setPaymentMethod
@@ -429,11 +457,14 @@ private fun PosInvoiceSidebar(state: PosUiState, viewModel: PosViewModel) {
         }
 
         Button(
-            onClick = viewModel::submitCheckout,
+            onClick = {
+                if (state.isChangingPaymentMethod) viewModel.changePaymentMethodForActiveOrder()
+                else viewModel.submitCheckout()
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            enabled = state.cart.isNotEmpty() && !state.isSubmitting
+            enabled = (state.cart.isNotEmpty() || state.isChangingPaymentMethod) && !state.isSubmitting
         ) {
             if (state.isSubmitting) {
                 CircularProgressIndicator(
@@ -443,7 +474,13 @@ private fun PosInvoiceSidebar(state: PosUiState, viewModel: PosViewModel) {
                 )
                 Spacer(modifier = Modifier.width(10.dp))
             }
-            Text(if (state.paymentMethod == "CASH") "Xác nhận thanh toán" else "Tiếp tục thanh toán")
+            Text(
+                when {
+                    state.isChangingPaymentMethod -> "Thanh toán bằng ${paymentMethodLabel(state.paymentMethod)}"
+                    state.paymentMethod == "CASH" -> "Xác nhận thanh toán"
+                    else -> "Tiếp tục thanh toán"
+                }
+            )
         }
     }
 }
@@ -599,8 +636,11 @@ private fun PosSearchResultCard(
 private fun PosSelectedItemCard(
     item: PosCartItem,
     onDecrease: () -> Unit,
-    onIncrease: () -> Unit
+    onIncrease: () -> Unit,
+    onQuantityChange: (Int) -> Unit
 ) {
+    var qtyInput by remember(item.product.id, item.quantity) { mutableStateOf(item.quantity.toString()) }
+
     Card(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f))
@@ -624,7 +664,7 @@ private fun PosSelectedItemCard(
             ) {
                 Text(item.product.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    "${item.quantity} x ${formatPosAmount(item.product.price)}",
+                    formatPosAmount(item.product.price),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -636,16 +676,33 @@ private fun PosSelectedItemCard(
             )
 
             Surface(
-                shape = CircleShape,
+                shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surface
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onDecrease) {
-                        Icon(Icons.Default.Remove, contentDescription = "Giảm")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                ) {
+                    IconButton(onClick = onDecrease, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Remove, contentDescription = "Giảm", modifier = Modifier.size(16.dp))
                     }
-                    Text(item.quantity.toString(), fontWeight = FontWeight.Bold)
-                    IconButton(onClick = onIncrease) {
-                        Icon(Icons.Default.Add, contentDescription = "Tăng")
+                    OutlinedTextField(
+                        value = qtyInput,
+                        onValueChange = { v ->
+                            qtyInput = v.filter { it.isDigit() }.take(4)
+                            val n = qtyInput.toIntOrNull()
+                            if (n != null && n > 0) onQuantityChange(n)
+                        },
+                        modifier = Modifier.width(58.dp),
+                        singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontWeight = FontWeight.Bold,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    IconButton(onClick = onIncrease, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Add, contentDescription = "Tăng", modifier = Modifier.size(16.dp))
                     }
                 }
             }

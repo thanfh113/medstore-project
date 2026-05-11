@@ -1,6 +1,7 @@
 ﻿package org.example.project.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,23 +36,30 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.benasher44.uuid.uuid4
 import org.example.project.data.models.Product
 import org.example.project.data.models.ProductCategory
+import org.example.project.data.models.ProductCertificate
 import org.example.project.data.models.ProductImage
 import org.example.project.data.models.RiskClassification
 import org.example.project.data.models.categoryDisplayPath
 import org.example.project.data.models.childProductCategories
 import org.example.project.data.models.selectedCategoryGroupId
 import org.example.project.data.models.topLevelProductCategories
+import org.example.project.data.repositories.UploadedProductAsset
 import org.example.project.utils.openFileChooser
+import kotlinx.coroutines.launch
+import java.awt.Desktop
 import java.io.File
+import java.net.URI
 
 @Composable
 fun ProductFormDialog(
@@ -59,23 +67,31 @@ fun ProductFormDialog(
     categories: List<ProductCategory>,
     onSave: (Product, List<File>) -> Unit,
     onCancel: () -> Unit,
+    onUploadCertificate: (suspend (File) -> Result<UploadedProductAsset>)? = null,
     isCreating: Boolean = false,
     isUpdating: Boolean = false
 ) {
     val isEditing = product != null
     val title = if (isEditing) "Cập nhật sản phẩm" else "Thêm sản phẩm mới"
     val isLoading = isCreating || isUpdating
+    val coroutineScope = rememberCoroutineScope()
 
     var name by remember { mutableStateOf(product?.name ?: "") }
+    var shortDescription by remember { mutableStateOf(product?.shortDescription ?: "") }
     var description by remember { mutableStateOf(product?.description ?: "") }
     var price by remember { mutableStateOf(product?.price?.toString() ?: "") }
     var originalPrice by remember { mutableStateOf(product?.originalPrice?.toString() ?: "") }
+    var importPrice by remember { mutableStateOf(product?.importPrice?.toString() ?: "") }
+    var rewardPoints by remember { mutableStateOf(product?.rewardPoints?.toString() ?: "0") }
     var quantity by remember { mutableStateOf(product?.stockQuantity?.toString() ?: "") }
     var selectedCategoryId by remember { mutableStateOf(product?.categoryId?.takeIf { it.isNotBlank() }) }
+    var brand by remember { mutableStateOf(product?.brand ?: "") }
     var manufacturer by remember { mutableStateOf(product?.manufacturer ?: "") }
     var origin by remember { mutableStateOf(product?.origin ?: "") }
     var sku by remember { mutableStateOf(product?.sku ?: "") }
     var unit by remember { mutableStateOf(product?.unit ?: "Cái") }
+    var mfgDate by remember { mutableStateOf(product?.mfgDate ?: "") }
+    var expDate by remember { mutableStateOf(product?.expDate ?: "") }
     var registrationNumber by remember { mutableStateOf(product?.registrationNumber ?: "") }
     var riskClassification by remember { mutableStateOf(product?.riskClassification ?: RiskClassification.A) }
     var requiresCertification by remember { mutableStateOf(product?.ceIsoRequired ?: false) }
@@ -87,12 +103,32 @@ fun ProductFormDialog(
         }
     }
     val newImageFiles = remember(product?.id) { mutableStateListOf<File>() }
+    val certificates = remember(product?.id) {
+        mutableStateListOf<ProductCertificate>().apply {
+            addAll(product?.certificates ?: emptyList())
+        }
+    }
+    var certificateError by remember(product?.id) { mutableStateOf<String?>(null) }
+    var isCertificateUploading by remember(product?.id) { mutableStateOf(false) }
 
     val parsedPrice = price.toDoubleOrNull()
     val parsedOriginalPrice = originalPrice.toDoubleOrNull()
+    val parsedImportPrice = importPrice.toDoubleOrNull()
+    val parsedRewardPoints = rewardPoints.toIntOrNull()
+    val parsedQuantity = quantity.toIntOrNull()
     val restrictedOnlineRisk = riskClassification == RiskClassification.C || riskClassification == RiskClassification.D
-    val isOriginalPriceValid = originalPrice.isBlank() || (parsedOriginalPrice != null && parsedPrice != null && parsedOriginalPrice <= parsedPrice)
-    val isFormValid = name.isNotBlank() && selectedCategoryId != null && parsedPrice != null && parsedPrice > 0.0 && isOriginalPriceValid
+    val isOriginalPriceValid = originalPrice.isBlank() || (parsedOriginalPrice != null && parsedPrice != null && parsedOriginalPrice >= parsedPrice)
+    val isImportPriceValid = importPrice.isBlank() || (parsedImportPrice != null && parsedImportPrice >= 0.0)
+    val isRewardPointsValid = rewardPoints.isBlank() || (parsedRewardPoints != null && parsedRewardPoints >= 0)
+    val isQuantityValid = quantity.isBlank() || (parsedQuantity != null && parsedQuantity >= 0)
+    val isFormValid = name.isNotBlank() &&
+        selectedCategoryId != null &&
+        parsedPrice != null &&
+        parsedPrice > 0.0 &&
+        isOriginalPriceValid &&
+        isImportPriceValid &&
+        isRewardPointsValid &&
+        isQuantityValid
 
     Dialog(
         onDismissRequest = { if (!isLoading) onCancel() },
@@ -112,7 +148,7 @@ fun ProductFormDialog(
                 ) {
                     Text(text = title, style = MaterialTheme.typography.headlineSmall)
                     IconButton(onClick = onCancel, enabled = !isLoading) {
-                        Icon(Icons.Default.Close, contentDescription = "Dong")
+                        Icon(Icons.Default.Close, contentDescription = "Đóng")
                     }
                 }
 
@@ -125,7 +161,7 @@ fun ProductFormDialog(
                         .verticalScroll(rememberScrollState())
                         .padding(24.dp)
                 ) {
-                    FormSection(title = "Thong tin co ban") {
+                    FormSection(title = "Thông tin bán hàng") {
                         OutlinedTextField(
                             value = name,
                             onValueChange = { name = it },
@@ -148,9 +184,20 @@ fun ProductFormDialog(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         OutlinedTextField(
+                            value = shortDescription,
+                            onValueChange = { shortDescription = it },
+                            label = { Text("Mô tả ngắn hiển thị ngoài danh sách") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            enabled = !isLoading
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        OutlinedTextField(
                             value = description,
                             onValueChange = { description = it },
-                            label = { Text("Mô tả") },
+                            label = { Text("Mô tả chi tiết") },
                             modifier = Modifier.fillMaxWidth(),
                             minLines = 3,
                             maxLines = 5,
@@ -163,30 +210,45 @@ fun ProductFormDialog(
                             OutlinedTextField(
                                 value = price,
                                 onValueChange = { price = it },
-                                label = { Text("Gia ban * (VND)") },
+                                label = { Text("Giá bán * (VND)") },
                                 modifier = Modifier.weight(1f),
                                 enabled = !isLoading,
-                                isError = parsedPrice == null
+                                isError = parsedPrice == null,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                             )
 
                             OutlinedTextField(
                                 value = originalPrice,
                                 onValueChange = { originalPrice = it },
-                                label = { Text("Gia goc (VND)") },
+                                label = { Text("Giá gốc/giá niêm yết") },
                                 modifier = Modifier.weight(1f),
                                 enabled = !isLoading,
-                                isError = !isOriginalPriceValid
+                                isError = !isOriginalPriceValid,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                             )
                         }
 
                         if (!isOriginalPriceValid) {
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Giá gốc phải nhỏ hơn hoặc bằng giá bán",
+                                text = "Giá gốc phải lớn hơn hoặc bằng giá bán",
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        OutlinedTextField(
+                            value = rewardPoints,
+                            onValueChange = { rewardPoints = it.filter { char -> char.isDigit() } },
+                            label = { Text("Điểm thưởng cộng sau khi mua") },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoading,
+                            isError = !isRewardPointsValid,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            supportingText = { Text("Điểm này cộng khi đơn hoàn tất. Quy đổi dùng điểm: 1 điểm = 1đ.") }
+                        )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -207,28 +269,62 @@ fun ProductFormDialog(
                                 enabled = !isLoading
                             )
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
+                    FormSection(title = "Kho & giá vốn") {
                         OutlinedTextField(
                             value = quantity,
                             onValueChange = { quantity = it },
                             label = { Text("Số lượng tồn kho") },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !isLoading
+                            enabled = !isLoading,
+                            isError = !isQuantityValid,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            OutlinedTextField(
+                                value = importPrice,
+                                onValueChange = { importPrice = it },
+                                label = { Text("Giá nhập") },
+                                modifier = Modifier.weight(1f),
+                                enabled = !isLoading,
+                                isError = !isImportPriceValid,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                            )
+
+                            OutlinedTextField(
+                                value = mfgDate,
+                                onValueChange = { mfgDate = it },
+                                label = { Text("Ngày SX (yyyy-MM-dd)") },
+                                modifier = Modifier.weight(1f),
+                                enabled = !isLoading
+                            )
+
+                            OutlinedTextField(
+                                value = expDate,
+                                onValueChange = { expDate = it },
+                                label = { Text("Ngày HSD (yyyy-MM-dd)") },
+                                modifier = Modifier.weight(1f),
+                                enabled = !isLoading
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    FormSection(title = "Thong tin nghiep vu") {
+                    FormSection(title = "Hồ sơ y tế") {
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = MaterialTheme.shapes.medium,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "Loai du lieu hien tai duoc xac dinh theo danh muc. Ton kho duoc quan ly o nghiep vu nhap kho, khong sua truc tiep tai form nay.",
+                                text = "Giữ vừa đủ dữ liệu cho bán hàng: phân loại A/B/C/D, hồ sơ lưu hành, thương hiệu, nhà sản xuất, xuất xứ và trạng thái kinh doanh.",
                                 modifier = Modifier.padding(12.dp),
                                 style = MaterialTheme.typography.bodyMedium
                             )
@@ -237,11 +333,21 @@ fun ProductFormDialog(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
+                        OutlinedTextField(
+                            value = brand,
+                            onValueChange = { brand = it },
+                            label = { Text("Thương hiệu") },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoading
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             OutlinedTextField(
                                 value = manufacturer,
                                 onValueChange = { manufacturer = it },
-                                label = { Text("Hãng / nhân hàng") },
+                                label = { Text("Nhà sản xuất") },
                                 modifier = Modifier.weight(1f),
                                 enabled = !isLoading
                             )
@@ -274,6 +380,9 @@ fun ProductFormDialog(
                                 if (it == RiskClassification.C || it == RiskClassification.D) {
                                     requiresCertification = true
                                     requiresConsultation = true
+                                } else {
+                                    requiresCertification = false
+                                    requiresConsultation = false
                                 }
                             },
                             enabled = !isLoading
@@ -331,14 +440,100 @@ fun ProductFormDialog(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    FormSection(title = "Anh san pham") {
+                    FormSection(title = "Giấy tờ & chứng minh") {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Dang co ${existingImages.size + newImageFiles.size} anh gan voi san pham",
+                                text = "Đang có ${certificates.size} file giấy tờ của sản phẩm",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Button(
+                                onClick = {
+                                    val selectedFile = openFileChooser(
+                                        title = "Chọn giấy tờ chứng minh",
+                                        allowedExtensions = listOf(".jpg", ".jpeg", ".png", ".webp", ".pdf"),
+                                        allowMultiple = false
+                                    ).firstOrNull() ?: return@Button
+
+                                    val upload = onUploadCertificate
+                                    if (upload == null) {
+                                        certificateError = "Chưa cấu hình upload giấy tờ"
+                                        return@Button
+                                    }
+
+                                    coroutineScope.launch {
+                                        isCertificateUploading = true
+                                        certificateError = null
+                                        upload(selectedFile)
+                                            .onSuccess { asset ->
+                                                certificates.add(asset.toProductCertificate(selectedFile, manufacturer))
+                                            }
+                                            .onFailure {
+                                                certificateError = it.message ?: "Không thể upload giấy tờ"
+                                            }
+                                        isCertificateUploading = false
+                                    }
+                                },
+                                enabled = !isLoading && !isCertificateUploading
+                            ) {
+                                if (isCertificateUploading) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.padding(4.dp))
+                                }
+                                Text("Chọn ảnh/PDF")
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        certificateError?.let {
+                            Text(
+                                text = it,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        if (certificates.isEmpty()) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = MaterialTheme.shapes.medium,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Chưa có giấy tờ. Có thể upload ảnh hoặc PDF; file PDF sẽ được backend lưu local để Android/Desktop mở ổn định.",
+                                    modifier = Modifier.padding(12.dp),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        } else {
+                            certificates.forEachIndexed { index, certificate ->
+                                SelectedCertificateItem(
+                                    title = certificate.name.ifBlank { "Giấy tờ ${index + 1}" },
+                                    subtitle = "${certificate.fileType.ifBlank { "FILE" }} • ${certificate.issuer ?: "Chưa có đơn vị cấp"}",
+                                    enabled = !isLoading && !isCertificateUploading,
+                                    onOpen = { openExternalUrl(certificate.fileUrl) },
+                                    onRemove = { certificates.remove(certificate) }
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    FormSection(title = "Ảnh sản phẩm") {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Đang có ${existingImages.size + newImageFiles.size} ảnh gắn với sản phẩm",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Button(
@@ -370,7 +565,7 @@ fun ProductFormDialog(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = "Chua co anh nao. File moi se duoc upload len backend, backend day len Cloudinary roi luu link vao DB.",
+                                    text = "Chưa có ảnh nào. File mới sẽ được upload lên backend, backend đẩy lên Cloudinary rồi lưu link vào DB.",
                                     modifier = Modifier.padding(12.dp),
                                     style = MaterialTheme.typography.bodySmall
                                 )
@@ -378,7 +573,7 @@ fun ProductFormDialog(
                         } else {
                             existingImages.forEachIndexed { index, image ->
                                 SelectedImageItem(
-                                    title = "Anh da luu ${index + 1}",
+                                    title = "Ảnh đã lưu ${index + 1}",
                                     subtitle = image.url,
                                     enabled = !isLoading,
                                     onRemove = { existingImages.remove(image) }
@@ -388,7 +583,7 @@ fun ProductFormDialog(
 
                             newImageFiles.forEachIndexed { index, file ->
                                 SelectedImageItem(
-                                    title = "Anh moi ${index + 1}",
+                                    title = "Ảnh mới ${index + 1}",
                                     subtitle = "${file.name} (${formatFileSize(file.length())})",
                                     enabled = !isLoading,
                                     onRemove = { newImageFiles.remove(file) }
@@ -423,12 +618,18 @@ fun ProductFormDialog(
                                 Product(
                                     id = product?.id ?: uuid4().toString(),
                                     name = name.trim(),
+                                    shortDescription = shortDescription.trim().ifBlank { null },
                                     description = description.trim(),
                                     price = parsedPrice!!,
                                     originalPrice = parsedOriginalPrice,
+                                    importPrice = parsedImportPrice,
+                                    rewardPoints = parsedRewardPoints ?: 0,
                                     categoryId = selectedCategoryId!!,
-                                    stockQuantity = quantity.toIntOrNull() ?: 0,
+                                    stockQuantity = parsedQuantity ?: 0,
+                                    mfgDate = mfgDate.trim().ifBlank { null },
+                                    expDate = expDate.trim().ifBlank { null },
                                     manufacturer = manufacturer.trim(),
+                                    brand = brand.trim(),
                                     origin = origin.trim(),
                                     sku = sku.trim().ifBlank { null },
                                     ceIsoRequired = requiresCertification || restrictedOnlineRisk,
@@ -440,18 +641,19 @@ fun ProductFormDialog(
                                     registrationNumber = registrationNumber.trim().ifBlank { null },
                                     riskClassification = riskClassification,
                                     requiresTechnicalConsultation = requiresConsultation || restrictedOnlineRisk,
-                                    images = normalizedImages
+                                    images = normalizedImages,
+                                    certificates = certificates.toList()
                                 ),
                                 newImageFiles.toList()
                             )
                         },
-                        enabled = isFormValid && !isLoading
+                        enabled = isFormValid && !isLoading && !isCertificateUploading
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                             Spacer(modifier = Modifier.padding(4.dp))
                         }
-                        Text(if (isEditing) "Cap nhat" else "Tao san pham")
+                        Text(if (isEditing) "Cập nhật" else "Tạo sản phẩm")
                     }
                 }
             }
@@ -498,6 +700,70 @@ private fun SelectedImageItem(
             TextButton(onClick = onRemove, enabled = enabled) {
                 Text("Bỏ")
             }
+        }
+    }
+}
+
+@Composable
+private fun SelectedCertificateItem(
+    title: String,
+    subtitle: String,
+    enabled: Boolean,
+    onOpen: () -> Unit,
+    onRemove: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = title, style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(onClick = onOpen, enabled = enabled) {
+                Text("Mở")
+            }
+            TextButton(onClick = onRemove, enabled = enabled) {
+                Text("Xóa")
+            }
+        }
+    }
+}
+
+private fun UploadedProductAsset.toProductCertificate(file: File, issuer: String): ProductCertificate {
+    val normalizedFileType = mediaType.ifBlank {
+        if (file.extension.equals("pdf", ignoreCase = true)) "PDF" else "IMAGE"
+    }.uppercase()
+    return ProductCertificate(
+        type = "MOH_LICENSE",
+        name = file.nameWithoutExtension.ifBlank { "Giấy tờ sản phẩm" },
+        fileUrl = url,
+        fileType = normalizedFileType,
+        publicId = publicId,
+        resourceType = resourceType.ifBlank { if (normalizedFileType == "PDF") "raw" else "image" },
+        thumbnailUrl = if (normalizedFileType == "IMAGE") url else null,
+        issuer = issuer.ifBlank { null },
+        isActive = true
+    )
+}
+
+private fun openExternalUrl(url: String) {
+    runCatching {
+        if (url.isNotBlank() && Desktop.isDesktopSupported()) {
+            Desktop.getDesktop().browse(URI(url))
         }
     }
 }

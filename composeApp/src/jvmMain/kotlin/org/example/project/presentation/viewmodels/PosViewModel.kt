@@ -55,6 +55,7 @@ data class PosUiState(
     val lastArchivedInvoicePath: String? = null,
     val isArchivingInvoice: Boolean = false,
     val isPollingPayment: Boolean = false,
+    val isChangingPaymentMethod: Boolean = false,
     val successMessage: String? = null,
     val error: String? = null
 ) {
@@ -108,7 +109,7 @@ class PosViewModel(
                     }
                 },
                 onFailure = { error ->
-                    _uiState.update { it.copy(isLoading = false, error = error.message ?: "Khong the tai san pham") }
+                    _uiState.update { it.copy(isLoading = false, error = error.message ?: "Không thể tải sản phẩm") }
                 }
             )
         }
@@ -178,7 +179,7 @@ class PosViewModel(
     fun openCheckoutReview() {
         val state = _uiState.value
         if (state.cart.isEmpty()) {
-            _uiState.update { it.copy(error = "Gio hang trong") }
+            _uiState.update { it.copy(error = "Giỏ hàng trống") }
             return
         }
         _uiState.update { it.copy(currentPaymentStep = 1, error = null) }
@@ -187,7 +188,7 @@ class PosViewModel(
     fun submitCheckout() {
         val state = _uiState.value
         if (state.cart.isEmpty()) {
-            _uiState.update { it.copy(error = "Gio hang trong") }
+            _uiState.update { it.copy(error = "Giỏ hàng trống") }
             return
         }
         _uiState.update { it.copy(currentPaymentStep = 3, error = null) }
@@ -200,7 +201,7 @@ class PosViewModel(
         when (state.currentPaymentStep) {
             0 -> { // Products → Confirm
                 if (state.cart.isEmpty()) {
-                    _uiState.update { it.copy(error = "Gio hang trong") }
+                    _uiState.update { it.copy(error = "Giỏ hàng trống") }
                     return
                 }
                 _uiState.update { it.copy(currentPaymentStep = 1, error = null) }
@@ -224,15 +225,11 @@ class PosViewModel(
 
     fun backToCheckoutFromPendingPayment() {
         paymentPollingJob?.cancel()
-        _uiState.update {
-            it.copy(
-                currentPaymentStep = 1,
-                activeOrderId = null,
-                activeOrderCode = null,
-                activeOrderStatus = null,
-                activeOrderPaymentMethod = null,
-                activeOrderPaymentStatus = null,
-                activeOrderTotal = null,
+        _uiState.update { state ->
+            state.copy(
+                currentPaymentStep = 0,
+                // Keep order info so user can re-initiate with a different payment method
+                isChangingPaymentMethod = state.activeOrderId != null,
                 cashReceivedInput = "",
                 gatewayPaymentUrl = null,
                 gatewayQrContent = null,
@@ -248,7 +245,44 @@ class PosViewModel(
     }
 
     fun backToCheckoutFromCash() {
-        backToCheckoutFromPendingPayment()
+        paymentPollingJob?.cancel()
+        _uiState.update {
+            it.copy(
+                currentPaymentStep = 0,
+                activeOrderId = null,
+                activeOrderCode = null,
+                activeOrderStatus = null,
+                activeOrderPaymentMethod = null,
+                activeOrderPaymentStatus = null,
+                activeOrderTotal = null,
+                isChangingPaymentMethod = false,
+                cashReceivedInput = "",
+                gatewayPaymentUrl = null,
+                gatewayQrContent = null,
+                gatewayPaymentReference = null,
+                gatewayPaidAt = null,
+                isGatewayWebViewVisible = false,
+                isPollingPayment = false,
+                isSubmitting = false,
+                successMessage = null,
+                error = null
+            )
+        }
+    }
+
+    fun changePaymentMethodForActiveOrder() {
+        val state = _uiState.value
+        val orderId = state.activeOrderId
+        if (orderId == null) {
+            submitCheckout()
+            return
+        }
+        if (state.paymentMethod == "CASH") {
+            _uiState.update { it.copy(error = "Đơn đang chờ thanh toán điện tử. Không thể đổi sang tiền mặt. Hủy đơn và tạo đơn mới nếu muốn thanh toán tiền mặt.") }
+            return
+        }
+        _uiState.update { it.copy(isChangingPaymentMethod = false, currentPaymentStep = 3, error = null) }
+        initGatewayPaymentForOrder(orderId, state.paymentMethod)
     }
 
     fun resetPaymentFlow() {
@@ -265,6 +299,7 @@ class PosViewModel(
                 activeOrderPaymentMethod = null,
                 activeOrderPaymentStatus = null,
                 activeOrderTotal = null,
+                isChangingPaymentMethod = false,
                 gatewayPaymentUrl = null,
                 gatewayQrContent = null,
                 gatewayPaymentReference = null,
@@ -319,11 +354,11 @@ class PosViewModel(
         scope.launch {
             val state = _uiState.value
             if (state.cart.isEmpty()) {
-                _uiState.update { it.copy(error = "Gio hang trong") }
+                _uiState.update { it.copy(error = "Giỏ hàng trống") }
                 return@launch
             }
             if (state.hasActiveOrder) {
-                _uiState.update { it.copy(error = "Dang co don POS chua hoan tat") }
+                _uiState.update { it.copy(error = "Đang có đơn POS chưa hoàn tất") }
                 return@launch
             }
 
@@ -376,7 +411,7 @@ class PosViewModel(
                     _uiState.update {
                         it.copy(
                             isSubmitting = false,
-                            error = error.message ?: "Khong the tao don POS. Vui long kiem tra ket noi backend."
+                            error = error.message ?: "Không thể tạo đơn POS. Vui lòng kiểm tra kết nối backend."
                         )
                     }
                 }
@@ -421,7 +456,7 @@ class PosViewModel(
                                 archivedFile = archivedFile
                             ),
                             error = archiveError?.let { message ->
-                                "Thanh toan thanh cong nhung khong luu duoc hoa don PDF: $message"
+                                "Thanh toán thành công nhưng không lưu được hóa đơn PDF: $message"
                             },
                             cart = emptyList(),
                             couponCode = "",
@@ -447,7 +482,7 @@ class PosViewModel(
                     loadProducts()
                 },
                 onFailure = { error ->
-                    _uiState.update { it.copy(isSubmitting = false, error = error.message ?: "Khong the xac nhan tien mat") }
+                    _uiState.update { it.copy(isSubmitting = false, error = error.message ?: "Không thể xác nhận tiền mặt") }
                 }
             )
         }
@@ -517,7 +552,7 @@ class PosViewModel(
                 }
             },
             onFailure = { error ->
-                _uiState.update { it.copy(error = error.message ?: "Khong the mo thu muc hoa don") }
+                _uiState.update { it.copy(error = error.message ?: "Không thể mở thư mục hóa đơn") }
             }
         )
     }
@@ -563,12 +598,12 @@ class PosViewModel(
                             gatewayQrContent = payment.qrContent,
                             gatewayPaymentReference = payment.paymentReference,
                             gatewayPaidAt = null,
-                            isGatewayWebViewVisible = payment.paymentUrl?.isNotBlank() == true,
+                            isGatewayWebViewVisible = payment.paymentUrl.isNotBlank(),
                             isPollingPayment = true,
                             successMessage = if (payment.paymentUrl.isNullOrBlank()) {
-                                "Dang cho khach quet QR ${payment.paymentMethod} cho don ${payment.orderCode}"
+                                "Đang chờ khách quét QR ${payment.paymentMethod} cho đơn ${payment.orderCode}"
                             } else {
-                                "Dang mo trang thanh toan ${payment.paymentMethod} cho don ${payment.orderCode}"
+                                "Đang mở trang thanh toán ${payment.paymentMethod} cho đơn ${payment.orderCode}"
                             },
                             error = null
                         )
@@ -581,7 +616,7 @@ class PosViewModel(
                             isSubmitting = false,
                             isGatewayWebViewVisible = false,
                             isPollingPayment = false,
-                            error = error.message ?: "Khong the tao QR thanh toan POS"
+                            error = error.message ?: "Không thể tạo QR thanh toán POS"
                         )
                     }
                 }
@@ -648,7 +683,7 @@ class PosViewModel(
                                 archivedFile = archivedFile
                             ),
                             error = archiveError?.let { message ->
-                                "Thanh toan thanh cong nhung khong luu duoc hoa don PDF: $message"
+                                "Thanh toán thành công nhưng không lưu được hóa đơn PDF: $message"
                             }
                         )
                     }
@@ -674,7 +709,7 @@ class PosViewModel(
                     _uiState.update {
                         it.copy(
                             isPollingPayment = false,
-                            error = error.message ?: "Khong the tai trang thai thanh toan POS"
+                            error = error.message ?: "Không thể tải trạng thái thanh toán POS"
                         )
                     }
                 }
@@ -712,7 +747,7 @@ class PosViewModel(
             },
             onFailure = { error ->
                 Result.failure(
-                    IllegalStateException(error.message ?: "Khong the tai chi tiet don de luu hoa don PDF")
+                    IllegalStateException(error.message ?: "Không thể tải chi tiết đơn để lưu hóa đơn PDF")
                 )
             }
         )
@@ -724,9 +759,9 @@ class PosViewModel(
         archivedFile: File?
     ): String {
         return if (archivedFile != null) {
-            "Don POS $orderCode da hoan tat thanh toan $paymentLabel. PDF: ${archivedFile.absolutePath}"
+            "Đơn POS $orderCode đã hoàn tất thanh toán $paymentLabel. PDF: ${archivedFile.absolutePath}"
         } else {
-            "Don POS $orderCode da hoan tat thanh toan $paymentLabel."
+            "Đơn POS $orderCode đã hoàn tất thanh toán $paymentLabel."
         }
     }
 }

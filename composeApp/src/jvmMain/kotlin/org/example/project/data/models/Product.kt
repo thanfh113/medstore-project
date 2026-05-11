@@ -11,19 +11,38 @@ data class ProductImage(
 )
 
 @Serializable
+data class ProductCertificate(
+    val id: String? = null,
+    val type: String = "MOH_LICENSE",
+    val name: String,
+    val fileUrl: String,
+    val fileType: String = "IMAGE",
+    val publicId: String? = null,
+    val resourceType: String = "image",
+    val thumbnailUrl: String? = null,
+    val issueDate: String? = null,
+    val expireDate: String? = null,
+    val issuer: String? = null,
+    val isActive: Boolean = true
+)
+
+@Serializable
 data class Product(
     val id: String,
     val name: String,
+    val shortDescription: String? = null,
     val description: String,
     val price: Double,
     val originalPrice: Double? = null,
     val importPrice: Double? = null,
+    val rewardPoints: Int = 0,
     val categoryId: String,
     val stockQuantity: Int,
     val mfgDate: String? = null,
     val expDate: String? = null,
     val inventoryNote: String? = null,
     val manufacturer: String,
+    val brand: String = "",
     val origin: String = "",
     val sku: String? = null,
     val ceIsoRequired: Boolean,
@@ -35,7 +54,11 @@ data class Product(
     val registrationNumber: String? = null,
     val riskClassification: RiskClassification = RiskClassification.A,
     val requiresTechnicalConsultation: Boolean = false,
-    val images: List<ProductImage> = emptyList()
+    val targetAudience: String = "ALL",
+    val isFlashSale: Boolean = false,
+    val flashSaleEnd: String? = null,
+    val images: List<ProductImage> = emptyList(),
+    val certificates: List<ProductCertificate> = emptyList()
 )
 
 @Serializable
