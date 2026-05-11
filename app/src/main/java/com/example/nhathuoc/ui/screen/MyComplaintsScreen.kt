@@ -166,7 +166,8 @@ fun MyComplaintsScreen(
                             iconTint = GreenTop,
                             iconBg = GreenLight,
                             title = if (selectedStatus == null) "Chưa có khiếu nại nào" else "Không có khiếu nại ở trạng thái này",
-                            subtitle = "Bạn có thể tạo khiếu nại từ trang chi tiết đơn hàng sau khi đơn đã được xử lý."
+                            subtitle = "Bạn có thể tạo khiếu nại từ trang chi tiết đơn hàng sau khi đơn đã được xử lý.",
+                            onGoToOrders = if (selectedStatus == null) ({ navController?.navigate("MyOrdersScreen") }) else null
                         )
                     } else {
                         LazyColumn(
@@ -387,7 +388,8 @@ private fun ComplaintEmptyState(
     iconBg: Color,
     iconTint: Color,
     title: String,
-    subtitle: String
+    subtitle: String,
+    onGoToOrders: (() -> Unit)? = null
 ) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
@@ -402,7 +404,16 @@ private fun ComplaintEmptyState(
                 Icon(Icons.Outlined.SupportAgent, null, tint = iconTint, modifier = Modifier.size(42.dp))
             }
             Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextPrimary)
-            Text(subtitle, fontSize = 13.sp, color = TextSecondary, lineHeight = 19.sp)
+            Text(subtitle, fontSize = 13.sp, color = TextSecondary, lineHeight = 19.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            if (onGoToOrders != null) {
+                Button(
+                    onClick = onGoToOrders,
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Text("Xem đơn hàng của tôi", fontSize = 14.sp)
+                }
+            }
         }
     }
 }

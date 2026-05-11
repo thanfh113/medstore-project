@@ -534,7 +534,7 @@ class CheckoutViewModel @Inject constructor(
             } else {
                 requestedPoints.coerceAtMost(maxUsableRewardPoints)
             }
-            val pointsValue = appliedPoints * 1000.0
+            val pointsValue = appliedPoints.toDouble()
             val shipping = estimateShippingFee(state, state.subtotal)
             val taxableAmount = (state.subtotal - combinedDiscount - pointsValue).coerceAtLeast(0.0)
             val tax = taxableAmount * 0.10
@@ -558,7 +558,7 @@ class CheckoutViewModel @Inject constructor(
     ): Int {
         if (subtotal <= 0.0 || availablePoints <= 0) return 0
         val applicableValue = (subtotal - discount).coerceAtLeast(0.0)
-        val orderCap = floor(applicableValue / 1000.0).toInt().coerceAtLeast(0)
+        val orderCap = floor(applicableValue * 0.5).toInt().coerceAtLeast(0)
         return min(availablePoints, orderCap)
     }
 

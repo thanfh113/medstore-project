@@ -449,7 +449,7 @@ fun CheckoutRealScreen(
                         SummaryRow("Tạm tính", state.subtotal)
                         SummaryRow("Giảm giá", -state.discount)
                         if (state.pointsToUse > 0)
-                            SummaryRow("Điểm thưởng", -(state.pointsToUse * 1000.0))
+                            SummaryRow("Điểm thưởng", -state.pointsToUse.toDouble())
                         SummaryRow("Phí vận chuyển", state.shipping)
                         SummaryRow("Thuế VAT", state.tax)
                         Spacer(Modifier.height(4.dp))

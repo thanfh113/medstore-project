@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -46,12 +47,14 @@ private val HEADER_COLLAPSED = 72.dp
 fun HomeScreen(modifier: Modifier = Modifier, navController: NavController? = null) {
     val drawerState = rememberDrawerState()
     val notificationViewModel: NotificationViewModel = hiltViewModel()
+    val homeViewModel: HomeViewModel = hiltViewModel()
     val unreadNotificationCount by notificationViewModel.unreadCount.collectAsState()
+    val rewardPoints by homeViewModel.rewardPoints.collectAsState()
 
     AppDrawer(
         drawerState = drawerState,
         userName = "Khách hàng",
-        rewardPoints = 0,
+        rewardPoints = rewardPoints,
         notificationCount = unreadNotificationCount,
         onMenuItemClick = { item ->
             if (item.label != "Thông báo") {
@@ -75,6 +78,7 @@ fun HomeScreen(modifier: Modifier = Modifier, navController: NavController? = nu
             onChatClick = { navController?.navigate("ChatScreen") },
             onNotificationClick = { navController?.navigate("NotificationScreen") },
             notificationCount = unreadNotificationCount,
+            rewardPoints = rewardPoints,
             navController = navController
         )
     }
@@ -87,6 +91,7 @@ private fun HomeScreenContent(
     onChatClick: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
     notificationCount: Int = 0,
+    rewardPoints: Int = 0,
     navController: NavController? = null
 ) {
     val listState = rememberLazyListState()
@@ -126,6 +131,7 @@ private fun HomeScreenContent(
     val bestSellerProducts by homeViewModel.bestSellerProducts.collectAsState()
     val bestSellerLoading by homeViewModel.bestSellerLoading.collectAsState()
     val banners by homeViewModel.banners.collectAsState()
+    val recentOrders by homeViewModel.recentOrders.collectAsState()
     val promoItems = remember(banners) {
         banners
             .sortedBy { it.sortOrder }
@@ -150,7 +156,7 @@ private fun HomeScreenContent(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    GreetingCard(userName = "Bạn", rewardPoints = 0, navController)
+                    GreetingCard(userName = "Bạn", rewardPoints = rewardPoints, navController)
                     ChatBanner(hasNewMessage = true, onChatClick = onChatClick)
                 }
             }
@@ -195,7 +201,26 @@ private fun HomeScreenContent(
                     }
                 )
             }
-            item { RecentOrdersRow(navController = navController, modifier = Modifier.padding(horizontal = 16.dp)) }
+            item {
+                RecentOrdersRow(
+                    orders = recentOrders,
+                    navController = navController,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    onSeeAll = { navController?.navigate("OrderHistoryScreen") },
+                    onReorder = { order ->
+                        scope.launch {
+                            order.items.forEach { item ->
+                                cartViewModel.addToCart(
+                                    productId = item.productId,
+                                    quantity = item.quantity,
+                                    unit = item.unit
+                                )
+                            }
+                            snackbarHostState.showSnackbar("Đã thêm ${order.items.size} sản phẩm vào giỏ hàng.")
+                        }
+                    }
+                )
+            }
             item {
                 BestSellerList(
                     navController = navController,
@@ -267,7 +292,7 @@ private fun HomeScreenContent(
                     .padding(horizontal = 16.dp)
                     .padding(bottom = if (collapseLevel < 1f) (14 + 24 * (1f - collapseLevel)).dp else 14.dp)
             ) {
-                HomeSearchBar()
+                HomeSearchBar(onClick = { navController?.navigate("ProductListScreen") })
             }
 
             Row(
@@ -293,7 +318,9 @@ private fun HomeScreenContent(
                 IconButton(onClick = onMenuClick) {
                     Icon(Icons.Filled.Menu, null, tint = Color.White)
                 }
-                Box(modifier = Modifier.weight(1f)) { HomeSearchBar() }
+                Box(modifier = Modifier.weight(1f)) {
+                    HomeSearchBar(onClick = { navController?.navigate("ProductListScreen") })
+                }
                 HomeNotificationButton(
                     notificationCount = notificationCount,
                     onClick = onNotificationClick
@@ -331,12 +358,12 @@ private fun HomeNotificationButton(
 }
 
 @Composable
-private fun HomeSearchBar() {
+private fun HomeSearchBar(onClick: () -> Unit = {}) {
     Surface(
         shape = RoundedCornerShape(50),
         color = Color.White,
         shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth().height(44.dp)
+        modifier = Modifier.fillMaxWidth().height(44.dp).clickable(onClick = onClick)
     ) {
         Row(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),

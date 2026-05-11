@@ -74,6 +74,7 @@ fun ChatScreen(
     onBack: () -> Unit = {},
     onProductClick: (String) -> Unit = {},
     productId: String? = null,
+    sessionId: String? = null,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -89,8 +90,12 @@ fun ChatScreen(
         "${chatRoleLabel(message.senderRole)}: ${message.senderName}"
     }
 
-    LaunchedEffect(productId) {
-        viewModel.initSession(productId)
+    LaunchedEffect(sessionId, productId) {
+        if (sessionId != null) {
+            viewModel.openExistingSession(sessionId)
+        } else {
+            viewModel.initSession(productId)
+        }
     }
 
     LaunchedEffect(uiState.messages.size) {

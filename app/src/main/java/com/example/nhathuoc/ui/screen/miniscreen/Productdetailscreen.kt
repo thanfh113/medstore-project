@@ -23,6 +23,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -1653,51 +1654,66 @@ private fun ProductBottomBar(
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(0.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFF3F7F4))
                     ) {
                         IconButton(
                             onClick = { onQuantityChange(selectedQuantity - 1) },
                             enabled = selectedQuantity > 1,
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFE8F5E9))
+                            modifier = Modifier.size(40.dp)
                         ) {
-                            Icon(Icons.Default.Remove, contentDescription = "Giảm", tint = GreenTop)
-                        }
-                        OutlinedTextField(
-                            value = quantityText,
-                            onValueChange = { raw ->
-                                val digits = raw.filter(Char::isDigit).take(4)
-                                quantityText = digits
-                                digits.toIntOrNull()?.let { value ->
-                                    onQuantityChange(value.coerceIn(1, stockQuantity))
-                                }
-                            },
-                            modifier = Modifier.width(64.dp),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            textStyle = LocalTextStyle.current.copy(
-                                color = Color(0xFF111827),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                textAlign = TextAlign.Center
-                            ),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = GreenTop,
-                                unfocusedBorderColor = Color(0xFFE5E7EB),
-                                cursorColor = GreenTop
+                            Icon(
+                                Icons.Default.Remove,
+                                contentDescription = "Giảm",
+                                tint = if (selectedQuantity > 1) GreenTop else Color(0xFFBDBDBD),
+                                modifier = Modifier.size(18.dp)
                             )
-                        )
+                        }
+                        Surface(
+                            color = Color.White,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = 42.dp)
+                                .padding(vertical = 4.dp)
+                        ) {
+                            BasicTextField(
+                                value = quantityText,
+                                onValueChange = { raw ->
+                                    val digits = raw.filter(Char::isDigit).take(4)
+                                    quantityText = digits
+                                    digits.toIntOrNull()?.let { value ->
+                                        onQuantityChange(value.coerceIn(1, stockQuantity))
+                                    }
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    textAlign = TextAlign.Center,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF111827)
+                                ),
+                                modifier = Modifier
+                                    .width(42.dp)
+                                    .padding(vertical = 6.dp),
+                                decorationBox = { inner ->
+                                    Box(contentAlignment = Alignment.Center) { inner() }
+                                }
+                            )
+                        }
                         IconButton(
                             onClick = { onQuantityChange(selectedQuantity + 1) },
                             enabled = selectedQuantity < stockQuantity,
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFE8F5E9))
+                            modifier = Modifier.size(40.dp)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Tăng", tint = GreenTop)
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Tăng",
+                                tint = if (selectedQuantity < stockQuantity) GreenTop else Color(0xFFBDBDBD),
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }
@@ -1738,7 +1754,7 @@ private fun ProductBottomBar(
                     ) {
                         Icon(Icons.Outlined.ShoppingCart, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Vào giỏ", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        Text("Giỏ hàng", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                     }
 
                     // Mua ngay -> cart/checkout

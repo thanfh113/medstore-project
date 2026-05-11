@@ -36,16 +36,17 @@ data class OrderDto(
 
 @Serializable
 data class OrderItemDto(
-    val id: String, // UUID from backend
-    val orderId: String, // UUID from backend
-    val productId: String, // UUID from backend
-    val name: String, // Added: Product name at time of order
-    val product: ProductDto? = null, // Made optional for flexibility
+    val id: String,
+    val orderId: String,
+    val productId: String,
+    val name: String,
+    val product: ProductDto? = null,
+    val imageUrl: String? = null,
     val quantity: Int,
-    val unit: String, // Added to match order_items schema
-    val price: Double, // Renamed from unitPrice to match schema
-    val totalPrice: Double? = null, // Keep for calculated field
-    val createdAt: String? = null // Keep for backward compatibility
+    val unit: String,
+    val price: Double,
+    val totalPrice: Double? = null,
+    val createdAt: String? = null
 )
 
 @Serializable

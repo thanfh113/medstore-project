@@ -20,6 +20,7 @@ class ProductRepository @Inject constructor(
     suspend fun getProducts(
         category: String? = null,
         brand: String? = null,
+        search: String? = null,
         minPrice: Double? = null,
         maxPrice: Double? = null,
         sortBy: String? = null,
@@ -27,7 +28,7 @@ class ProductRepository @Inject constructor(
         limit: Int = 20
     ): NetworkResult<ProductListResponse> {
         return try {
-            val response = apiService.getProducts(category, brand, minPrice, maxPrice, sortBy, page, limit)
+            val response = apiService.getProducts(category, brand, search, minPrice, maxPrice, sortBy, page, limit)
             if (response.isSuccessful) NetworkResult.Success(response.body()!!) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
         } catch (e: HttpException) {
             NetworkResult.Error(e.code(), e.message())

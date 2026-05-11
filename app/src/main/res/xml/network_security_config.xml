@@ -1,5 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Local development only: backend runs on LAN HTTP, not HTTPS. -->
-    <base-config cleartextTrafficPermitted="true" />
+    <!-- Allow cleartext (HTTP) for development -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Allow localhost/127.0.0.1 -->
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">localhost</domain>
+
+        <!-- Allow emulator host access (10.0.2.2) -->
+        <domain includeSubdomains="true">10.0.2.2</domain>
+
+        <!-- Allow local network -->
+        <domain includeSubdomains="true">192.168.0.0</domain>
+        <domain includeSubdomains="true">172.16.0.0</domain>
+
+        <domain includeSubdomains="true">10.196.200.132</domain>
+        <domain includeSubdomains="false">10.196.200.133</domain>
+
+    </domain-config>
+
+    <!-- All other domains require HTTPS -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">example.com</domain>
+    </domain-config>
 </network-security-config>

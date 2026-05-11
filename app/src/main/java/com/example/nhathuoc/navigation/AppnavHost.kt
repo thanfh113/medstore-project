@@ -40,6 +40,7 @@ import com.example.nhathuoc.ui.screen.MyOrdersScreen
 import com.example.nhathuoc.ui.screen.RewardScreen
 import com.example.nhathuoc.ui.screen.miniscreen.AddressBookScreen
 import com.example.nhathuoc.ui.screen.miniscreen.CategoryProductScreen
+import com.example.nhathuoc.ui.screen.miniscreen.ChatHistoryScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ChatScreen
 import com.example.nhathuoc.ui.screen.miniscreen.CheckoutFlowScreen
 import com.example.nhathuoc.ui.screen.miniscreen.CreateAddressScreen
@@ -50,8 +51,10 @@ import com.example.nhathuoc.ui.screen.miniscreen.OrderDetailScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ProductDetail
 import com.example.nhathuoc.ui.screen.miniscreen.ProductDetailScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ProductListScreen
+import com.example.nhathuoc.ui.screen.miniscreen.ProfileScreen
 import com.example.nhathuoc.ui.screen.miniscreen.RegisterScreen
 // Note: AddressSelectionScreen not registered in NavHost; AddressBookScreen is used instead
+import com.example.nhathuoc.viewmodel.AddressViewModel
 import com.example.nhathuoc.viewmodel.CartViewModel
 import com.example.nhathuoc.viewmodel.CheckoutViewModel
 import com.example.nhathuoc.viewmodel.ProductDetailViewModel
@@ -90,19 +93,39 @@ fun AppnavHost(navController: NavHostController) {
         composable("RewardScreen") {
             RewardScreen(
                 onShopNow = { navController.navigate("HomeScreen") },
-                onUseVoucher = { navController.navigate("CheckoutScreen") }
+                onUseVoucher = { code ->
+                    navController.currentBackStackEntry?.savedStateHandle?.set("applyVoucherCode", code)
+                    navController.navigate("CheckoutScreen")
+                }
             )
         }
         composable("HomeScreen") {
             HomeScreen(navController = navController)
         }
         composable("ProductListScreen") {
-            ProductListScreen(navController = navController)
+            ProductListScreen(
+                navController = navController,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("ChatHistoryScreen") {
+            ChatHistoryScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSession = { sessionId ->
+                    navController.navigate("ChatScreen?sessionId=${Uri.encode(sessionId)}")
+                },
+                onNewChat = { navController.navigate("ChatScreen") }
+            )
         }
         composable(
-            route = "ChatScreen?productId={productId}",
+            route = "ChatScreen?productId={productId}&sessionId={sessionId}",
             arguments = listOf(
                 navArgument("productId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("sessionId") {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
@@ -110,12 +133,14 @@ fun AppnavHost(navController: NavHostController) {
             )
         ) { backStackEntry ->
             val productId = backStackEntry.arguments?.getString("productId")
+            val sessionId = backStackEntry.arguments?.getString("sessionId")
             ChatScreen(
                 onBack = { navController.popBackStack() },
                 onProductClick = { id ->
                     navController.navigate("ProductDetailScreen/${Uri.encode(id)}")
                 },
-                productId = productId
+                productId = productId,
+                sessionId = sessionId
             )
         }
         composable("MyOrdersScreen") {
@@ -152,7 +177,10 @@ fun AppnavHost(navController: NavHostController) {
                         "COMPLAINT", "REFUND" -> {
                             if (!refId.isNullOrBlank()) navController.navigate("ComplaintDetailScreen/$refId")
                         }
-                        "CHAT" -> navController.navigate("ChatScreen")
+                        "CHAT" -> {
+                            if (!refId.isNullOrBlank()) navController.navigate("ChatScreen?sessionId=${Uri.encode(refId)}")
+                            else navController.navigate("ChatHistoryScreen")
+                        }
                         "REWARD" -> navController.navigate("RewardScreen")
                         "REVIEW" -> {
                             if (!refId.isNullOrBlank()) {
@@ -217,7 +245,9 @@ fun AppnavHost(navController: NavHostController) {
                     onChat = {
                         navController.navigate("ChatScreen")
                     },
-                    onFindPharmacy = { navController.navigate("FindPharmacyScreen") },
+                    onFindPharmacy = {
+                        Toast.makeText(context, "Tính năng tìm nhà thuốc đang phát triển", Toast.LENGTH_SHORT).show()
+                    },
                     onAddToCart = { _ ->
                         Toast.makeText(
                             context,
@@ -380,7 +410,9 @@ fun AppnavHost(navController: NavHostController) {
                             onChat = {
                                 navController.navigate("ChatScreen?productId=${Uri.encode(dto.id)}")
                             },
-                            onFindPharmacy = { navController.navigate("FindPharmacyScreen") },
+                            onFindPharmacy = {
+                                Toast.makeText(context, "Tính năng tìm nhà thuốc đang phát triển", Toast.LENGTH_SHORT).show()
+                            },
                             onAddToCart = { quantity ->
                                 addToCartAction(quantity)
                                 Toast.makeText(context, "Đã thêm vào giỏ hàng", Toast.LENGTH_SHORT).show()
@@ -537,6 +569,65 @@ fun AppnavHost(navController: NavHostController) {
         ) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
             OrderConfirmationScreen(orderId = orderId, navController = navController)
+        }
+        composable("ProfileScreen") {
+            ProfileScreen(onBack = { navController.popBackStack() })
+        }
+
+        // ── Profile Address Management ──────────────────────────────────
+        composable("ProfileAddressBookScreen") {
+            val addressViewModel: AddressViewModel = hiltViewModel()
+            val addresses by addressViewModel.addresses.collectAsState()
+            AddressBookScreen(
+                addresses = addresses,
+                selectedAddressId = null,
+                onAddressSelected = {},
+                onAddNewAddress = { navController.navigate("ProfileAddAddressScreen") },
+                onEditAddress = { id -> navController.navigate("ProfileEditAddressScreen/${Uri.encode(id)}") },
+                onDeleteAddress = { id -> addressViewModel.deleteAddress(id) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("ProfileAddAddressScreen") { backStackEntry ->
+            val profileEntry = remember(backStackEntry) {
+                navController.getBackStackEntry("ProfileAddressBookScreen")
+            }
+            val addressViewModel: AddressViewModel = hiltViewModel(profileEntry)
+            CreateAddressScreen(
+                onSave = { request ->
+                    addressViewModel.addAddress(request)
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = "ProfileEditAddressScreen/{addressId}",
+            arguments = listOf(navArgument("addressId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val profileEntry = remember(backStackEntry) {
+                navController.getBackStackEntry("ProfileAddressBookScreen")
+            }
+            val addressViewModel: AddressViewModel = hiltViewModel(profileEntry)
+            val addresses by addressViewModel.addresses.collectAsState()
+            val addressId = backStackEntry.arguments?.getString("addressId").orEmpty()
+            val editingAddress = addresses.firstOrNull { it.id == addressId }
+
+            if (editingAddress == null) {
+                LaunchedEffect(addressId) {
+                    Toast.makeText(context, "Không tìm thấy địa chỉ", Toast.LENGTH_SHORT).show()
+                    navController.popBackStack()
+                }
+            } else {
+                CreateAddressScreen(
+                    initialAddress = editingAddress,
+                    onSave = { request ->
+                        addressViewModel.updateAddress(addressId, request)
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }

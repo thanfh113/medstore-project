@@ -130,7 +130,7 @@ fun MainScreen(navController: NavController) {
             onDismiss = { showConsultSheet = false },
             onChatClick = {
                 showConsultSheet = false
-                navController.navigate("ChatScreen")
+                navController.navigate("ChatHistoryScreen")
             }
         )
     }
@@ -326,7 +326,7 @@ private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {
 
         Spacer(Modifier.height(20.dp))
 
-        // Nhắn tin button
+        // Chat button
         Surface(
             onClick = onChatClick,
             shape = RoundedCornerShape(50),
@@ -343,11 +343,7 @@ private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {
             ) {
                 Icon(Icons.Filled.ChatBubble, null, tint = ActiveGreen, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Tư vấn vật tư y tế", color = ActiveGreen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.width(8.dp))
-                Badge(containerColor = Color(0xFFFFAB00)) {
-                    Text("1", color = Color.White, fontSize = 10.sp)
-                }
+                Text("Nhắn tin & Lịch sử tư vấn", color = ActiveGreen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 

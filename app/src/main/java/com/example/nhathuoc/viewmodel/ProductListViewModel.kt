@@ -1,4 +1,4 @@
-﻿package com.example.nhathuoc.viewmodel
+package com.example.nhathuoc.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -56,7 +56,7 @@ class ProductListViewModel @Inject constructor(
                     _state.value = UiState.Success(result.data)
                 }
                 is NetworkResult.Error -> _state.value = UiState.Error(result.message)
-                is NetworkResult.Exception -> _state.value = UiState.Error("Loi ket noi")
+                is NetworkResult.Exception -> _state.value = UiState.Error("Lỗi kết nối")
             }
         }
     }
@@ -97,11 +97,13 @@ class ProductListViewModel @Inject constructor(
     private fun performSearch() {
         viewModelScope.launch {
             _state.value = UiState.Loading
+            val search = _searchQuery.value.trim().takeIf { it.isNotEmpty() }
             val minPrice = if (_priceRange.value.start > 0) _priceRange.value.start else null
             val maxPrice = if (_priceRange.value.endInclusive < 1000000) _priceRange.value.endInclusive else null
             when (
                 val result = productRepository.getProducts(
                     category = _selectedCategory.value,
+                    search = search,
                     minPrice = minPrice,
                     maxPrice = maxPrice,
                     sortBy = _sortBy.value,
@@ -119,7 +121,7 @@ class ProductListViewModel @Inject constructor(
                     _state.value = UiState.Success(result.data)
                 }
                 is NetworkResult.Error -> _state.value = UiState.Error(result.message)
-                is NetworkResult.Exception -> _state.value = UiState.Error("Loi ket noi")
+                is NetworkResult.Exception -> _state.value = UiState.Error("Lỗi kết nối")
             }
         }
     }

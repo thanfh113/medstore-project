@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -417,6 +418,7 @@ private fun OrderStatusItem(item: MenuItem, onClick: () -> Unit = {}) {
 
 @Composable
 private fun MenuGroup(items: List<MenuItem>, navController: NavController) {
+    val context = LocalContext.current
     Surface(
         color = Color.White,
         shape = RoundedCornerShape(12.dp),
@@ -430,11 +432,11 @@ private fun MenuGroup(items: List<MenuItem>, navController: NavController) {
                     showDivider = i < items.lastIndex,
                     onClick = {
                         when (item.label) {
-                            "Thông tin cá nhân"    -> { /* TODO: ProfileScreen */ }
-                            "Quản lý sổ địa chỉ"  -> { /* TODO: AddressScreen */ }
-                            "Đơn hàng của tôi"     -> navController.navigate("MyOrdersScreen")
+                            "Thông tin cá nhân"   -> navController.navigate("ProfileScreen")
+                            "Quản lý sổ địa chỉ"  -> navController.navigate("ProfileAddressBookScreen")
+                            "Đơn hàng của tôi"    -> navController.navigate("MyOrdersScreen")
                             "Khiếu nại của tôi"   -> navController.navigate("MyComplaintsScreen")
-                            "Liên hệ & Hỗ trợ"    -> { /* TODO: Support */ }
+                            else -> Toast.makeText(context, "Tính năng đang phát triển", Toast.LENGTH_SHORT).show()
                         }
                     }
                 )

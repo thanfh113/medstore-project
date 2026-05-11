@@ -5,13 +5,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.material.icons.outlined.MedicalServices
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,7 +23,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,23 +38,37 @@ import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.viewmodel.ProductListViewModel
 
+private data class SortOption(val label: String, val value: String?)
+
+private val sortOptions = listOf(
+    SortOption("Tên A-Z", null),
+    SortOption("Giá tăng dần", "price_asc"),
+    SortOption("Giá giảm dần", "price_desc"),
+    SortOption("Mới nhất", "created_at"),
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductListScreen(
     modifier: Modifier = Modifier,
     navController: NavController = rememberNavController(),
+    onBack: (() -> Unit)? = null,
     viewModel: ProductListViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
     val products by viewModel.allProducts.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val selectedCategory by viewModel.selectedCategory.collectAsState()
     val priceRange by viewModel.priceRange.collectAsState()
+    val sortBy by viewModel.sortBy.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
 
     var showFilterSheet by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
 
-    // Debounce search (300ms)
+    // Detect if any filter is active for badge on filter button
+    val filterActive = priceRange.start > 0 || priceRange.endInclusive < 1000000 || sortBy != null
+
+    // Debounce search
     LaunchedEffect(searchText) {
         kotlinx.coroutines.delay(300)
         viewModel.updateSearchQuery(searchText)
@@ -59,14 +79,14 @@ fun ProductListScreen(
             .fillMaxSize()
             .background(Color(0xFFF5F7FA))
     ) {
-        // Header
         ProductListHeader(
             searchQuery = searchText,
             onSearchChange = { searchText = it },
-            onFilterClick = { showFilterSheet = true }
+            filterActive = filterActive,
+            onFilterClick = { showFilterSheet = true },
+            onBack = onBack
         )
 
-        // Content
         when (state) {
             is UiState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -83,23 +103,9 @@ fun ProductListScreen(
                     onRetry = { viewModel.resetFilters() }
                 )
             }
-            is UiState.Idle -> {
-                if (products.isEmpty()) {
-                    EmptyState()
-                } else {
-                    ProductGrid(
-                        products = products,
-                        onProductClick = { productId ->
-                            navController.navigate("ProductDetailScreen/$productId")
-                        },
-                        onLoadMore = { viewModel.loadMoreProducts() },
-                        hasMore = hasMore
-                    )
-                }
-            }
             else -> {
-                if (products.isEmpty()) {
-                    EmptyState()
+                if (products.isEmpty() && state !is UiState.Loading) {
+                    EmptyState(hasFilters = searchText.isNotBlank() || filterActive, onReset = { viewModel.resetFilters(); searchText = "" })
                 } else {
                     ProductGrid(
                         products = products,
@@ -114,16 +120,21 @@ fun ProductListScreen(
         }
     }
 
-    // Filter Bottom Sheet
     if (showFilterSheet) {
-        FilterBottomSheet(
-            selectedCategory = selectedCategory,
-            priceRange = priceRange,
-            onCategorySelect = { viewModel.setCategory(it) },
-            onPriceChange = { min, max -> viewModel.setPriceRange(min, max) },
-            onReset = { viewModel.resetFilters() },
-            onDismiss = { showFilterSheet = false }
-        )
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        ) {
+            FilterSheetContent(
+                priceRange = priceRange,
+                currentSortBy = sortBy,
+                onSortSelect = { viewModel.setSortBy(it) },
+                onPriceChange = { min, max -> viewModel.setPriceRange(min, max) },
+                onReset = { viewModel.resetFilters(); searchText = "" },
+                onApply = { showFilterSheet = false }
+            )
+        }
     }
 }
 
@@ -131,39 +142,54 @@ fun ProductListScreen(
 private fun ProductListHeader(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
-    onFilterClick: () -> Unit
+    filterActive: Boolean,
+    onFilterClick: () -> Unit,
+    onBack: (() -> Unit)? = null
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(GreenTop)
-            .padding(16.dp)
+            .padding(horizontal = 4.dp, vertical = 12.dp)
     ) {
-        Text(
-            "Danh sách sản phẩm",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 10.dp)
+        ) {
+            if (onBack != null) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBackIos,
+                        contentDescription = "Quay lại",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            } else {
+                Spacer(Modifier.width(16.dp))
+            }
+            Text(
+                "Danh sách sản phẩm",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(8.dp))
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .background(Color.White, RoundedCornerShape(12.dp))
+                .padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Filled.Search, "Search", tint = Color.Gray, modifier = Modifier.size(20.dp))
-
+            Icon(Icons.Filled.Search, "Tìm kiếm", tint = Color.Gray, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(6.dp))
             TextField(
                 value = searchQuery,
                 onValueChange = onSearchChange,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(40.dp),
-                placeholder = { Text("Tìm sản phẩm...", fontSize = 12.sp) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Tìm tên, thương hiệu sản phẩm...", fontSize = 13.sp, color = Color.Gray) },
                 singleLine = true,
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
@@ -172,9 +198,23 @@ private fun ProductListHeader(
                     unfocusedIndicatorColor = Color.Transparent
                 )
             )
-
-            IconButton(onClick = onFilterClick, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Outlined.Tune, "Lọc", tint = GreenTop)
+            if (searchQuery.isNotBlank()) {
+                IconButton(onClick = { onSearchChange("") }, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Filled.Close, "Xóa", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                }
+            }
+            Box {
+                IconButton(onClick = onFilterClick, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Outlined.FilterAlt, "Lọc", tint = GreenTop)
+                }
+                if (filterActive) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(Color.Red, CircleShape)
+                            .align(Alignment.TopEnd)
+                    )
+                }
             }
         }
     }
@@ -187,32 +227,32 @@ private fun ProductGrid(
     onLoadMore: () -> Unit,
     hasMore: Boolean
 ) {
+    val gridState = rememberLazyGridState()
+
+    LaunchedEffect(gridState) {
+        snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+            .collect { lastVisible ->
+                if (hasMore && lastVisible != null && lastVisible >= products.size - 4) {
+                    onLoadMore()
+                }
+            }
+    }
+
     LazyVerticalGrid(
+        state = gridState,
         columns = GridCells.Fixed(2),
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(12.dp),
+        modifier = Modifier.fillMaxSize().padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
-        items(products) { product ->
-            ProductListCard(
-                product = product,
-                onClick = { onProductClick(product.id) }
-            )
+        items(products, key = { it.id }) { product ->
+            ProductListCard(product = product, onClick = { onProductClick(product.id) })
         }
-
         if (hasMore) {
-            item {
-                Button(
-                    onClick = onLoadMore,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
-                ) {
-                    Text("Xem thêm")
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                Box(modifier = Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp), color = GreenTop, strokeWidth = 2.dp)
                 }
             }
         }
@@ -220,32 +260,20 @@ private fun ProductGrid(
 }
 
 @Composable
-private fun ProductListCard(
-    product: ProductDto,
-    onClick: () -> Unit
-) {
-    val normalizedRisk = product.riskClassification.uppercase()
-    val canOrderOnline = normalizedRisk != "C" && normalizedRisk != "D"
+private fun ProductListCard(product: ProductDto, onClick: () -> Unit) {
+    val canOrderOnline = product.riskClassification.uppercase().let { it != "C" && it != "D" }
+    val hasDiscount = product.discountPct > 0
+    val originalPrice = if (hasDiscount) product.price / (1.0 - product.discountPct / 100.0) else null
 
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         color = Color.White,
         shadowElevation = 2.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
     ) {
-        Column(
-            modifier = Modifier.padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Product image / placeholder
+        Column(modifier = Modifier.padding(10.dp)) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFE8F5E9)),
+                modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(Color(0xFFE8F5E9)),
                 contentAlignment = Alignment.Center
             ) {
                 if (!product.imageUrl.isNullOrBlank()) {
@@ -256,275 +284,225 @@ private fun ProductListCard(
                         contentScale = ContentScale.Fit
                     )
                 } else {
-                    Icon(
-                        Icons.Outlined.MedicalServices,
-                        contentDescription = null,
-                        tint = GreenTop,
-                        modifier = Modifier.size(48.dp)
-                    )
+                    Icon(Icons.Outlined.MedicalServices, contentDescription = null, tint = GreenTop, modifier = Modifier.size(44.dp))
+                }
+                if (hasDiscount) {
+                    Surface(
+                        shape = RoundedCornerShape(bottomEnd = 10.dp),
+                        color = Color(0xFFE53935),
+                        modifier = Modifier.align(Alignment.TopStart)
+                    ) {
+                        Text(
+                            "-${product.discountPct.toInt()}%",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
 
-            // Brand
             if (product.brand.isNotBlank()) {
-                Text(
-                    product.brand,
-                    fontSize = 10.sp,
-                    color = Color.Gray,
-                    maxLines = 1,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Text(product.brand, fontSize = 10.sp, color = Color(0xFF757575), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
 
-            // Product name
             Text(
                 product.name,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
-                textAlign = TextAlign.Start,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 18.sp,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
 
-            // Origin chip
-            if (product.origin.isNotBlank()) {
+            if (hasDiscount && originalPrice != null) {
                 Text(
-                    product.origin,
-                    fontSize = 10.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.fillMaxWidth()
+                    "${String.format("%,d", originalPrice.toLong()).replace(',', '.')}đ",
+                    fontSize = 11.sp,
+                    color = Color(0xFF9E9E9E),
+                    textDecoration = TextDecoration.LineThrough
                 )
             }
+            Text(
+                "${String.format("%,d", product.price.toLong()).replace(',', '.')}đ",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = GreenTop
+            )
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Price
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "${String.format("%,d", product.price.toLong()).replace(',', '.')}đ",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = GreenTop
-                )
-
-                if (product.discountPct > 0) {
-                    Text(
-                        "-${product.discountPct}%",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier
-                            .background(Color.Red, CircleShape)
-                            .padding(4.dp)
-                    )
-                }
-            }
+            Spacer(Modifier.height(6.dp))
 
             if (!canOrderOnline) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    "Loại $normalizedRisk - Cần tư vấn",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFFE65100),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFFFF3E0), RoundedCornerShape(50))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                )
+                Surface(shape = RoundedCornerShape(50), color = Color(0xFFFFF3E0)) {
+                    Text(
+                        "Cần tư vấn",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFE65100),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                if (product.stock > 0) "Còn ${product.stock} ${product.unit}" else "Hết hàng",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (product.stock > 0) GreenTop else Color(0xFFE53935),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        if (product.stock > 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
-                        RoundedCornerShape(50)
-                    )
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Unit
-            Text(
-                "/ ${product.unit}",
-                fontSize = 10.sp,
-                color = Color.Gray,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = if (product.stock > 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+            ) {
+                Text(
+                    if (product.stock > 0) "Còn ${product.stock} ${product.unit}" else "Hết hàng",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (product.stock > 0) GreenTop else Color(0xFFE53935),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun FilterBottomSheet(
-    selectedCategory: String?,
+private fun FilterSheetContent(
     priceRange: ClosedFloatingPointRange<Double>,
-    onCategorySelect: (String?) -> Unit,
+    currentSortBy: String?,
+    onSortSelect: (String?) -> Unit,
     onPriceChange: (Double, Double) -> Unit,
     onReset: () -> Unit,
-    onDismiss: () -> Unit
+    onApply: () -> Unit
 ) {
-    var localMinPrice by remember { mutableStateOf(priceRange.start) }
-    var localMaxPrice by remember { mutableStateOf(priceRange.endInclusive) }
+    var localMinPrice by remember { mutableStateOf(priceRange.start.toInt().toString()) }
+    var localMaxPrice by remember { mutableStateOf(priceRange.endInclusive.toInt().toString()) }
+    var localSort by remember { mutableStateOf(currentSortBy) }
 
-    Surface(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .background(Color.White)
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 32.dp)
+            .navigationBarsPadding()
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Bộ lọc", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Filled.Close, "Đóng")
-                }
-            }
+        Text("Bộ lọc & Sắp xếp", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(16.dp))
 
-            HorizontalDivider()
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Price filter
-            Text("Khoảng giá", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TextField(
-                    value = localMinPrice.toInt().toString(),
-                    onValueChange = { localMinPrice = it.toDoubleOrNull() ?: 0.0 },
-                    label = { Text("Từ") },
-                    modifier = Modifier.weight(1f)
-                )
-                TextField(
-                    value = localMaxPrice.toInt().toString(),
-                    onValueChange = { localMaxPrice = it.toDoubleOrNull() ?: 1000000.0 },
-                    label = { Text("Đến") },
-                    modifier = Modifier.weight(1f)
+        // Sort
+        Text("Sắp xếp theo", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF424242))
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            sortOptions.forEach { opt ->
+                val selected = localSort == opt.value
+                FilterChip(
+                    selected = selected,
+                    onClick = { localSort = opt.value },
+                    label = { Text(opt.label, fontSize = 12.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = GreenTop,
+                        selectedLabelColor = Color.White
+                    )
                 )
             }
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
 
-            // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+        // Price range
+        Text("Khoảng giá (đ)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF424242))
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedTextField(
+                value = localMinPrice,
+                onValueChange = { localMinPrice = it.filter { c -> c.isDigit() } },
+                label = { Text("Từ") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp)
+            )
+            OutlinedTextField(
+                value = localMaxPrice,
+                onValueChange = { localMaxPrice = it.filter { c -> c.isDigit() } },
+                label = { Text("Đến") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp)
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(
+                onClick = {
+                    localMinPrice = "0"
+                    localMaxPrice = "1000000"
+                    localSort = null
+                    onReset()
+                },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(50)
             ) {
-                Button(
-                    onClick = onReset,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray)
-                ) {
-                    Text("Đặt lại", color = Color.Black)
-                }
-                Button(
-                    onClick = {
-                        onPriceChange(localMinPrice, localMaxPrice)
-                        onDismiss()
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
-                ) {
-                    Text("Áp dụng")
-                }
+                Text("Đặt lại")
+            }
+            Button(
+                onClick = {
+                    onSortSelect(localSort)
+                    val min = localMinPrice.toDoubleOrNull() ?: 0.0
+                    val max = localMaxPrice.toDoubleOrNull() ?: 1000000.0
+                    onPriceChange(min, max)
+                    onApply()
+                },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
+            ) {
+                Text("Áp dụng")
             }
         }
     }
 }
 
 @Composable
-private fun ErrorState(
-    message: String,
-    onRetry: () -> Unit
-) {
+private fun ErrorState(message: String, onRetry: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            "Không thể tải sản phẩm",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF1A1A1A)
-        )
+        Text("Không thể tải sản phẩm", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
         Spacer(Modifier.height(8.dp))
-        Text(
-            message,
-            textAlign = TextAlign.Center,
-            color = Color.Gray,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-        Button(
-            onClick = onRetry,
-            colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
-        ) {
+        Text(message, textAlign = TextAlign.Center, color = Color.Gray, modifier = Modifier.padding(bottom = 16.dp))
+        Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = GreenTop), shape = RoundedCornerShape(50)) {
             Text("Thử lại")
         }
     }
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(hasFilters: Boolean, onReset: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            Icons.Outlined.MedicalServices,
-            contentDescription = null,
-            tint = Color.LightGray,
-            modifier = Modifier.size(64.dp)
-        )
+        Icon(Icons.Outlined.MedicalServices, contentDescription = null, tint = Color(0xFFBDBDBD), modifier = Modifier.size(72.dp))
         Spacer(Modifier.height(16.dp))
-        Text(
-            "Không tìm thấy sản phẩm",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            color = Color(0xFF555555)
-        )
+        Text("Không tìm thấy sản phẩm", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF555555))
         Spacer(Modifier.height(8.dp))
         Text(
-            "Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm",
-            fontSize = 13.sp,
-            color = Color.Gray,
-            textAlign = TextAlign.Center
+            if (hasFilters) "Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm" else "Chưa có sản phẩm nào",
+            fontSize = 13.sp, color = Color.Gray, textAlign = TextAlign.Center
         )
+        if (hasFilters) {
+            Spacer(Modifier.height(16.dp))
+            OutlinedButton(onClick = onReset, shape = RoundedCornerShape(50)) {
+                Text("Xóa bộ lọc")
+            }
+        }
     }
 }

@@ -81,7 +81,7 @@ private enum class RewardScreenTab {
 fun RewardScreen(
     modifier: Modifier = Modifier,
     onShopNow: () -> Unit = {},
-    onUseVoucher: () -> Unit = {}
+    onUseVoucher: (String) -> Unit = {}
 ) {
     val viewModel: RewardViewModel = hiltViewModel()
     val accountState   by viewModel.accountState.collectAsState()
@@ -627,9 +627,10 @@ private fun FallbackRewardProductCard(
                 )
             }
             Spacer(Modifier.height(10.dp))
+            val canRedeem = userPoints >= product.pointCost
             Button(
                 onClick = onRedeem,
-                enabled = false,
+                enabled = canRedeem,
                 shape = RoundedCornerShape(50),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = GreenTopRw,
@@ -638,7 +639,10 @@ private fun FallbackRewardProductCard(
                 contentPadding = PaddingValues(vertical = 8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Quà mẫu", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (canRedeem) "Đổi ngay" else "Thiếu điểm",
+                    color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
@@ -796,7 +800,7 @@ private fun RewardHistorySection(
 private fun MyRewardVouchersSection(
     vouchersState: UiState<List<RewardVoucherDto>>,
     vouchers: List<RewardVoucherDto>,
-    onUseVoucher: () -> Unit
+    onUseVoucher: (String) -> Unit
 ) {
     RewardHistorySection(
         title = "Voucher của tôi",
@@ -821,7 +825,7 @@ private fun MyRewardVouchersSection(
 }
 
 @Composable
-private fun RewardVoucherCard(voucher: RewardVoucherDto, onUseVoucher: () -> Unit) {
+private fun RewardVoucherCard(voucher: RewardVoucherDto, onUseVoucher: (String) -> Unit) {
     val normalizedStatus = voucher.status.uppercase()
     val used = normalizedStatus == "USED"
     val unusable = normalizedStatus in setOf("USED", "CANCELLED", "EXPIRED")
@@ -859,7 +863,7 @@ private fun RewardVoucherCard(voucher: RewardVoucherDto, onUseVoucher: () -> Uni
                     fontSize = 11.sp
                 )
                 Button(
-                    onClick = onUseVoucher,
+                    onClick = { onUseVoucher(voucher.code) },
                     enabled = !unusable,
                     colors = ButtonDefaults.buttonColors(containerColor = GreenTopRw),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)

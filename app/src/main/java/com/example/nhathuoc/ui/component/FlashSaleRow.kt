@@ -86,25 +86,27 @@ fun FlashSaleRow(
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Header gradient
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
                     Brush.horizontalGradient(listOf(GreenTop, Color(0xFF2E7D32))),
                     shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
                 )
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = title,
-                fontSize = 16.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White,
-                modifier = Modifier.align(Alignment.CenterStart)
+                modifier = Modifier.weight(1f)
             )
             TextButton(
                 onClick = onSeeAll,
-                modifier = Modifier.align(Alignment.CenterEnd)
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 Text("Xem tất cả >", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
             }

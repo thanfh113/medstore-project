@@ -175,6 +175,12 @@ fun CheckoutFlowScreen(
                 viewModel.startSelectedCartCheckout(selectedCartItemIds)
             }
         }
+
+        val applyVoucherCode = previousHandle?.get<String>("applyVoucherCode")
+        if (!applyVoucherCode.isNullOrBlank()) {
+            previousHandle.remove<String>("applyVoucherCode")
+            viewModel.setPromoCode(applyVoucherCode)
+        }
     }
 
     LaunchedEffect(checkoutNotice) {
@@ -469,7 +475,7 @@ fun CheckoutFlowScreen(
                     SummaryRow("Tạm tính", state.subtotal)
                     SummaryRow("Giảm giá", state.discount)
                     if (state.pointsToUse > 0) {
-                        SummaryRow("Điểm thưởng đã dùng", -(state.pointsToUse * 1000.0))
+                        SummaryRow("Điểm thưởng đã dùng", -state.pointsToUse.toDouble())
                     }
                     RewardSummaryRow("Điểm thưởng nhận được", "+${state.estimatedRewardPoints} điểm")
                     SummaryRow("Phí vận chuyển", state.shipping)
@@ -916,7 +922,7 @@ private fun RewardInfoCard(
                             color = GreenTop
                         )
                         Text(
-                            text = "Giảm ${formatCurrency(maxUsablePoints * 1000.0)} cho tiền hàng.",
+                            text = "Giảm ${formatCurrency(maxUsablePoints.toDouble())} cho tiền hàng.",
                             fontSize = 12.sp,
                             color = Color(0xFF6B7280)
                         )
@@ -929,7 +935,7 @@ private fun RewardInfoCard(
 
                 if (pointsToUse > 0) {
                     Text(
-                        text = "Đang áp dụng: -${formatCurrency(pointsToUse * 1000.0)}",
+                        text = "Đang áp dụng: -${formatCurrency(pointsToUse.toDouble())}",
                         fontSize = 12.sp,
                         color = Color(0xFFFF8F00),
                         fontWeight = FontWeight.SemiBold

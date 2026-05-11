@@ -52,6 +52,7 @@ interface ApiService {
     suspend fun getProducts(
         @Query("category") category: String? = null,
         @Query("brand") brand: String? = null,
+        @Query("search") search: String? = null,
         @Query("minPrice") minPrice: Double? = null,
         @Query("maxPrice") maxPrice: Double? = null,
         @Query("sortBy") sortBy: String? = null,
