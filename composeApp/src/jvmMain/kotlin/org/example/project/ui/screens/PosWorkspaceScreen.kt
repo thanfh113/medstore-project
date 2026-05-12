@@ -254,7 +254,7 @@ private fun PosCheckoutWorkspace(
                                 PosSearchResultCard(
                                     product = product,
                                     onPreview = { onPreviewProduct(product) },
-                                    onAdd = { viewModel.addToCart(product) }
+                                    onAdd = { quantity -> viewModel.addToCart(product, quantity) }
                                 )
                             }
                         }
@@ -581,8 +581,12 @@ private fun PaymentMethodSelector(
 private fun PosSearchResultCard(
     product: Product,
     onPreview: () -> Unit,
-    onAdd: () -> Unit
+    onAdd: (Int) -> Unit
 ) {
+    var qtyInput by remember(product.id) { mutableStateOf("1") }
+    val maxQuantity = product.stockQuantity.coerceAtLeast(1)
+    val selectedQuantity = qtyInput.toIntOrNull()?.coerceIn(1, maxQuantity) ?: 1
+
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f))
@@ -624,9 +628,67 @@ private fun PosSearchResultCard(
                 OutlinedButton(onClick = onPreview) {
                     Text("Chi tiết")
                 }
-                Button(onClick = onAdd) {
+                QuantityStepper(
+                    value = qtyInput,
+                    onValueChange = { value ->
+                        val digits = value.filter { it.isDigit() }.take(4)
+                        qtyInput = digits
+                            .toIntOrNull()
+                            ?.coerceIn(1, maxQuantity)
+                            ?.toString()
+                            ?: digits
+                    },
+                    onDecrease = {
+                        qtyInput = (selectedQuantity - 1).coerceAtLeast(1).toString()
+                    },
+                    onIncrease = {
+                        qtyInput = (selectedQuantity + 1).coerceAtMost(maxQuantity).toString()
+                    }
+                )
+                Button(
+                    onClick = { onAdd(selectedQuantity) },
+                    enabled = product.stockQuantity > 0
+                ) {
                     Text("Thêm")
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuantityStepper(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        ) {
+            IconButton(onClick = onDecrease, modifier = Modifier.size(34.dp)) {
+                Icon(Icons.Default.Remove, contentDescription = "Giảm", modifier = Modifier.size(16.dp))
+            }
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.width(58.dp),
+                singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+            IconButton(onClick = onIncrease, modifier = Modifier.size(34.dp)) {
+                Icon(Icons.Default.Add, contentDescription = "Tăng", modifier = Modifier.size(16.dp))
             }
         }
     }

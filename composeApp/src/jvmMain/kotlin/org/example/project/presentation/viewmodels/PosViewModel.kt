@@ -124,20 +124,27 @@ class PosViewModel(
         }
     }
 
-    fun addToCart(product: Product) {
+    fun addToCart(product: Product, quantity: Int = 1) {
         _uiState.update { state ->
             if (product.stockQuantity <= 0) {
                 return@update state.copy(error = "Sản phẩm đã hết hàng")
             }
+            if (quantity <= 0) {
+                return@update state.copy(error = "Số lượng phải lớn hơn 0")
+            }
             val existing = state.cart.firstOrNull { it.product.id == product.id }
             val updated = if (existing == null) {
-                state.cart + PosCartItem(product, 1)
+                if (quantity > product.stockQuantity) {
+                    return@update state.copy(error = "Số lượng vượt quá tồn kho")
+                }
+                state.cart + PosCartItem(product, quantity)
             } else {
-                if (existing.quantity >= product.stockQuantity) {
+                val nextQuantity = existing.quantity + quantity
+                if (nextQuantity > product.stockQuantity) {
                     return@update state.copy(error = "Số lượng trong giỏ đã bằng tồn kho")
                 }
                 state.cart.map {
-                    if (it.product.id == product.id) it.copy(quantity = it.quantity + 1) else it
+                    if (it.product.id == product.id) it.copy(quantity = nextQuantity) else it
                 }
             }
             state.copy(cart = updated, error = null)
@@ -367,6 +374,7 @@ class PosViewModel(
                 items = state.cart.map {
                     PosOrderItemRequest(productId = it.product.id, quantity = it.quantity, unit = it.product.unit)
                 },
+                customerId = state.customerCode.trim().takeIf { it.isNotBlank() },
                 paymentMethod = state.paymentMethod,
                 couponCode = state.couponCode.takeIf { it.isNotBlank() }
             )
