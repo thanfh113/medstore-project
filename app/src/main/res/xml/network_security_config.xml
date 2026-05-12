@@ -13,8 +13,7 @@
         <domain includeSubdomains="true">192.168.0.0</domain>
         <domain includeSubdomains="true">172.16.0.0</domain>
 
-        <domain includeSubdomains="true">10.196.200.132</domain>
-        <domain includeSubdomains="false">10.196.200.133</domain>
+        <domain includeSubdomains="true">192.168.0.100</domain>
 
     </domain-config>
 

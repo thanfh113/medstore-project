@@ -126,8 +126,12 @@ fun MainScreen(navController: NavController) {
 
         // ── Consult bottom sheet overlay ──────────────────────────
         ConsultBottomSheet(
-            visible   = showConsultSheet,
-            onDismiss = { showConsultSheet = false },
+            visible      = showConsultSheet,
+            onDismiss    = { showConsultSheet = false },
+            onAiChatClick = {
+                showConsultSheet = false
+                navController.navigate("AiChatScreen")
+            },
             onChatClick = {
                 showConsultSheet = false
                 navController.navigate("ChatHistoryScreen")
@@ -141,9 +145,10 @@ fun MainScreen(navController: NavController) {
 fun ConsultBottomSheet(
     visible: Boolean,
     onDismiss: () -> Unit,
+    onAiChatClick: () -> Unit = {},
     onChatClick: () -> Unit = {}
 ) {
-    val sheetHeightDp = 480.dp
+    val sheetHeightDp = 520.dp
     val density       = LocalDensity.current
     val sheetHeightPx = with(density) { sheetHeightDp.toPx() }
 
@@ -201,6 +206,7 @@ fun ConsultBottomSheet(
                         }
                         onDismiss()
                     },
+                    onAiChatClick = onAiChatClick,
                     onChatClick = onChatClick
                 )
             }
@@ -209,7 +215,11 @@ fun ConsultBottomSheet(
 }
 
 @Composable
-private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {}) {
+private fun ConsultSheetContent(
+    onClose: () -> Unit,
+    onAiChatClick: () -> Unit = {},
+    onChatClick: () -> Unit = {}
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -325,6 +335,29 @@ private fun ConsultSheetContent(onClose: () -> Unit, onChatClick: () -> Unit = {
         }
 
         Spacer(Modifier.height(20.dp))
+
+        // AI Chat button
+        Surface(
+            onClick = onAiChatClick,
+            shape = RoundedCornerShape(50),
+            color = Color(0xFFE8F5E9),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .height(52.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Filled.SmartToy, null, tint = ActiveGreen, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Hỏi AI Medstore ngay", color = ActiveGreen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
 
         // Chat button
         Surface(

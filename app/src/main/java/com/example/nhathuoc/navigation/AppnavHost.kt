@@ -27,6 +27,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.example.nhathuoc.NotificationNavBus
 import com.example.nhathuoc.data.local.SessionManager
 import com.example.nhathuoc.data.local.findMockProduct
 import com.example.nhathuoc.data.local.mockProducts
@@ -40,6 +41,7 @@ import com.example.nhathuoc.ui.screen.MyOrdersScreen
 import com.example.nhathuoc.ui.screen.RewardScreen
 import com.example.nhathuoc.ui.screen.miniscreen.AddressBookScreen
 import com.example.nhathuoc.ui.screen.miniscreen.CategoryProductScreen
+import com.example.nhathuoc.ui.screen.miniscreen.AiChatScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ChatHistoryScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ChatScreen
 import com.example.nhathuoc.ui.screen.miniscreen.CheckoutFlowScreen
@@ -77,6 +79,26 @@ fun AppnavHost(navController: NavHostController) {
         }
     }
 
+    // Handle notification taps that launched / resumed the app
+    LaunchedEffect(Unit) {
+        NotificationNavBus.events.collect { (type, refId) ->
+            when (type.uppercase()) {
+                "ORDER", "ORDER_STATUS" -> {
+                    if (refId.isNotBlank()) navController.navigate("OrderDetailScreen/$refId")
+                }
+                "CHAT" -> {
+                    if (refId.isNotBlank()) navController.navigate("ChatScreen?sessionId=${Uri.encode(refId)}")
+                    else navController.navigate("ChatHistoryScreen")
+                }
+                "REWARD" -> navController.navigate("RewardScreen")
+                "COMPLAINT", "REFUND" -> {
+                    if (refId.isNotBlank()) navController.navigate("ComplaintDetailScreen/$refId")
+                }
+                else -> navController.navigate("NotificationScreen")
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = "MainScreen"
@@ -108,6 +130,29 @@ fun AppnavHost(navController: NavHostController) {
                 onBack = { navController.popBackStack() }
             )
         }
+        composable(
+            route = "AiChatScreen?productId={productId}",
+            arguments = listOf(
+                navArgument("productId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val productId = backStackEntry.arguments?.getString("productId")
+            AiChatScreen(
+                onBack = { navController.popBackStack() },
+                onOpenHumanChat = { sessionId ->
+                    navController.navigate("ChatScreen?sessionId=${Uri.encode(sessionId)}")
+                },
+                onProductClick = { id ->
+                    navController.navigate("ProductDetailScreen/${Uri.encode(id)}")
+                },
+                productId = productId
+            )
+        }
+
         composable("ChatHistoryScreen") {
             ChatHistoryScreen(
                 onBack = { navController.popBackStack() },
@@ -243,7 +288,12 @@ fun AppnavHost(navController: NavHostController) {
                     product = detail,
                     onBack = { navController.popBackStack() },
                     onChat = {
-                        navController.navigate("ChatScreen")
+                        val risk = detail.riskClassification.trim().uppercase()
+                        if (risk == "C" || risk == "D") {
+                            navController.navigate("ChatScreen?productId=${Uri.encode(dto.id)}")
+                        } else {
+                            navController.navigate("AiChatScreen?productId=${Uri.encode(dto.id)}")
+                        }
                     },
                     onFindPharmacy = {
                         Toast.makeText(context, "Tính năng tìm nhà thuốc đang phát triển", Toast.LENGTH_SHORT).show()
@@ -408,7 +458,12 @@ fun AppnavHost(navController: NavHostController) {
                             product = detail,
                             onBack = { navController.popBackStack() },
                             onChat = {
-                                navController.navigate("ChatScreen?productId=${Uri.encode(dto.id)}")
+                                val risk = dto.riskClassification.trim().uppercase()
+                                if (risk == "C" || risk == "D") {
+                                    navController.navigate("ChatScreen?productId=${Uri.encode(dto.id)}")
+                                } else {
+                                    navController.navigate("AiChatScreen?productId=${Uri.encode(dto.id)}")
+                                }
                             },
                             onFindPharmacy = {
                                 Toast.makeText(context, "Tính năng tìm nhà thuốc đang phát triển", Toast.LENGTH_SHORT).show()

@@ -119,12 +119,13 @@ fun BestSellerList(
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .aspectRatio(0.9f)
+                                        .height(300.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     ProductCard(
                                         data = product.toCardData().copy(isBestSeller = true),
-                                        cardWidth = 165.dp,
-                                        cardHeight = 260.dp,
+                                        cardWidth = 170.dp,
+                                        cardHeight = 292.dp,
                                         onProductClick = {
                                             navController?.navigate("ProductDetailScreen/${product.id}")
                                         },

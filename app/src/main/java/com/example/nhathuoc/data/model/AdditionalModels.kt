@@ -190,6 +190,44 @@ data class PharmacistDto(
     val avatarUrl: String?
 )
 
+// ── AI Chat models ────────────────────────────────────────────────────────────
+
+@Serializable
+data class AiMessageDto(
+    val role: String,  // "user" | "ai"
+    val text: String,
+    val recommendations: List<ChatProductRecommendation> = emptyList()
+)
+
+@Serializable
+data class AiConversationDto(
+    val id: String,
+    val status: String,
+    val escalatedToConsultant: Boolean,
+    val chatSessionId: String? = null,
+    val messages: List<AiMessageDto> = emptyList()
+)
+
+@Serializable
+data class CreateAiConversationRequest(
+    val productId: String? = null
+)
+
+@Serializable
+data class AiSendMessageRequest(
+    val message: String
+)
+
+@Serializable
+data class AiSendMessageResponse(
+    val reply: String,
+    val conversationId: String,
+    val status: String,
+    val escalatedToConsultant: Boolean,
+    val chatSessionId: String? = null,
+    val recommendations: List<ChatProductRecommendation> = emptyList()
+)
+
 // Product-level stock management models (for future shop/admin integration)
 @Serializable
 data class CreateStockReceiptRequest(

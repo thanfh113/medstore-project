@@ -96,13 +96,17 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun loadRewardAccount() {
+    fun refreshRewardAccount() {
         viewModelScope.launch {
             when (val result = rewardRepository.getRewardAccount()) {
                 is NetworkResult.Success -> _rewardPoints.value = result.data.availablePoints
                 else -> Unit
             }
         }
+    }
+
+    private fun loadRewardAccount() {
+        refreshRewardAccount()
     }
 
     private fun loadRecentOrders() {

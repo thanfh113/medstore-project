@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Firebase - sensitive keys, never commit
+google-services.json
+serviceAccountKey.json

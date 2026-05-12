@@ -151,9 +151,7 @@ class CheckoutViewModel @Inject constructor(
                                 cart.items.filter { it.id in selectedIds }
                             }
                             val subtotal = checkoutItems.sumOf { it.totalPrice }
-                            val estimatedRewardPoints = checkoutItems.sumOf { item ->
-                                (item.product?.rewardPoints ?: 0) * item.quantity
-                            }
+                            val estimatedRewardPoints = estimateRewardPointsByProductType(checkoutItems)
                             state.copy(
                                 cartItems = checkoutItems,
                                 totalItems = checkoutItems.sumOf { it.quantity },
@@ -268,7 +266,7 @@ class CheckoutViewModel @Inject constructor(
                             subtotal = subtotal,
                             cartDiscount = 0.0,
                             discount = 0.0,
-                            estimatedRewardPoints = product.rewardPoints * normalizedQuantity,
+                            estimatedRewardPoints = product.rewardPoints,
                             pointsInput = "",
                             pointsToUse = 0,
                             isLoading = false
@@ -313,6 +311,7 @@ class CheckoutViewModel @Inject constructor(
                 subtotal = checkoutItems.sumOf { it.totalPrice },
                 cartDiscount = 0.0,
                 discount = 0.0,
+                estimatedRewardPoints = estimateRewardPointsByProductType(checkoutItems),
                 pointsInput = "",
                 pointsToUse = 0,
                 error = null
@@ -335,6 +334,12 @@ class CheckoutViewModel @Inject constructor(
             stock = stock,
             product = this
         )
+    }
+
+    private fun estimateRewardPointsByProductType(items: List<CartItemDto>): Int {
+        return items
+            .distinctBy { it.productId }
+            .sumOf { it.product?.rewardPoints ?: 0 }
     }
 
     fun selectAddress(id: String) {

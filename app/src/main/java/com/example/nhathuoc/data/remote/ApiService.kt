@@ -231,6 +231,24 @@ interface ApiService {
     @GET(ApiConstants.SHOP_BY_ID)
     suspend fun getShopById(@Path("id") shopId: String): Response<ShopDto>
 
+    @POST(ApiConstants.AI_CHAT_SESSIONS)
+    suspend fun createAiConversation(@Body request: CreateAiConversationRequest): Response<DataMessageResponse<AiConversationDto>>
+
+    @GET(ApiConstants.AI_CHAT_SESSIONS)
+    suspend fun getAiConversations(): Response<DataMessageResponse<List<AiConversationDto>>>
+
+    @GET(ApiConstants.AI_CHAT_SESSION)
+    suspend fun getAiConversation(@Path("conversationId") conversationId: String): Response<DataMessageResponse<AiConversationDto>>
+
+    @POST(ApiConstants.AI_CHAT_MESSAGE)
+    suspend fun sendAiMessage(
+        @Path("conversationId") conversationId: String,
+        @Body request: AiSendMessageRequest
+    ): Response<DataMessageResponse<AiSendMessageResponse>>
+
+    @POST(ApiConstants.AI_CHAT_ESCALATE)
+    suspend fun escalateAiToHuman(@Path("conversationId") conversationId: String): Response<DataMessageResponse<AiSendMessageResponse>>
+
     @GET(ApiConstants.CHAT_SESSIONS)
     suspend fun getChatSessions(): Response<DataMessageResponse<List<ChatSessionDto>>>
 

@@ -37,6 +37,7 @@ import com.example.nhathuoc.ui.theme.NhathuocTheme
 import com.example.nhathuoc.viewmodel.CartViewModel
 import com.example.nhathuoc.viewmodel.HomeViewModel
 import com.example.nhathuoc.viewmodel.NotificationViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val HEADER_FULL = 160.dp
@@ -50,6 +51,14 @@ fun HomeScreen(modifier: Modifier = Modifier, navController: NavController? = nu
     val homeViewModel: HomeViewModel = hiltViewModel()
     val unreadNotificationCount by notificationViewModel.unreadCount.collectAsState()
     val rewardPoints by homeViewModel.rewardPoints.collectAsState()
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            homeViewModel.refreshRewardAccount()
+            notificationViewModel.loadNotifications()
+            delay(5_000)
+        }
+    }
 
     AppDrawer(
         drawerState = drawerState,
@@ -168,6 +177,9 @@ private fun HomeScreenContent(
                         val link = item.linkUrl?.trim().orEmpty()
                         when {
                             link.equals("/chat", ignoreCase = true) -> navController?.navigate("ChatScreen")
+                            link.equals("/cart", ignoreCase = true) -> navController?.navigate("CartScreen")
+                            link.equals("/rewards", ignoreCase = true) ||
+                                link.equals("/reward", ignoreCase = true) -> navController?.navigate("RewardScreen")
                             link.startsWith("/products/", ignoreCase = true) -> {
                                 navController?.navigate("ProductDetailScreen/${Uri.encode(link.substringAfterLast('/'))}")
                             }

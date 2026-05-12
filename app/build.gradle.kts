@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt.android)
     id("org.jetbrains.kotlin.kapt")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -48,6 +49,10 @@ kapt {
 }
 
 dependencies {
+
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-messaging-ktx")
 
     implementation("androidx.compose.material:material-icons-extended")
 

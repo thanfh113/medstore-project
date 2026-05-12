@@ -726,7 +726,7 @@ private fun ReviewsSection(
                         )
                     }
                 }
-                if (onSubmitReview != null) {
+                if (openReviewOnStart && onSubmitReview != null) {
                     OutlinedButton(
                         onClick = { showDialog = true },
                         shape = RoundedCornerShape(999.dp)
