@@ -20,6 +20,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.DoneAll
@@ -31,6 +35,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -41,6 +46,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -161,18 +169,12 @@ private fun ConversationPane(
                 )
             }
 
-            OutlinedButton(
-                onClick = onRefresh,
-                enabled = !uiState.isRefreshingQueue,
-                shape = RoundedCornerShape(999.dp)
-            ) {
+            IconButton(onClick = onRefresh, enabled = !uiState.isRefreshingQueue) {
                 if (uiState.isRefreshingQueue) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 } else {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Refresh, contentDescription = "Tải lại")
                 }
-                Spacer(Modifier.width(8.dp))
-                Text("Tải lại")
             }
         }
 
@@ -189,22 +191,10 @@ private fun ConversationPane(
 
         Spacer(Modifier.height(12.dp))
 
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item {
-                StatusFilterChip(
-                    label = "Tất cả",
-                    selected = uiState.statusFilter == null,
-                    onClick = { onStatusFilter(null) }
-                )
-            }
-            items(ChatStatus.entries) { status ->
-                StatusFilterChip(
-                    label = status.displayName,
-                    selected = uiState.statusFilter == status,
-                    onClick = { onStatusFilter(status) }
-                )
-            }
-        }
+        ChatStatusDropdown(
+            statusFilter = uiState.statusFilter,
+            onStatusFilter = onStatusFilter
+        )
 
         Spacer(Modifier.height(16.dp))
         HorizontalDivider()
@@ -243,6 +233,42 @@ private fun ConversationPane(
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatStatusDropdown(
+    statusFilter: ChatStatus?,
+    onStatusFilter: (ChatStatus?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val options = listOf(null to "Tất cả") + ChatStatus.entries.map { it to it.displayName }
+    val selectedLabel = statusFilter?.displayName ?: "Tất cả"
+
+    Box {
+        OutlinedButton(
+            onClick = { expanded = true },
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(
+                "Trạng thái: $selectedLabel",
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1
+            )
+            Spacer(Modifier.width(4.dp))
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (status, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = { onStatusFilter(status); expanded = false },
+                    trailingIcon = if (statusFilter == status) ({
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }) else null
+                )
             }
         }
     }
@@ -296,7 +322,7 @@ private fun ConversationItem(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        if (conversation.unreadCount > 0) {
+                        if (conversation.unreadCount > 0 && conversation.status != ChatStatus.RESOLVED) {
                             Spacer(Modifier.width(8.dp))
                             UnreadBadge(conversation.unreadCount)
                         }

@@ -397,7 +397,7 @@ fun ProductFormDialog(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = "Loại ${riskClassification.value} chỉ hiển thị để tư vấn. User không thể đặt online, cần tư vấn/ký kết tại nhà thuốc.",
+                                    text = "Loại ${riskClassification.value} chỉ hiển thị để tư vấn. User không thể đặt online, cần tư vấn/ký kết tại Medstore.",
                                     modifier = Modifier.padding(12.dp),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer

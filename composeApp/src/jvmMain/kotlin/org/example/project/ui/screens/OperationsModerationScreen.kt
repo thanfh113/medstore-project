@@ -1,6 +1,7 @@
 package org.example.project.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -10,17 +11,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -43,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.example.project.data.repositories.OperationsComplaintAttachmentDto
 import org.example.project.data.repositories.OperationsComplaintDto
 import org.example.project.data.repositories.OperationsComplaintEventDto
@@ -61,6 +73,20 @@ private val reviewStatusFilters = listOf(
     "HIDDEN" to "Đã ẩn",
     "REMOVED" to "Đã gỡ"
 )
+
+private fun reviewStatusLabel(status: String) = when (status.uppercase()) {
+    "VISIBLE" -> "Đang hiện"
+    "HIDDEN"  -> "Đã ẩn"
+    "REMOVED" -> "Đã gỡ"
+    else      -> status
+}
+
+private fun reportStatusLabel(status: String) = when (status.uppercase()) {
+    "OPEN"     -> "Chờ xử lý"
+    "RESOLVED" -> "Đã xử lý"
+    "REJECTED" -> "Không hợp lệ"
+    else       -> status
+}
 
 private val reviewReportStatusFilters = listOf(
     "OPEN" to "Chờ xử lý",
@@ -91,6 +117,8 @@ private val complaintTypeFilters = listOf(
     "MISSING_ITEM" to "Thiếu hàng",
     "WRONG_ITEM" to "Sai hàng",
     "DAMAGED" to "Hỏng",
+    "COUNTERFEIT" to "Nghi hàng giả",
+    "EXPIRED" to "Hết hạn",
     "PAYMENT" to "Thanh toán",
     "REFUND" to "Hoàn tiền",
     "OTHER" to "Khác"
@@ -136,6 +164,21 @@ fun OperationsModerationScreen(viewModel: OperationsViewModel) {
         topBar = {
             TopAppBar(
                 title = { Text("Vận hành khách hàng", fontWeight = FontWeight.Bold) },
+                actions = {
+                    state.successMessage?.let {
+                        Text(it, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, modifier = Modifier.padding(end = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    state.error?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(end = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    IconButton(onClick = viewModel::loadAll, enabled = !state.isLoading) {
+                        if (state.isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = "Tải lại")
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.primary
@@ -158,18 +201,6 @@ fun OperationsModerationScreen(viewModel: OperationsViewModel) {
                         onClick = { viewModel.selectTab(index) },
                         text = { Text(title) }
                     )
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = viewModel::loadAll, enabled = !state.isLoading) {
-                    Text(if (state.isLoading) "Đang tải..." else "Tải lại")
-                }
-                state.successMessage?.let {
-                    Text(it, color = MaterialTheme.colorScheme.primary)
-                }
-                state.error?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error)
                 }
             }
 
@@ -212,20 +243,38 @@ fun OperationsModerationScreen(viewModel: OperationsViewModel) {
 }
 
 @Composable
-private fun FilterRow(
-    title: String,
+private fun FilterDropdown(
+    label: String,
     options: List<Pair<String?, String>>,
     selected: String?,
     onSelected: (String?) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = options.find { it.first == selected }?.second ?: options.firstOrNull()?.second ?: label
+
+    Box {
+        OutlinedButton(
+            onClick = { expanded = true },
+            shape = RoundedCornerShape(8.dp)
         ) {
-            options.forEach { (value, label) ->
-                FilterPill(label = label, selected = selected == value, onClick = { onSelected(value) })
+            Text(
+                "$label: $selectedLabel",
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.size(4.dp))
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (value, optLabel) ->
+                DropdownMenuItem(
+                    text = { Text(optLabel) },
+                    onClick = { onSelected(value); expanded = false },
+                    trailingIcon = if (selected == value) ({
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }) else null
+                )
             }
         }
     }
@@ -281,12 +330,23 @@ private fun ReviewsTab(
     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                FilterRow(
-                    title = "Báo cáo đánh giá",
-                    options = reviewReportStatusFilters,
-                    selected = reportStatusFilter,
-                    onSelected = onReportStatusFilterChange
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterDropdown(
+                        label = "Báo cáo",
+                        options = reviewReportStatusFilters,
+                        selected = reportStatusFilter,
+                        onSelected = onReportStatusFilterChange
+                    )
+                    FilterDropdown(
+                        label = "Đánh giá",
+                        options = reviewStatusFilters,
+                        selected = statusFilter,
+                        onSelected = onStatusFilterChange
+                    )
+                }
                 if (reports.isEmpty()) {
                     Card(
                         shape = RoundedCornerShape(16.dp),
@@ -309,15 +369,7 @@ private fun ReviewsTab(
                 onHandleReport = onHandleReport
             )
         }
-        item {
-            Spacer(Modifier.height(4.dp))
-            FilterRow(
-                title = "Lọc trạng thái đánh giá",
-                options = reviewStatusFilters,
-                selected = statusFilter,
-                onSelected = onStatusFilterChange
-            )
-        }
+        item { Spacer(Modifier.height(4.dp)) }
         items(reviews, key = { it.id }) { review ->
             Card(
                 shape = RoundedCornerShape(16.dp),
@@ -329,7 +381,7 @@ private fun ReviewsTab(
                             "${review.rating}/5 sao — ${review.userName ?: review.userId.takeLast(8)}",
                             fontWeight = FontWeight.Bold
                         )
-                        Text(review.status, color = MaterialTheme.colorScheme.primary)
+                        Text(reviewStatusLabel(review.status), color = MaterialTheme.colorScheme.primary)
                     }
                     Text("Sản phẩm: ${review.productId}", style = MaterialTheme.typography.bodySmall)
                     review.title?.takeIf { it.isNotBlank() }?.let { Text(it, fontWeight = FontWeight.SemiBold) }
@@ -379,7 +431,7 @@ private fun ReviewReportCard(
                     "Báo cáo: ${report.reason} — ${report.reporterName ?: report.reporterUserId.takeLast(8)}",
                     fontWeight = FontWeight.Bold
                 )
-                Text(report.status, color = MaterialTheme.colorScheme.primary)
+                Text(reportStatusLabel(report.status), color = MaterialTheme.colorScheme.primary)
             }
             report.note?.takeIf { it.isNotBlank() }?.let { Text("Ghi chú: $it") }
             Text(
@@ -389,7 +441,7 @@ private fun ReviewReportCard(
             )
             review?.let {
                 Text(
-                    "${it.rating}/5 sao — ${it.userName ?: it.userId.takeLast(8)} | ${it.status}",
+                    "${it.rating}/5 sao — ${it.userName ?: it.userId.takeLast(8)} | ${reviewStatusLabel(it.status)}",
                     fontWeight = FontWeight.SemiBold
                 )
                 it.title?.takeIf { title -> title.isNotBlank() }?.let { title -> Text(title) }
@@ -437,7 +489,7 @@ private fun ReviewReportDetailDialog(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Báo cáo đánh giá", fontWeight = FontWeight.Bold)
                 Text(
-                    "${report.reason} | ${report.status} | ${report.createdAt.take(16)}",
+                    "${report.reason} | ${reportStatusLabel(report.status)} | ${report.createdAt.take(16)}",
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -465,7 +517,7 @@ private fun ReviewReportDetailDialog(
                         if (review == null) {
                             Text("Review gốc không còn tồn tại", color = MaterialTheme.colorScheme.error)
                         } else {
-                            Text("${review.rating}/5 sao — ${review.userName ?: review.userId.takeLast(8)} | ${review.status}")
+                            Text("${review.rating}/5 sao — ${review.userName ?: review.userId.takeLast(8)} | ${reviewStatusLabel(review.status)}")
                             Text("Sản phẩm: ${review.productId} | Đơn: ${review.orderId?.takeLast(8) ?: "N/A"}")
                             review.title?.takeIf { it.isNotBlank() }?.let { Text(it, fontWeight = FontWeight.SemiBold) }
                             review.comment?.takeIf { it.isNotBlank() }?.let { Text(it) }
@@ -569,10 +621,13 @@ private fun ComplaintsTab(
 ) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterRow("Trạng thái", complaintStatusFilters, statusFilter, onStatusFilterChange)
-                FilterRow("Mức ưu tiên", complaintPriorityFilters, priorityFilter, onPriorityFilterChange)
-                FilterRow("Loại khiếu nại", complaintTypeFilters, typeFilter, onTypeFilterChange)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FilterDropdown("Trạng thái", complaintStatusFilters, statusFilter, onStatusFilterChange)
+                FilterDropdown("Ưu tiên", complaintPriorityFilters, priorityFilter, onPriorityFilterChange)
+                FilterDropdown("Loại", complaintTypeFilters, typeFilter, onTypeFilterChange)
             }
         }
         if (complaints.isEmpty()) {
@@ -643,7 +698,7 @@ private fun ComplaintListCard(
                 )
                 Text("·", color = MaterialTheme.colorScheme.outline)
                 Text(
-                    complaint.type,
+                    complaintTypeLabel(complaint.type),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -739,7 +794,7 @@ private fun ComplaintDetailDialog(
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Thông tin ticket", fontWeight = FontWeight.SemiBold)
                         Text("Đơn: ${complaint.orderId} | SP: ${complaint.productName ?: "Toàn đơn"}")
-                        Text("Loại: ${complaint.type} | Tạo: ${complaint.createdAt.take(16)} | Cập nhật: ${complaint.updatedAt.take(16)}")
+                        Text("Loại: ${complaintTypeLabel(complaint.type)} | Tạo: ${complaint.createdAt.take(16)} | Cập nhật: ${complaint.updatedAt.take(16)}")
                         if (complaint.refundStatus != "NONE" || complaint.refundAmount != null) {
                             Text(
                                 "Hoàn tiền: ${refundStatusLabel(complaint.refundStatus)}" +
@@ -1230,5 +1285,16 @@ private fun refundMethodLabel(method: String): String = when (method.uppercase()
     "BANK_TRANSFER" -> "Chuyển khoản"
     "CASH" -> "Tiền mặt"
     "POINTS" -> "Điểm thưởng"
+    else -> "Khác"
+}
+
+private fun complaintTypeLabel(type: String): String = when (type.uppercase()) {
+    "MISSING_ITEM" -> "Thiếu hàng"
+    "WRONG_ITEM" -> "Sai hàng"
+    "DAMAGED" -> "Hàng hỏng/vỡ"
+    "COUNTERFEIT" -> "Nghi hàng giả"
+    "EXPIRED" -> "Hết hạn"
+    "PAYMENT" -> "Thanh toán"
+    "REFUND" -> "Hoàn tiền"
     else -> "Khác"
 }

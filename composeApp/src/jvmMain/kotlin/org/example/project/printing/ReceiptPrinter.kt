@@ -85,23 +85,23 @@ private object ReceiptFormatter {
         val order = data.order
         val lines = mutableListOf<String>()
 
-        lines += center("NHA THUOC")
-        lines += center("HOA DON POS")
+        lines += center("MEDSTORE")
+        lines += center("HÓA ĐƠN POS")
         lines += divider()
-        lines += "Ma don: ${order.orderCode}"
-        lines += "Ngay tao: ${formatTimestamp(order.createdAt)}"
+        lines += "Mã đơn: ${order.orderCode}"
+        lines += "Ngày tạo: ${formatTimestamp(order.createdAt)}"
         data.paidAt?.takeIf { it.isNotBlank() }?.let {
-            lines += "Thanh toan luc: ${formatTimestamp(it)}"
+            lines += "Thanh toán lúc: ${formatTimestamp(it)}"
         }
 
         val customerName = order.customerName
             ?.takeIf { it.isNotBlank() }
-            ?: if (order.customerId == "WALK_IN") "Khach tai quay" else order.customerId
-        lines += "Khach: $customerName"
-        order.customerPhone?.takeIf { it.isNotBlank() }?.let { lines += "SDT: $it" }
-        order.cashierName?.takeIf { it.isNotBlank() }?.let { lines += "Thu ngan: $it" }
-        lines += "Thanh toan: ${order.paymentMethod ?: "UNKNOWN"}"
-        (data.paymentReference ?: order.paymentReference)?.takeIf { it.isNotBlank() }?.let { lines += "Ma GD: $it" }
+            ?: if (order.customerId == "WALK_IN") "Khách tại quầy" else order.customerId
+        lines += "Khách: $customerName"
+        order.customerPhone?.takeIf { it.isNotBlank() }?.let { lines += "ĐT: $it" }
+        order.cashierName?.takeIf { it.isNotBlank() }?.let { lines += "Thu ngân: $it" }
+        lines += "Thanh toán: ${order.paymentMethod ?: "UNKNOWN"}"
+        (data.paymentReference ?: order.paymentReference)?.takeIf { it.isNotBlank() }?.let { lines += "Mã GD: $it" }
 
         lines += divider()
         order.items.forEachIndexed { index, item ->
@@ -114,25 +114,25 @@ private object ReceiptFormatter {
         }
 
         lines += divider()
-        lines += formatLine("Tam tinh", formatMoney(order.subtotal ?: order.total ?: 0.0))
+        lines += formatLine("Tạm tính", formatMoney(order.subtotal ?: order.total ?: 0.0))
         if (order.discount > 0.0) {
-            lines += formatLine("Giam gia", "-${formatMoney(order.discount)}")
+            lines += formatLine("Giảm giá", "-${formatMoney(order.discount)}")
         }
         if (order.shippingFee > 0.0) {
-            lines += formatLine("Phi giao", formatMoney(order.shippingFee))
+            lines += formatLine("Phí giao", formatMoney(order.shippingFee))
         }
-        lines += formatLine("Tong cong", formatMoney(order.total ?: 0.0))
-        (data.cashReceived ?: order.cashReceived)?.let { lines += formatLine("Tien khach dua", formatMoney(it)) }
-        (data.cashChange ?: order.cashChange)?.let { lines += formatLine("Tien thoi", formatMoney(it)) }
+        lines += formatLine("Tổng cộng", formatMoney(order.total ?: 0.0))
+        (data.cashReceived ?: order.cashReceived)?.let { lines += formatLine("Tiền khách đưa", formatMoney(it)) }
+        (data.cashChange ?: order.cashChange)?.let { lines += formatLine("Tiền thối", formatMoney(it)) }
 
         order.note?.takeIf { it.isNotBlank() }?.let {
             lines += divider()
-            lines += "Ghi chu:"
+            lines += "Ghi chú:"
             lines += wrap(it)
         }
 
         lines += divider()
-        lines += center("Cam on Quy khach")
+        lines += center("Cảm ơn Quý khách")
         return lines
     }
 

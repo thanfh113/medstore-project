@@ -16,11 +16,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Print
@@ -29,15 +32,15 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -74,13 +77,23 @@ private fun OrderStatusChip(status: OrderStatus) {
     }
 
     Surface(shape = RoundedCornerShape(20.dp), color = backgroundColor) {
-        Text(
-            text = status.displayName,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            color = textColor,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .background(textColor, CircleShape)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = status.displayName,
+                color = textColor,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -157,57 +170,76 @@ fun OrdersScreen(viewModel: OrdersViewModel) {
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        FilterChip(
-                            selected = uiState.selectedChannel == null,
-                            onClick = {
-                                viewModel.filterOrders(uiState.searchQuery, uiState.selectedStatus, null)
-                                viewModel.loadOrders()
-                            },
-                            label = { Text("Tất cả") }
-                        )
-                        OrderChannel.entries.forEach { channel ->
-                            FilterChip(
-                                selected = uiState.selectedChannel == channel,
-                                onClick = {
-                                    val nextStatus = uiState.selectedStatus?.takeIf { it in viewModel.availableStatuses(channel) }
-                                    viewModel.filterOrders(uiState.searchQuery, nextStatus, channel)
-                                    viewModel.loadOrders()
-                                },
-                                label = { Text(channel.displayName) }
-                            )
+                        var channelExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            OutlinedButton(
+                                onClick = { channelExpanded = true },
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Kênh: ${uiState.selectedChannel?.displayName ?: "Tất cả"}", fontSize = 13.sp)
+                                Spacer(Modifier.size(4.dp))
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                            DropdownMenu(expanded = channelExpanded, onDismissRequest = { channelExpanded = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Tất cả") },
+                                    onClick = {
+                                        viewModel.filterOrders(uiState.searchQuery, uiState.selectedStatus, null)
+                                        viewModel.loadOrders()
+                                        channelExpanded = false
+                                    },
+                                    trailingIcon = if (uiState.selectedChannel == null) { { Icon(Icons.Default.Check, null) } } else null
+                                )
+                                OrderChannel.entries.forEach { ch ->
+                                    DropdownMenuItem(
+                                        text = { Text(ch.displayName) },
+                                        onClick = {
+                                            val nextStatus = uiState.selectedStatus?.takeIf { it in viewModel.availableStatuses(ch) }
+                                            viewModel.filterOrders(uiState.searchQuery, nextStatus, ch)
+                                            viewModel.loadOrders()
+                                            channelExpanded = false
+                                        },
+                                        trailingIcon = if (uiState.selectedChannel == ch) { { Icon(Icons.Default.Check, null) } } else null
+                                    )
+                                }
+                            }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    ScrollableTabRow(
-                        selectedTabIndex = statusOptions.indexOf(uiState.selectedStatus).let { if (it >= 0) it + 1 else 0 },
-                        edgePadding = 0.dp,
-                        containerColor = Color.Transparent,
-                        indicator = {},
-                        divider = {}
-                    ) {
-                        FilterChip(
-                            selected = uiState.selectedStatus == null,
-                            onClick = {
-                                viewModel.filterOrders(uiState.searchQuery, null, uiState.selectedChannel)
-                                viewModel.loadOrders()
-                            },
-                            label = { Text("Tất cả trạng thái") },
-                            modifier = Modifier.padding(horizontal = 4.dp)
-                        )
-                        statusOptions.forEach { status ->
-                            FilterChip(
-                                selected = uiState.selectedStatus == status,
-                                onClick = {
-                                    viewModel.filterOrders(uiState.searchQuery, status, uiState.selectedChannel)
-                                    viewModel.loadOrders()
-                                },
-                                label = { Text(status.displayName) },
-                                modifier = Modifier.padding(horizontal = 4.dp)
-                            )
+                        var statusExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            OutlinedButton(
+                                onClick = { statusExpanded = true },
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Trạng thái: ${uiState.selectedStatus?.displayName ?: "Tất cả"}", fontSize = 13.sp)
+                                Spacer(Modifier.size(4.dp))
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                            DropdownMenu(expanded = statusExpanded, onDismissRequest = { statusExpanded = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Tất cả trạng thái") },
+                                    onClick = {
+                                        viewModel.filterOrders(uiState.searchQuery, null, uiState.selectedChannel)
+                                        viewModel.loadOrders()
+                                        statusExpanded = false
+                                    },
+                                    trailingIcon = if (uiState.selectedStatus == null) { { Icon(Icons.Default.Check, null) } } else null
+                                )
+                                statusOptions.forEach { st ->
+                                    DropdownMenuItem(
+                                        text = { Text(st.displayName) },
+                                        onClick = {
+                                            viewModel.filterOrders(uiState.searchQuery, st, uiState.selectedChannel)
+                                            viewModel.loadOrders()
+                                            statusExpanded = false
+                                        },
+                                        trailingIcon = if (uiState.selectedStatus == st) { { Icon(Icons.Default.Check, null) } } else null
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -244,12 +276,18 @@ fun OrdersScreen(viewModel: OrdersViewModel) {
                             }
                         }
                         else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            items(uiState.filteredOrders) { order ->
+                            itemsIndexed(uiState.filteredOrders) { index, order ->
                                 val isSelected = order.id == uiState.selectedOrder?.id
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(if (isSelected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
+                                        .background(
+                                            when {
+                                                isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                                                index % 2 == 1 -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                                                else -> Color.Transparent
+                                            }
+                                        )
                                         .clickable { viewModel.selectOrder(order) }
                                         .padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically

@@ -4,14 +4,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -172,11 +176,7 @@ fun StoreOverviewScreen(viewModel: DashboardViewModel) {
                             )
                         }
 
-                        Text(
-                            "Hiệu suất theo thời gian",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
+                        SectionHeader("Hiệu suất theo thời gian")
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -196,11 +196,7 @@ fun StoreOverviewScreen(viewModel: DashboardViewModel) {
                             )
                         }
 
-                        Text(
-                            "Đơn hàng gần đây",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
+                        SectionHeader("Đơn hàng gần đây")
 
                         RecentOrdersOverviewTable(orders = state.data.recentOrders)
                     }
@@ -223,29 +219,52 @@ private fun SummaryCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
             Box(
                 modifier = Modifier
-                    .background(iconTint.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
-                    .padding(12.dp)
+                    .width(5.dp)
+                    .fillMaxHeight()
+                    .background(iconTint)
+            )
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 18.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(icon, contentDescription = null, tint = iconTint)
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-                Text(
-                    value,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier
+                        .background(iconTint.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+                        .padding(10.dp)
+                ) {
+                    Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(22.dp))
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        value,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(22.dp)
+                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -447,11 +466,15 @@ private fun RecentOrdersOverviewTable(orders: List<RecentOrderDto>) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                .background(
+                                    if (index % 2 == 1) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f)
+                                    else Color.Transparent
+                                )
+                                .padding(horizontal = 16.dp, vertical = 13.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(order.orderCode, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
-                            Text(order.customerName, modifier = Modifier.weight(1.4f))
+                            Text(order.orderCode, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                            Text(order.customerName, modifier = Modifier.weight(1.4f), fontSize = 13.sp)
                             Box(modifier = Modifier.weight(0.9f)) {
                                 DashboardChannelBadge(order.orderChannel)
                             }
@@ -462,18 +485,17 @@ private fun RecentOrdersOverviewTable(orders: List<RecentOrderDto>) {
                                 formatDashboardVnd(order.total),
                                 modifier = Modifier.weight(1f),
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 13.sp
                             )
                             Text(
                                 order.createdAt.replace('T', ' ').take(16),
                                 modifier = Modifier.weight(1.2f),
                                 color = Color.Gray,
-                                fontSize = 14.sp
+                                fontSize = 13.sp
                             )
                         }
-                        if (index < orders.lastIndex) {
-                            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
-                        }
+                        HorizontalDivider(color = Color.LightGray.copy(alpha = 0.15f))
                     }
                 }
             }
@@ -514,13 +536,23 @@ private fun DashboardOrderStatusBadge(status: String, paymentStatus: String) {
     }
 
     Surface(color = bgColor, shape = RoundedCornerShape(8.dp)) {
-        Text(
-            text = text,
-            color = textColor,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .background(textColor, CircleShape)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = text,
+                color = textColor,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp
+            )
+        }
     }
 }
 

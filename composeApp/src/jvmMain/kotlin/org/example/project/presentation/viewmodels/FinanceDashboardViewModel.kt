@@ -16,6 +16,14 @@ sealed class FinanceUiState {
     data class Error(val message: String) : FinanceUiState()
 }
 
+enum class FinancePeriod(val label: String, val key: String) {
+    TODAY("Hôm nay", "TODAY"),
+    WEEK("Tuần này", "WEEK"),
+    MONTH("Tháng này", "MONTH"),
+    YEAR("Năm này", "YEAR"),
+    ALL("Tất cả", "ALL")
+}
+
 class FinanceDashboardViewModel(
     private val repository: FinanceRepository
 ) {
@@ -24,18 +32,25 @@ class FinanceDashboardViewModel(
     private val _uiState = MutableStateFlow<FinanceUiState>(FinanceUiState.Loading)
     val uiState: StateFlow<FinanceUiState> = _uiState.asStateFlow()
 
+    private val _selectedPeriod = MutableStateFlow(FinancePeriod.MONTH)
+    val selectedPeriod: StateFlow<FinancePeriod> = _selectedPeriod.asStateFlow()
+
     init {
+        loadSummary()
+    }
+
+    fun selectPeriod(period: FinancePeriod) {
+        _selectedPeriod.value = period
         loadSummary()
     }
 
     fun loadSummary() {
         scope.launch {
             _uiState.value = FinanceUiState.Loading
-            repository.getFinanceSummary().fold(
+            repository.getFinanceSummary(_selectedPeriod.value.key).fold(
                 onSuccess = { _uiState.value = FinanceUiState.Success(it) },
                 onFailure = { _uiState.value = FinanceUiState.Error(it.message ?: "Khong the tai du lieu tai chinh") }
             )
         }
     }
 }
-

@@ -181,14 +181,16 @@ class PersonnelViewModel(
 
     fun toggleLock(userId: String) {
         scope.launch {
+            val wasActive = _uiState.value.users.find { it.id == userId }?.isActive
             _uiState.update { it.copy(processingUserId = userId, error = null) }
             repository.toggleLock(userId).fold(
                 onSuccess = {
-                    _uiState.update { it.copy(processingUserId = null, successMessage = "Da cap nhat trang thai tai khoan") }
+                    val msg = if (wasActive == true) "Đã khóa tài khoản" else "Đã mở khóa tài khoản"
+                    _uiState.update { it.copy(processingUserId = null, successMessage = msg) }
                     loadUsers()
                 },
                 onFailure = { error ->
-                    _uiState.update { it.copy(processingUserId = null, error = error.message ?: "Khong the khoa/mo khoa") }
+                    _uiState.update { it.copy(processingUserId = null, error = error.message ?: "Không thể khóa/mở khóa") }
                 }
             )
         }

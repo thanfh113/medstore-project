@@ -7,20 +7,26 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -43,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.example.project.data.repositories.AdminRewardProductDto
 import org.example.project.data.repositories.CouponDto
 import org.example.project.presentation.viewmodels.CouponAdminUiState
@@ -54,13 +61,28 @@ fun CouponManagementScreen(viewModel: CouponAdminViewModel) {
     val state by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Mã giảm giá", "Quà đổi điểm")
-    val discountOptions = listOf("PERCENT" to "Giảm theo %", "FIXED_AMOUNT" to "Giảm tiền cố định")
+    val discountOptions = listOf("PERCENT" to "Giảm theo %", "FIXED_AMOUNT" to "Giảm tiền cố định", "FREESHIP" to "Freeship (Miễn phí vận chuyển)")
     val rewardTypeOptions = listOf("VOUCHER" to "Voucher giảm giá", "ITEM" to "Quà vật lý")
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Quản lý khuyến mãi & đổi điểm", fontWeight = FontWeight.Bold) },
+                actions = {
+                    state.successMessage?.let {
+                        Text(it, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, modifier = Modifier.padding(end = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    state.error?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(end = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    IconButton(onClick = viewModel::loadData, enabled = !state.isLoading) {
+                        if (state.isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = "Tải lại")
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.primary
@@ -84,14 +106,6 @@ fun CouponManagementScreen(viewModel: CouponAdminViewModel) {
                         text = { Text(title) }
                     )
                 }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = viewModel::loadData, enabled = !state.isLoading) {
-                    Text(if (state.isLoading) "Đang tải..." else "Tải lại")
-                }
-                state.successMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
 
             when (selectedTab) {
@@ -296,8 +310,11 @@ private fun CouponItemCard(
                     onClick = {},
                     label = {
                         Text(
-                            if (coupon.discountType == "PERCENT") "Giảm ${coupon.discountValue}%"
-                            else "Giảm ${formatCouponVnd(coupon.discountValue)}"
+                            when (coupon.discountType) {
+                                "PERCENT" -> "Giảm ${coupon.discountValue}%"
+                                "FREESHIP" -> "Freeship"
+                                else -> "Giảm ${formatCouponVnd(coupon.discountValue)}"
+                            }
                         )
                     }
                 )
@@ -505,13 +522,15 @@ private fun CouponTemplateFormCard(
                 }
             }
 
-            OutlinedTextField(
-                value = state.discountValue,
-                onValueChange = onDiscountValueChange,
-                label = { Text(if (state.discountType == "PERCENT") "Giá trị giảm (%)" else "Giá trị giảm (VND)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (state.discountType != "FREESHIP") {
+                OutlinedTextField(
+                    value = state.discountValue,
+                    onValueChange = onDiscountValueChange,
+                    label = { Text(if (state.discountType == "PERCENT") "Giá trị giảm (%)" else "Giá trị giảm (VND)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             OutlinedTextField(
                 value = state.minOrderTotal,
                 onValueChange = onMinOrderChange,

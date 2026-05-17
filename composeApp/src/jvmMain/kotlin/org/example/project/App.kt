@@ -1,5 +1,6 @@
 ﻿package org.example.project
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -133,18 +134,20 @@ fun App() {
                         currentRoute = "dashboard"
                     }
                 ) {
-                    when (currentRoute) {
-                        "dashboard" -> StoreOverviewScreen(viewModel = dashboardViewModel)
-                        "orders" -> OrdersScreen(viewModel = ordersViewModel)
-                        "products" -> ProductsScreen(viewModel = productsViewModel)
-                        "pos" -> PosWorkspaceScreen(viewModel = posViewModel)
-                        "banners" -> BannerManagementScreen(viewModel = bannerViewModel)
-                        "coupons" -> CouponManagementScreen(viewModel = couponAdminViewModel)
-                        "finance" -> FinanceAdminScreen(viewModel = financeViewModel)
-                        "chat" -> ChatScreen(viewModel = chatViewModel)
-                        "ops" -> OperationsModerationScreen(viewModel = operationsViewModel)
-                        "personnel" -> PersonnelManagementScreen(viewModel = personnelViewModel)
-                        else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Tính năng đang phát triển") }
+                    Crossfade(targetState = currentRoute, label = "screen_transition") { route ->
+                        when (route) {
+                            "dashboard" -> StoreOverviewScreen(viewModel = dashboardViewModel)
+                            "orders" -> OrdersScreen(viewModel = ordersViewModel)
+                            "products" -> ProductsScreen(viewModel = productsViewModel)
+                            "pos" -> PosWorkspaceScreen(viewModel = posViewModel)
+                            "banners" -> BannerManagementScreen(viewModel = bannerViewModel)
+                            "coupons" -> CouponManagementScreen(viewModel = couponAdminViewModel)
+                            "finance" -> FinanceAdminScreen(viewModel = financeViewModel)
+                            "chat" -> ChatScreen(viewModel = chatViewModel)
+                            "ops" -> OperationsModerationScreen(viewModel = operationsViewModel)
+                            "personnel" -> PersonnelManagementScreen(viewModel = personnelViewModel)
+                            else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Tính năng đang phát triển") }
+                        }
                     }
                 }
             }

@@ -715,7 +715,7 @@ private fun Step2HealthcareSpecific(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            "Loại ${data.riskClassification} chỉ tư vấn/ký kết tại nhà thuốc, không bán online.",
+                            "Loại ${data.riskClassification} chỉ tư vấn/ký kết tại Medstore, không bán online.",
                             modifier = Modifier.padding(12.dp),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onTertiaryContainer

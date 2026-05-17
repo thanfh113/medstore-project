@@ -71,6 +71,7 @@ data class PersonnelUserDto(
     val email: String? = null,
     val role: String,
     val isActive: Boolean,
+    val failedLoginAttempts: Int = 0,
     val createdAt: String,
     val employeeProfile: PersonnelEmployeeProfileDto? = null
 )

@@ -24,9 +24,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -145,9 +148,14 @@ fun PersonnelManagementScreen(viewModel: PersonnelViewModel) {
                     TextButton(onClick = { showCreateDialog = true }) {
                         Text(if (selectedGroup == PersonnelGroup.USER) "Thêm tài khoản user" else "Thêm tài khoản nhân viên")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.primary
+                )
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -164,17 +172,17 @@ fun PersonnelManagementScreen(viewModel: PersonnelViewModel) {
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PersonnelGroup.entries.forEach { group ->
-                    FilterChip(
+            TabRow(selectedTabIndex = PersonnelGroup.entries.indexOf(selectedGroup)) {
+                PersonnelGroup.entries.forEachIndexed { index, group ->
+                    Tab(
                         selected = selectedGroup == group,
                         onClick = { selectedGroup = group },
-                        label = { Text(group.displayName) }
+                        text = { Text(group.displayName) }
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
                 value = searchQuery,
@@ -242,6 +250,11 @@ private fun PersonnelUserCard(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 RoleChip(user.role)
                 StatusChip(user.isActive)
+                if (!user.isActive && user.failedLoginAttempts >= 5) {
+                    FailedLoginChip()
+                } else if (user.isActive && user.failedLoginAttempts in 1..4) {
+                    FailedAttemptsWarningChip(user.failedLoginAttempts)
+                }
                 if (user.role.uppercase() == "EMPLOYEE") {
                     ProfileStatusChip(user.employeeProfile?.qualificationVerified == true)
                 }
@@ -262,8 +275,17 @@ private fun PersonnelUserCard(
                         Text("Sửa hồ sơ chuyên môn")
                     }
                 }
-                Button(onClick = onToggleLock, enabled = !processing) {
-                    Text(if (user.isActive) "Khóa tài khoản" else "Mở khóa")
+                val lockLabel = when {
+                    !user.isActive && user.failedLoginAttempts >= 5 -> "Mở khóa & xóa cảnh báo"
+                    !user.isActive -> "Mở khóa"
+                    else -> "Khóa tài khoản"
+                }
+                val lockColors = if (user.isActive)
+                    ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                else
+                    ButtonDefaults.buttonColors()
+                Button(onClick = onToggleLock, enabled = !processing, colors = lockColors) {
+                    Text(lockLabel)
                 }
                 Button(
                     onClick = onDelete,
@@ -340,6 +362,30 @@ private fun ProfileStatusChip(isVerified: Boolean) {
         Text(
             text = if (isVerified) "Đã xác minh chuyên môn" else "Chờ xác minh chuyên môn",
             color = color.second,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun FailedLoginChip() {
+    Surface(color = Color(0xFFFFEBEE), shape = MaterialTheme.shapes.small) {
+        Text(
+            text = "Khóa do sai MK 5 lần",
+            color = Color(0xFFB71C1C),
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun FailedAttemptsWarningChip(count: Int) {
+    Surface(color = Color(0xFFFFF3E0), shape = MaterialTheme.shapes.small) {
+        Text(
+            text = "Sai MK: $count/5 lần",
+            color = Color(0xFFE65100),
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )

@@ -157,8 +157,9 @@ class CouponAdminViewModel(
                 return@launch
             }
 
-            val discountValue = state.discountValue.toDoubleOrNull()
-            if (discountValue == null || discountValue <= 0.0) {
+            val discountValue = if (state.discountType == "FREESHIP") 0.0
+                else state.discountValue.toDoubleOrNull()
+            if (discountValue == null || (state.discountType != "FREESHIP" && discountValue <= 0.0)) {
                 _uiState.update { it.copy(error = "Gia tri giam phai lon hon 0") }
                 return@launch
             }

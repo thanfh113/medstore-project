@@ -21,6 +21,14 @@ private data class FinanceEnvelope<T>(
 )
 
 @Serializable
+data class TopProductDto(
+    val productId: String,
+    val productName: String,
+    val quantitySold: Int,
+    val revenue: Double
+)
+
+@Serializable
 data class FinanceSummaryDto(
     val grossRevenue: Double,
     val onlineRevenue: Double,
@@ -29,7 +37,11 @@ data class FinanceSummaryDto(
     val totalExpenses: Double,
     val netProfit: Double,
     val successfulOrderCount: Int,
-    val expenseCount: Int
+    val expenseCount: Int,
+    val averageOrderValue: Double = 0.0,
+    val cancelledOrderCount: Int = 0,
+    val totalOrderCount: Int = 0,
+    val topSellingProducts: List<TopProductDto> = emptyList()
 )
 
 class FinanceRepository(private val client: HttpClient) {
@@ -46,9 +58,9 @@ class FinanceRepository(private val client: HttpClient) {
         authRetryHandler = handler
     }
 
-    suspend fun getFinanceSummary(): Result<FinanceSummaryDto> = try {
+    suspend fun getFinanceSummary(period: String = "ALL"): Result<FinanceSummaryDto> = try {
         val response = executeAuthorized { token ->
-            client.get(baseUrl) {
+            client.get("$baseUrl?period=$period") {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }
         }
