@@ -103,6 +103,11 @@ data class ComplaintMessageRequest(
 )
 
 @Serializable
+data class AddComplaintAttachmentsRequest(
+    val attachments: List<ComplaintAttachmentInput>
+)
+
+@Serializable
 data class ComplaintAttachmentDto(
     val id: String,
     val fileUrl: String,

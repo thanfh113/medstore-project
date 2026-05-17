@@ -23,9 +23,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.nhathuoc.data.local.SessionManager
 import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.ui.screen.AvatarInitials
-import com.example.nhathuoc.ui.theme.GreenLight
-import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.viewmodel.AuthViewModel
+
+// Colors for gradient header only — text/icons on this bg remain white
+private val GreenTopHeader = Color(0xFF2E7D32)
+private val GreenLightHeader = Color(0xFF66BB6A)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,17 +64,12 @@ fun ProfileScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Thông tin cá nhân", fontWeight = FontWeight.Bold, fontSize = 17.sp) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Outlined.ArrowBackIosNew, contentDescription = "Quay lại")
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = "Thông tin cá nhân",
+                onBack = onBack
             )
         },
-        containerColor = Color(0xFFF5F7FA)
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -83,7 +80,8 @@ fun ProfileScreen(onBack: () -> Unit) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Brush.horizontalGradient(listOf(GreenTop, GreenLight)))
+                    // Gradient header: keep original green colors, white text/icon inside AvatarInitials
+                    .background(Brush.horizontalGradient(listOf(GreenTopHeader, GreenLightHeader)))
                     .padding(vertical = 32.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -95,7 +93,7 @@ fun ProfileScreen(onBack: () -> Unit) {
             Surface(
                 modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                color = Color.White
+                color = MaterialTheme.colorScheme.surface
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     ProfileField(
@@ -106,7 +104,7 @@ fun ProfileScreen(onBack: () -> Unit) {
                         error = nameError,
                         enabled = !isLoading
                     )
-                    HorizontalDivider(color = Color(0xFFF0F0F0))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     ProfileField(
                         label = "Số điện thoại",
                         value = phone,
@@ -115,7 +113,7 @@ fun ProfileScreen(onBack: () -> Unit) {
                         enabled = false,
                         trailingText = "Không thể thay đổi"
                     )
-                    HorizontalDivider(color = Color(0xFFF0F0F0))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     ProfileField(
                         label = "Email",
                         value = email,
@@ -132,7 +130,7 @@ fun ProfileScreen(onBack: () -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 Text(
                     saveError,
-                    color = Color(0xFFE53935),
+                    color = MaterialTheme.colorScheme.error,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(horizontal = 24.dp)
                 )
@@ -158,7 +156,7 @@ fun ProfileScreen(onBack: () -> Unit) {
                     .padding(horizontal = 16.dp)
                     .height(50.dp),
                 enabled = !isLoading,
-                colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (isLoading) {
@@ -189,30 +187,30 @@ private fun ProfileField(
     trailingText: String? = null
 ) {
     Column {
-        Text(label, fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
+        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
         Spacer(Modifier.height(4.dp))
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
-            placeholder = { Text(placeholder, color = Color.LightGray) },
+            placeholder = { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             singleLine = true,
             isError = error != null,
             trailingIcon = if (trailingText != null) ({
-                Text(trailingText, fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(end = 4.dp))
+                Text(trailingText, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 4.dp))
             }) else null,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = GreenTop,
-                unfocusedBorderColor = Color(0xFFE0E0E0),
-                disabledBorderColor = Color(0xFFF0F0F0),
-                disabledTextColor = Color(0xFF888888)
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant
             ),
             shape = RoundedCornerShape(8.dp)
         )
         if (error != null) {
-            Text(error, fontSize = 11.sp, color = Color(0xFFE53935), modifier = Modifier.padding(top = 2.dp))
+            Text(error, fontSize = 11.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 2.dp))
         }
     }
 }

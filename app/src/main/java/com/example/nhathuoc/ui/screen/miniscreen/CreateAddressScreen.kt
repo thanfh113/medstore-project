@@ -91,7 +91,6 @@ import com.example.nhathuoc.data.model.AddAddressRequest
 import com.example.nhathuoc.data.model.AddressProvince
 import com.example.nhathuoc.data.model.AddressWard
 import com.example.nhathuoc.data.model.UserAddress
-import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.viewmodel.AddressPickerViewModel
 import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration
@@ -141,7 +140,12 @@ fun CreateAddressScreen(
     var streetAddress by remember(initialAddress?.id) {
         mutableStateOf(
             initialAddress?.let {
-                extractStreetAddress(it.fullAddress, it.ward, it.district, it.province)
+                val full = it.fullAddress
+                if (!full.isNullOrBlank()) {
+                    extractStreetAddress(full, it.ward.orEmpty(), it.district.orEmpty(), it.province.orEmpty())
+                } else {
+                    it.address.ifBlank { "" }
+                }
             }.orEmpty()
         )
     }
@@ -245,25 +249,13 @@ fun CreateAddressScreen(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(if (initialAddress == null) "Thêm địa chỉ mới" else "Sửa địa chỉ") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Quay lại"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = GreenTop,
-                    navigationIconContentColor = GreenTop
-                )
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = if (initialAddress == null) "Thêm địa chỉ mới" else "Sửa địa chỉ",
+                onBack = onBack
             )
         },
         bottomBar = {
-            Surface(color = Color.White, shadowElevation = 8.dp) {
+            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
                 Button(
                     onClick = {
                         val phone = recipientPhone.filter(Char::isDigit)
@@ -301,13 +293,13 @@ fun CreateAddressScreen(
                         .padding(16.dp)
                         .height(52.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text(if (initialAddress == null) "Lưu địa chỉ" else "Cập nhật địa chỉ")
                 }
             }
         },
-        containerColor = Color(0xFFF5F7FA)
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -320,7 +312,7 @@ fun CreateAddressScreen(
             if (errorText != null) {
                 Text(
                     text = errorText!!,
-                    color = Color(0xFFDC2626),
+                    color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -396,7 +388,7 @@ fun CreateAddressScreen(
             if (district.isNotBlank()) {
                 Text(
                     text = "Khu vực: $district",
-                    color = Color(0xFF6B7280),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -411,7 +403,7 @@ fun CreateAddressScreen(
 
             Surface(
                 shape = RoundedCornerShape(18.dp),
-                color = Color.White
+                color = MaterialTheme.colorScheme.surface
             ) {
                 Column(
                     modifier = Modifier
@@ -420,46 +412,35 @@ fun CreateAddressScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.LocationOn, contentDescription = null, tint = GreenTop)
+                        Icon(Icons.Filled.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Tọa độ giao hàng", color = GreenTop, fontWeight = FontWeight.Bold)
+                            Text("Tọa độ giao hàng", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                             Text(
                                 text = if (latitude != null && longitude != null) {
                                     "${formatCoordinate(latitude!!)}, ${formatCoordinate(longitude!!)} · $locationSource"
                                 } else {
                                     "Chưa chọn, phí ship sẽ tính theo tỉnh/xã"
                                 },
-                                color = Color(0xFF6B7280),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedButton(
-                            onClick = { requestCurrentLocation() },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Filled.MyLocation, contentDescription = null)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Định vị")
-                        }
-
-                        Button(
-                            onClick = { showMapPicker = true },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
-                        ) {
-                            Text("Chọn trên bản đồ")
-                        }
+                    Button(
+                        onClick = { showMapPicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Chọn trên bản đồ")
                     }
                 }
             }
 
             Text(
                 text = "Loại địa chỉ",
-                color = GreenTop,
+                color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -478,7 +459,7 @@ fun CreateAddressScreen(
                 }
             }
 
-            Surface(shape = RoundedCornerShape(18.dp), color = Color.White) {
+            Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -487,8 +468,8 @@ fun CreateAddressScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Đặt làm mặc định", color = GreenTop, fontWeight = FontWeight.Bold)
-                        Text("Ưu tiên dùng địa chỉ này khi thanh toán", color = Color(0xFF6B7280))
+                        Text("Đặt làm mặc định", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Text("Ưu tiên dùng địa chỉ này khi thanh toán", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Switch(checked = isDefault, onCheckedChange = { isDefault = it })
                 }
@@ -603,7 +584,7 @@ private fun OsmMapPickerDialog(
                 )
                 Text(
                     text = "${formatCoordinate(pickedLat)}, ${formatCoordinate(pickedLng)}",
-                    color = GreenTop,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -614,7 +595,7 @@ private fun OsmMapPickerDialog(
                     onCoordinatePicked(pickedLat, pickedLng)
                     onDismiss()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("Dùng vị trí này")
             }
@@ -722,7 +703,7 @@ private fun OsmdroidMapPicker(
                 Icon(
                     imageVector = Icons.Filled.MyLocation,
                     contentDescription = "Định vị hiện tại",
-                    tint = GreenTop
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -742,7 +723,7 @@ private fun OsmdroidMapPicker(
                     onClick = { mapView?.controller?.zoomIn() },
                     modifier = Modifier.size(46.dp)
                 ) {
-                    Text("+", color = GreenTop, fontWeight = FontWeight.Bold)
+                    Text("+", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -755,14 +736,14 @@ private fun OsmdroidMapPicker(
                     onClick = { mapView?.controller?.zoomOut() },
                     modifier = Modifier.size(46.dp)
                 ) {
-                    Text("-", color = GreenTop, fontWeight = FontWeight.Bold)
+                    Text("-", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
         Text(
             text = "Kéo, zoom và chạm để đặt ghim - OpenStreetMap",
-            color = GreenTop,
+            color = MaterialTheme.colorScheme.primary,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -859,7 +840,7 @@ private fun OsmTilePicker(
         Icon(
             imageVector = Icons.Filled.LocationOn,
             contentDescription = null,
-            tint = GreenTop,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier
                 .align(Alignment.Center)
                 .size(46.dp)
@@ -880,7 +861,7 @@ private fun OsmTilePicker(
                 Icon(
                     imageVector = Icons.Filled.MyLocation,
                     contentDescription = "Định vị hiện tại",
-                    tint = GreenTop
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -902,7 +883,7 @@ private fun OsmTilePicker(
                     },
                     modifier = Modifier.size(46.dp)
                 ) {
-                    Text("+", color = GreenTop, fontWeight = FontWeight.Bold)
+                    Text("+", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
             Surface(
@@ -917,13 +898,13 @@ private fun OsmTilePicker(
                     },
                     modifier = Modifier.size(46.dp)
                 ) {
-                    Text("-", color = GreenTop, fontWeight = FontWeight.Bold)
+                    Text("-", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         }
         Text(
             text = "Chạm vào bản đồ để đặt ghim - dữ liệu OSM/CARTO",
-            color = GreenTop,
+            color = MaterialTheme.colorScheme.primary,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier
                 .align(Alignment.BottomStart)

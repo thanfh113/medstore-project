@@ -5,18 +5,19 @@
  * Base URL for Android emulator pointing to localhost BE
  */
 object ApiConstants {
-    const val BASE_URL = "http://192.168.0.100:8080"
+    const val BASE_URL = "http://192.168.0.102:8080"
 
     const val AUTH_REGISTER = "/api/v1/auth/register"
     const val AUTH_LOGIN = "/api/v1/auth/login"
     const val AUTH_REFRESH = "/api/v1/auth/refresh"
     const val AUTH_LOGOUT = "/api/v1/auth/logout"
+    const val AUTH_CHANGE_PASSWORD = "/api/v1/auth/change-password"
 
-    const val USER_ME = "/api/v1/user/me"
-    const val USER_UPDATE = "/api/v1/user/update"
-    const val USER_ADDRESSES = "/api/v1/user/addresses"
-    const val USER_ADDRESS_ADD = "/api/v1/user/addresses"
-    const val USER_ADDRESS_BY_ID = "/api/v1/user/addresses/{id}"
+    const val USER_ME = "/api/v1/users/me"
+    const val USER_UPDATE = "/api/v1/users/me"
+    const val USER_ADDRESSES = "/api/v1/users/me/addresses"
+    const val USER_ADDRESS_ADD = "/api/v1/users/me/addresses"
+    const val USER_ADDRESS_BY_ID = "/api/v1/users/me/addresses/{id}"
 
     const val PRODUCTS = "/api/v1/products"
     const val PRODUCTS_FLASH_SALE = "/api/v1/products/flash-sale"
@@ -43,6 +44,8 @@ object ApiConstants {
     const val COMPLAINTS = "/api/v1/complaints"
     const val COMPLAINT_BY_ID = "/api/v1/complaints/{id}"
     const val COMPLAINT_MESSAGES = "/api/v1/complaints/{id}/messages"
+    const val COMPLAINT_ATTACHMENTS = "/api/v1/complaints/{id}/attachments"
+    const val COMPLAINT_REQUEST_REFUND = "/api/v1/complaints/{id}/request-refund"
 
     const val PAYMENTS_MOMO_INIT = "/api/v1/payments/momo/init"
     const val PAYMENTS_VNPAY_INIT = "/api/v1/payments/vnpay/init"
@@ -66,6 +69,7 @@ object ApiConstants {
     const val AI_CHAT_SESSION = "/api/v1/ai-chat/sessions/{conversationId}"
     const val AI_CHAT_MESSAGE = "/api/v1/ai-chat/sessions/{conversationId}/message"
     const val AI_CHAT_ESCALATE = "/api/v1/ai-chat/sessions/{conversationId}/escalate"
+    const val AI_CHAT_CLOSE = "/api/v1/ai-chat/sessions/{conversationId}/close"
 
     const val PHARMACIES = "/api/v1/pharmacies"
     const val PHARMACY_BY_ID = "/api/v1/pharmacies/{id}"

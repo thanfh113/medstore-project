@@ -64,7 +64,7 @@ class CartViewModel @Inject constructor(
                     _cartState.value = UiState.Error(result.message)
                 }
                 is NetworkResult.Exception -> {
-                    val message = result.e.localizedMessage ?: "Loi ket noi may chu"
+                    val message = result.e.localizedMessage ?: "Lỗi kết nối máy chủ"
                     _uiState.update { it.copy(isLoading = false, error = message) }
                     _cartState.value = UiState.Error(message, result.e)
                 }
@@ -83,7 +83,7 @@ class CartViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, error = result.message) }
                 }
                 is NetworkResult.Exception -> {
-                    val message = result.e.localizedMessage ?: "Loi them vao gio hang"
+                    val message = result.e.localizedMessage ?: "Lỗi thêm vào giỏ hàng"
                     _uiState.update { it.copy(isLoading = false, error = message) }
                 }
             }
@@ -105,7 +105,7 @@ class CartViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, error = result.message) }
                 }
                 is NetworkResult.Exception -> {
-                    _uiState.update { it.copy(isLoading = false, error = result.e.localizedMessage ?: "Loi ket noi may chu") }
+                    _uiState.update { it.copy(isLoading = false, error = result.e.localizedMessage ?: "Lỗi kết nối máy chủ") }
                 }
             }
         }
@@ -129,7 +129,7 @@ class CartViewModel @Inject constructor(
                     _removeItemState.value = UiState.Error(result.message)
                 }
                 is NetworkResult.Exception -> {
-                    val message = result.e.localizedMessage ?: "Loi ket noi may chu"
+                    val message = result.e.localizedMessage ?: "Lỗi kết nối máy chủ"
                     _uiState.update { it.copy(isLoading = false, error = message) }
                     _removeItemState.value = UiState.Error(message, result.e)
                 }
@@ -152,7 +152,7 @@ class CartViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, error = result.message) }
                 }
                 is NetworkResult.Exception -> {
-                    _uiState.update { it.copy(isLoading = false, error = result.e.localizedMessage ?: "Loi ket noi may chu") }
+                    _uiState.update { it.copy(isLoading = false, error = result.e.localizedMessage ?: "Lỗi kết nối máy chủ") }
                 }
             }
         }

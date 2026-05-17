@@ -39,44 +39,11 @@ fun AddressSelectionScreen(
 ) {
     Scaffold(
         topBar = {
-            Surface(shadowElevation = 2.dp, color = Color.White) {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "Chọn địa chỉ giao hàng",
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                "${addresses.size} địa chỉ",
-                                fontSize = 12.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(BgGray),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Filled.ArrowBackIosNew,
-                                    contentDescription = "Quay lại",
-                                    tint = GreenTop,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
-                )
-            }
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = "Chọn địa chỉ giao hàng",
+                subtitle = "${addresses.size} địa chỉ",
+                onBack = onBack
+            )
         },
         bottomBar = {
             Surface(color = Color.White, shadowElevation = 12.dp) {
@@ -207,7 +174,7 @@ fun AddressSelectionScreen(
                                 }
                                 Spacer(Modifier.height(3.dp))
                                 Text(
-                                    address.phone ?: "Chưa có SĐT",
+                                    address.recipientPhone ?: "Chưa có SĐT",
                                     fontSize = 13.sp,
                                     color = TextSecondary
                                 )

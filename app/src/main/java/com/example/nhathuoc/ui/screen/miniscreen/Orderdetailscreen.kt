@@ -42,15 +42,9 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-// Design tokens
-private val BgGray = Color(0xFFF3F7F4)
-private val CardBg = Color.White
-private val TextPrimary = Color(0xFF1B2B1F)
-private val TextSecondary = Color(0xFF5A7A62)
-private val GreenLight = Color(0xFFE8F5E9)
-private val DividerColor = Color(0xFFE0EDE3)
 
 private data class PickedComplaintAttachment(
     val uri: Uri,
@@ -92,12 +86,12 @@ fun OrderDetailScreen(
     if (showCancelDialog) {
         StyledAlertDialog(
             icon = Icons.Outlined.Cancel,
-            iconBg = Color(0xFFFFEBEE),
-            iconTint = Color(0xFFE53935),
+            iconBg = MaterialTheme.colorScheme.errorContainer,
+            iconTint = MaterialTheme.colorScheme.error,
             title = "Hủy đơn hàng?",
             body = "Bạn có chắc muốn hủy đơn hàng này không?",
             confirmLabel = "Xác nhận hủy",
-            confirmColor = Color(0xFFE53935),
+            confirmColor = MaterialTheme.colorScheme.error,
             onConfirm = { showCancelDialog = false; viewModel.cancelOrder(orderId, "Người dùng hủy trên ứng dụng") },
             onDismiss = { showCancelDialog = false }
         )
@@ -106,7 +100,7 @@ fun OrderDetailScreen(
     if (showReceivedDialog) {
         StyledAlertDialog(
             icon = Icons.Outlined.CheckCircle,
-            iconBg = GreenLight,
+            iconBg = MaterialTheme.colorScheme.primaryContainer,
             iconTint = GreenTop,
             title = "Xác nhận đã nhận hàng?",
             body = "Đơn sẽ chuyển sang đã giao. Sau đó bạn có thể đánh giá từng sản phẩm trong đơn.",
@@ -149,42 +143,13 @@ fun OrderDetailScreen(
     }
 
     Scaffold(
-        containerColor = BgGray,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            Surface(shadowElevation = 2.dp, color = CardBg) {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Chi tiết đơn hàng", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = TextPrimary)
-                            if (orderState is UiState.Success) {
-                                Text(
-                                    "#${(orderState as UiState.Success<OrderDto>).data.orderCode}",
-                                    fontSize = 12.sp, color = TextSecondary
-                                )
-                            }
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Box(
-                                modifier = Modifier.size(36.dp).clip(CircleShape).background(BgGray),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Quay lại",
-                                    tint = GreenTop,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CardBg,
-                        titleContentColor = Color(0xFF1B2B1F),
-                        navigationIconContentColor = Color(0xFF1B2B1F)
-                    )
-                )
-            }
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = "Chi tiết đơn hàng",
+                subtitle = if (orderState is UiState.Success) "#${(orderState as UiState.Success<OrderDto>).data.orderCode}" else null,
+                onBack = onBack
+            )
         }
     ) { innerPadding ->
         when (val state = orderState) {
@@ -228,7 +193,20 @@ private fun OrderDetailContent(
     val status = order.status.uppercase()
     val canCancel = status in setOf("PENDING", "PROCESSING")
     val canConfirmReceived = status == "SHIPPING"
-    val canReviewProducts = status == "DELIVERED"
+    val canReviewProducts = status == "DELIVERED" && run {
+        val delivered = order.deliveredAt
+        if (delivered.isNullOrBlank()) true
+        else {
+            runCatching {
+                val deliveredTime = try {
+                    OffsetDateTime.parse(delivered).toLocalDateTime()
+                } catch (_: Exception) {
+                    LocalDateTime.parse(delivered.replace(" ", "T"))
+                }
+                ChronoUnit.DAYS.between(deliveredTime, LocalDateTime.now()) <= 30
+            }.getOrDefault(true)
+        }
+    }
     val canComplaint = status !in setOf("CANCELLED", "RETURNED")
     val canResume = canResumeGatewayPayment(order)
 
@@ -284,7 +262,7 @@ private fun SectionCard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        color = CardBg,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
@@ -293,15 +271,15 @@ private fun SectionCard(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Box(
-                    modifier = Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(GreenLight),
+                    modifier = Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(icon, contentDescription = null, tint = GreenTop, modifier = Modifier.size(18.dp))
                 }
-                Text(title, fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 15.sp)
+                Text(title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
             }
             Spacer(Modifier.height(14.dp))
-            HorizontalDivider(color = DividerColor)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(14.dp))
             content()
         }
@@ -323,7 +301,7 @@ private fun HeaderCard(order: OrderDto) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(order.orderCode, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = GreenTop)
                 Spacer(Modifier.height(3.dp))
-                Text("Đặt lúc ${formatDateTime(order.createdAt)}", fontSize = 12.sp, color = TextSecondary)
+                Text("Đặt lúc ${formatDateTime(order.createdAt)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(
                 horizontalAlignment = Alignment.End,
@@ -348,7 +326,7 @@ private fun HeaderCard(order: OrderDto) {
             Spacer(Modifier.height(10.dp))
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = GreenLight,
+                color = MaterialTheme.colorScheme.primaryContainer,
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
@@ -384,17 +362,22 @@ private fun AddressCard(address: UserAddress) {
             verticalAlignment = Alignment.Top
         ) {
             Box(
-                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(GreenLight),
+                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.Filled.LocationOn, null, tint = GreenTop, modifier = Modifier.size(22.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(address.recipientName, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = TextPrimary)
+                Text(address.recipientName.orEmpty(), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(2.dp))
-                Text(address.recipientPhone, fontSize = 13.sp, color = TextSecondary)
+                Text(address.recipientPhone.orEmpty(), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
-                Text(address.fullAddress, fontSize = 13.sp, color = Color(0xFF4B5563), lineHeight = 19.sp)
+                Text(
+                    text = (address.fullAddress?.takeIf(String::isNotBlank) ?: address.address),
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 19.sp
+                )
             }
         }
     }
@@ -422,7 +405,7 @@ private fun ItemsCard(
                                 item.name,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
-                                color = TextPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -430,12 +413,12 @@ private fun ItemsCard(
                             Text(
                                 "${item.quantity} × ${item.unit}  •  ${formatCurrency(item.price)}",
                                 fontSize = 12.sp,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             item.product?.brand?.takeIf { it.isNotBlank() }?.let { brand ->
                                 Spacer(Modifier.height(2.dp))
-                                Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFFF0F4F1)) {
-                                    Text(brand, fontSize = 10.sp, color = TextSecondary, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                                    Text(brand, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                                 }
                             }
                         }
@@ -476,7 +459,7 @@ private fun ItemsCard(
                 }
                 if (index != items.lastIndex) {
                     Spacer(Modifier.height(4.dp))
-                    HorizontalDivider(color = DividerColor)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(Modifier.height(4.dp))
                 }
             }
@@ -548,7 +531,7 @@ private fun PaymentCard(order: OrderDto) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Trạng thái", fontSize = 13.sp, color = TextSecondary)
+                Text("Trạng thái", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Surface(shape = RoundedCornerShape(20.dp), color = paymentColor.copy(alpha = 0.12f)) {
                     Text(paymentLabel, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = paymentColor,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
@@ -568,7 +551,7 @@ private fun SummaryCard(order: OrderDto) {
             if (order.pointsUsed > 0) DetailRow("Điểm đã dùng", "${order.pointsUsed} điểm")
             if (order.pointsEarned > 0) DetailRow("Điểm nhận được", "+${order.pointsEarned} điểm")
             Spacer(Modifier.height(2.dp))
-            HorizontalDivider(color = DividerColor)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(2.dp))
             DetailRow("Tổng cộng", formatCurrency(order.total), valueColor = GreenTop, emphasized = true)
         }
@@ -580,7 +563,7 @@ private fun NoteCard(order: OrderDto) {
     SectionCard(title = "Ghi chú", icon = Icons.Outlined.Notes) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             order.note?.takeIf { it.isNotBlank() }?.let {
-                Text(it, fontSize = 14.sp, color = Color(0xFF374151), lineHeight = 20.sp)
+                Text(it, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface, lineHeight = 20.sp)
             }
             order.cancelReason?.takeIf { it.isNotBlank() }?.let {
                 Surface(shape = RoundedCornerShape(10.dp), color = Color(0xFFFFF3E0)) {
@@ -613,15 +596,15 @@ private fun ActionCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        color = CardBg,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("Thao tác", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = TextPrimary)
-            HorizontalDivider(color = DividerColor)
+            Text("Thao tác", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(2.dp))
 
             if (canResumePayment) {
@@ -657,18 +640,18 @@ private fun ActionCard(
                 ActionButton(
                     label = "Hủy đơn hàng",
                     icon = Icons.Outlined.Cancel,
-                    bg = Color(0xFFFFEBEE),
-                    fg = Color(0xFFE53935),
+                    bg = MaterialTheme.colorScheme.errorContainer,
+                    fg = MaterialTheme.colorScheme.error,
                     outlined = true,
-                    outlinedBorder = Color(0xFFFFCDD2),
+                    outlinedBorder = MaterialTheme.colorScheme.errorContainer,
                     onClick = onCancelOrder
                 )
             }
             ActionButton(
                 label = "Tải lại đơn hàng",
                 icon = Icons.Outlined.Refresh,
-                bg = Color(0xFFF0F4F1),
-                fg = TextSecondary,
+                bg = MaterialTheme.colorScheme.surfaceVariant,
+                fg = MaterialTheme.colorScheme.onSurfaceVariant,
                 onClick = onRetry
             )
         }
@@ -728,14 +711,14 @@ private fun StatusBadge(label: String, color: Color) {
 
 @Composable
 private fun InfoChip(label: String, icon: ImageVector) {
-    Surface(color = Color(0xFFF0F4F1), shape = RoundedCornerShape(999.dp)) {
+    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(999.dp)) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Icon(icon, null, tint = GreenTop, modifier = Modifier.size(14.dp))
-            Text(label, color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -745,7 +728,7 @@ private fun DetailRow(
     label: String,
     value: String,
     emphasized: Boolean = false,
-    valueColor: Color = TextPrimary
+    valueColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -756,7 +739,7 @@ private fun DetailRow(
             label,
             fontSize = if (emphasized) 15.sp else 13.sp,
             fontWeight = if (emphasized) FontWeight.SemiBold else FontWeight.Normal,
-            color = TextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f)
         )
         Spacer(Modifier.width(12.dp))
@@ -787,7 +770,7 @@ private fun StyledAlertDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(24.dp),
-        containerColor = CardBg,
+        containerColor = MaterialTheme.colorScheme.surface,
         icon = {
             Box(
                 modifier = Modifier.size(52.dp).clip(CircleShape).background(iconBg),
@@ -796,8 +779,8 @@ private fun StyledAlertDialog(
                 Icon(icon, null, tint = iconTint, modifier = Modifier.size(28.dp))
             }
         },
-        title = { Text(title, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = TextPrimary) },
-        text = { Text(body, fontSize = 14.sp, color = TextSecondary, lineHeight = 21.sp) },
+        title = { Text(title, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = MaterialTheme.colorScheme.onSurface) },
+        text = { Text(body, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 21.sp) },
         confirmButton = {
             Button(
                 onClick = onConfirm,
@@ -810,8 +793,8 @@ private fun StyledAlertDialog(
             OutlinedButton(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, DividerColor),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary)
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
             ) { Text(dismissLabel) }
         }
     )
@@ -822,13 +805,13 @@ private fun ErrorState(message: String, onRetry: () -> Unit, modifier: Modifier 
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(
-                modifier = Modifier.size(72.dp).clip(CircleShape).background(Color(0xFFFFEBEE)),
+                modifier = Modifier.size(72.dp).clip(CircleShape).background(MaterialTheme.colorScheme.errorContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Outlined.WarningAmber, null, tint = Color(0xFFE57373), modifier = Modifier.size(36.dp))
+                Icon(Icons.Outlined.WarningAmber, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(36.dp))
             }
-            Text("Không tải được đơn hàng", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextPrimary)
-            Text(message, fontSize = 13.sp, color = TextSecondary)
+            Text("Không tải được đơn hàng", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text(message, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(
                 onClick = onRetry,
                 colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
@@ -852,7 +835,10 @@ private fun ComplaintDialog(
         "DAMAGED" to "Hàng hỏng/vỡ",
         "WRONG_ITEM" to "Giao sai hàng",
         "MISSING_ITEM" to "Thiếu sản phẩm",
+        "COUNTERFEIT" to "Nghi hàng giả",
+        "EXPIRED" to "Hết hạn",
         "PAYMENT" to "Thanh toán",
+        "REFUND" to "Yêu cầu hoàn tiền",
         "OTHER" to "Khác"
     )
     var selectedType by rememberSaveable { mutableStateOf(options.first().first) }
@@ -871,18 +857,18 @@ private fun ComplaintDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(24.dp),
-        containerColor = CardBg,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Text(
                 "Khiếu nại đơn #${order.orderCode}",
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Loại khiếu nại", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = TextSecondary)
+                Text("Loại khiếu nại", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -893,14 +879,14 @@ private fun ComplaintDialog(
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(10.dp),
-                                    color = if (selectedType == value) GreenTop else Color(0xFFF0F4F1),
+                                    color = if (selectedType == value) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                                     onClick = { selectedType = value }
                                 ) {
                                     Text(
                                         label,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = if (selectedType == value) Color.White else TextPrimary,
+                                        color = if (selectedType == value) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                                     )
                                 }
@@ -917,14 +903,14 @@ private fun ComplaintDialog(
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = GreenTop,
-                        unfocusedBorderColor = Color(0xFFE0EDE3),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                         focusedLabelColor = GreenTop,
-                        unfocusedLabelColor = Color(0xFF5A7A62),
-                        focusedTextColor = Color(0xFF1B2B1F),
-                        unfocusedTextColor = Color(0xFF1B2B1F),
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                         cursorColor = GreenTop,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color(0xFFFAFCFA)
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
                 OutlinedTextField(
@@ -936,14 +922,14 @@ private fun ComplaintDialog(
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = GreenTop,
-                        unfocusedBorderColor = Color(0xFFE0EDE3),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                         focusedLabelColor = GreenTop,
-                        unfocusedLabelColor = Color(0xFF5A7A62),
-                        focusedTextColor = Color(0xFF1B2B1F),
-                        unfocusedTextColor = Color(0xFF1B2B1F),
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                         cursorColor = GreenTop,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color(0xFFFAFCFA)
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
                 OutlinedButton(
@@ -951,14 +937,14 @@ private fun ComplaintDialog(
                     enabled = !isSubmitting,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, DividerColor)
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Icon(Icons.Outlined.AttachFile, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("Thêm ảnh/PDF (${attachments.size}/5)", fontSize = 13.sp)
                 }
                 attachments.forEach { att ->
-                    Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFF0F4F1)) {
+                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -967,7 +953,7 @@ private fun ComplaintDialog(
                             Text(
                                 "${att.fileType} • ${att.name}",
                                 fontSize = 12.sp,
-                                color = TextSecondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
@@ -977,13 +963,13 @@ private fun ComplaintDialog(
                                 enabled = !isSubmitting,
                                 contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
-                                Text("Xóa", fontSize = 12.sp, color = Color(0xFFE53935))
+                                Text("Xóa", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
                 }
                 if (state is UiState.Error) {
-                    Text(state.message, color = Color(0xFFE53935), fontSize = 12.sp)
+                    Text(state.message, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                 }
             }
         },
@@ -1003,7 +989,7 @@ private fun ComplaintDialog(
                 onClick = onDismiss,
                 enabled = !isSubmitting,
                 shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, DividerColor)
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) { Text("Đóng") }
         }
     )
@@ -1056,8 +1042,8 @@ private fun orderProgressMessage(order: OrderDto): String? {
     val ps = order.paymentStatus.uppercase()
     val os = order.status.uppercase()
     return when {
-        ps == "COMPLETED" && os == "PROCESSING" -> "Đã thanh toán, đơn đang được nhà thuốc xử lý."
-        ps == "COMPLETED" && os == "PENDING" -> "Đã thanh toán, đơn đang chờ nhà thuốc xác nhận."
+        ps == "COMPLETED" && os == "PROCESSING" -> "Đã thanh toán, đơn đang được Medstore xử lý."
+        ps == "COMPLETED" && os == "PENDING" -> "Đã thanh toán, đơn đang chờ Medstore xác nhận."
         ps == "COMPLETED" && os == "SHIPPING" -> "Đã thanh toán, đơn đang được giao."
         ps == "COMPLETED" && os == "DELIVERED" -> "Đã thanh toán, đơn đã giao thành công."
         ps == "PENDING" -> "Thanh toán đang chờ xác nhận từ cổng thanh toán."

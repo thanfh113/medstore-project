@@ -8,12 +8,40 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ApiError(
-    val status: Int,
-    val message: String,
+    val error: String? = null,
+    val message: String? = null,
     val details: String? = null,
-    val timestamp: String,
-    val path: String
-)
+    val status: Int? = null,
+    val timestamp: String? = null,
+    val path: String? = null
+) {
+    fun userMessage(): String = message ?: error ?: "Có lỗi xảy ra, vui lòng thử lại"
+}
+
+fun parseErrorBody(errorBody: String?): String {
+    if (errorBody == null) return "Có lỗi xảy ra, vui lòng thử lại"
+    return try {
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        json.decodeFromString<ApiError>(errorBody).userMessage()
+    } catch (_: Exception) {
+        errorBody
+    }
+}
+
+fun Throwable.toUserMessage(): String = when (this) {
+    is java.net.UnknownHostException -> "Không có kết nối internet. Vui lòng kiểm tra mạng."
+    is java.net.SocketTimeoutException -> "Kết nối quá chậm, vui lòng thử lại."
+    is java.net.ConnectException -> "Không thể kết nối đến máy chủ. Vui lòng thử lại sau."
+    is java.io.IOException -> "Lỗi mạng, vui lòng thử lại."
+    else -> message?.let { msg ->
+        when {
+            msg.contains("timeout", ignoreCase = true) -> "Kết nối quá chậm, vui lòng thử lại."
+            msg.contains("Unable to resolve host", ignoreCase = true) -> "Không có kết nối internet."
+            msg.contains("failed to connect", ignoreCase = true) -> "Không thể kết nối đến máy chủ."
+            else -> msg
+        }
+    } ?: "Có lỗi xảy ra, vui lòng thử lại."
+}
 
 @Serializable
 data class ApiResponse<T>(

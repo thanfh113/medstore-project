@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -25,6 +26,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.nhathuoc.ui.theme.NhathuocTheme
@@ -72,8 +75,8 @@ private val CORNER_RADIUS = 16.dp
 // ─────────────────────────────────────────────────────────────────
 @Composable
 fun MainScreen(navController: NavController) {
-    var selectedTab       by remember { mutableIntStateOf(0) }
-    var showConsultSheet  by remember { mutableStateOf(false) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var showConsultSheet by rememberSaveable { mutableStateOf(false) }
 
     // Real cart badge from CartViewModel
     val cartViewModel: CartViewModel = hiltViewModel()
@@ -93,41 +96,63 @@ fun MainScreen(navController: NavController) {
         }
     }
 
+    // Pager: 4 swipeable tabs — Home(0), Reward(1), Cart(3), Account(4); Consult excluded
+    val pageToTab = remember { listOf(0, 1, 3, 4) }
+    val tabToPage = remember { mapOf(0 to 0, 1 to 1, 3 to 2, 4 to 3) }
+    val pagerState = rememberPagerState(initialPage = 0) { 4 }
+
+    // Pager swipe → update bottom tab indicator
+    LaunchedEffect(pagerState.currentPage) {
+        val newTab = pageToTab[pagerState.currentPage]
+        if (selectedTab != newTab) selectedTab = newTab
+    }
+
+    // Bottom tab tap → jump instantly to correct page (no intermediate-page animation)
+    LaunchedEffect(selectedTab) {
+        val page = tabToPage[selectedTab] ?: return@LaunchedEffect
+        if (pagerState.currentPage != page) {
+            pagerState.scrollToPage(page)
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             bottomBar = {
                 MainBottomBar(
                     selectedTab       = selectedTab,
                     onTabSelected     = { idx ->
-                        if (idx == BottomNavTab.Consult.index) {
-                            showConsultSheet = true
-                        } else {
-                            selectedTab = idx
-                        }
+                        if (idx == BottomNavTab.Consult.index) showConsultSheet = true
+                        else selectedTab = idx
                     },
                     cartBadgeCount    = cartBadge,
                     consultBadgeCount = 0
                 )
             },
-            containerColor = Color(0xFFF5F5F5)
+            containerColor = MaterialTheme.colorScheme.background
         ) { innerPadding ->
-            Box(Modifier.fillMaxSize().padding(innerPadding)) {
-                when (selectedTab) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding),
+                beyondViewportPageCount = 1
+            ) { page ->
+                when (page) {
                     0 -> HomeScreen(navController = navController)
                     1 -> RewardScreen(
                         onShopNow = { selectedTab = 0 },
                         onUseVoucher = { navController.navigate("CheckoutScreen") }
                     )
-                    3 -> CartScreen(navController = navController)
-                    4 -> AccountScreen(navController = navController, mainNavController = navController)
+                    2 -> CartScreen(navController = navController, showBackButton = false)
+                    else -> AccountScreen(navController = navController, mainNavController = navController)
                 }
             }
         }
 
-        // ── Consult bottom sheet overlay ──────────────────────────
         ConsultBottomSheet(
-            visible      = showConsultSheet,
-            onDismiss    = { showConsultSheet = false },
+            visible = showConsultSheet,
+            onDismiss = { showConsultSheet = false },
             onAiChatClick = {
                 showConsultSheet = false
                 navController.navigate("AiChatScreen")
@@ -195,7 +220,7 @@ fun ConsultBottomSheet(
                     .align(Alignment.BottomCenter)
                     .offset { IntOffset(0, offsetY.value.roundToInt()) },
                 shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 16.dp
             ) {
                 ConsultSheetContent(
@@ -246,7 +271,7 @@ private fun ConsultSheetContent(
                 modifier = Modifier.align(Alignment.Center),
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1A1A1A)
+                color = MaterialTheme.colorScheme.onSurface
             )
             IconButton(
                 onClick = onClose,
@@ -340,7 +365,7 @@ private fun ConsultSheetContent(
         Surface(
             onClick = onAiChatClick,
             shape = RoundedCornerShape(50),
-            color = Color(0xFFE8F5E9),
+            color = MaterialTheme.colorScheme.primaryContainer,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
@@ -351,9 +376,9 @@ private fun ConsultSheetContent(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.SmartToy, null, tint = ActiveGreen, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.SmartToy, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Hỏi AI Medstore ngay", color = ActiveGreen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Hỏi AI Medstore ngay", color = MaterialTheme.colorScheme.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -363,7 +388,7 @@ private fun ConsultSheetContent(
         Surface(
             onClick = onChatClick,
             shape = RoundedCornerShape(50),
-            color = Color(0xFFEEF4FF),
+            color = MaterialTheme.colorScheme.secondaryContainer,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
@@ -374,9 +399,9 @@ private fun ConsultSheetContent(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.ChatBubble, null, tint = ActiveGreen, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.ChatBubble, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Nhắn tin & Lịch sử tư vấn", color = ActiveGreen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Nhắn tin & Lịch sử tư vấn", color = MaterialTheme.colorScheme.secondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -386,7 +411,7 @@ private fun ConsultSheetContent(
         Surface(
             onClick = {},
             shape = RoundedCornerShape(50),
-            color = Color(0xFFEEF4FF),
+            color = MaterialTheme.colorScheme.surfaceVariant,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
@@ -397,9 +422,9 @@ private fun ConsultSheetContent(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.Phone, null, tint = ActiveGreen, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.Phone, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Gọi hỗ trợ kỹ thuật (1800 1234)", color = ActiveGreen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Gọi hỗ trợ kỹ thuật (1800 1234)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -417,6 +442,8 @@ fun MainBottomBar(
     val density       = LocalDensity.current
     val notchRadiusPx = with(density) { NOTCH_RADIUS.toPx() }
     val cornerPx      = with(density) { CORNER_RADIUS.toPx() }
+    val surfaceColor  = MaterialTheme.colorScheme.surface
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Box(
@@ -443,7 +470,7 @@ fun MainBottomBar(
                                 buildNotchPath(w, h, cx, notchRadiusPx, cornerPx).asAndroidPath(), p
                             )
                         }
-                        drawPath(buildNotchPath(w, h, cx, notchRadiusPx, cornerPx), Color.White)
+                        drawPath(buildNotchPath(w, h, cx, notchRadiusPx, cornerPx), surfaceColor)
                     }
             ) {
                 Row(
@@ -477,7 +504,7 @@ fun MainBottomBar(
                         Text(
                             text       = tab.label,
                             fontSize   = 10.sp,
-                            color      = if (isSelected) ActiveGreen else Color.Gray,
+                            color      = if (isSelected) ActiveGreen else inactiveColor,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             textAlign  = TextAlign.Center,
                             maxLines   = 1
@@ -515,7 +542,7 @@ fun MainBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.surface)
         )
     }
 }
@@ -541,7 +568,7 @@ private fun NavIcon(tab: BottomNavTab, isSelected: Boolean, badgeCount: Int = 0,
             Icon(
                 imageVector        = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
                 contentDescription = tab.label,
-                tint               = if (isSelected) ActiveGreen else Color.Gray,
+                tint               = if (isSelected) ActiveGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier           = Modifier.size(24.dp)
             )
         }

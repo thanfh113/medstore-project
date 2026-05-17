@@ -15,7 +15,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.nhathuoc.ui.theme.GreenTop
 
 
 @Composable
@@ -26,7 +25,7 @@ fun ChatBanner(
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = GreenTop,
+        color = MaterialTheme.colorScheme.primary,
         modifier = modifier.fillMaxWidth()
     ) {
         Row(
@@ -54,11 +53,11 @@ fun ChatBanner(
                 if (hasNewMessage) {
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFFFF5252)
+                        color = MaterialTheme.colorScheme.error
                     ) {
                         Text(
                             "Có tin nhắn mới",
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onError,
                             fontSize = 11.sp,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
@@ -66,7 +65,7 @@ fun ChatBanner(
                     Spacer(Modifier.height(4.dp))
                 }
                 Text(
-                    "Chat với Chuyên gia ",
+                    "Chat với Chuyên gia",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
@@ -79,7 +78,12 @@ fun ChatBanner(
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
             ) {
-                Text("Chat ngay", color = GreenTop, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text(
+                    "Chat ngay",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp
+                )
             }
         }
     }

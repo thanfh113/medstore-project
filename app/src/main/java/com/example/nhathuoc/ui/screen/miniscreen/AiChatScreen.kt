@@ -16,9 +16,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -42,6 +45,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -57,6 +62,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -74,10 +80,9 @@ import com.example.nhathuoc.data.model.ChatProductRecommendation
 import com.example.nhathuoc.data.remote.BackendUrlResolver
 import com.example.nhathuoc.viewmodel.AiChatViewModel
 
+// Kept only for gradient header — text/icons on gradient remain white
 private val AiGreenTop = Color(0xFF1B5E20)
 private val AiGreenLight = Color(0xFF43A047)
-private val AiBubbleBg = Color(0xFFE8F5E9)
-private val UserBubbleBg = Color(0xFF2E7D32)
 
 private val quickSuggestions = listOf(
     "Băng gạc loại nào phù hợp cho vết thương hở?",
@@ -96,6 +101,7 @@ fun AiChatScreen(
     onOpenHumanChat: (String) -> Unit = {},
     onProductClick: (String) -> Unit = {},
     productId: String? = null,
+    conversationId: String? = null,
     viewModel: AiChatViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -103,13 +109,17 @@ fun AiChatScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var suggestionsExpanded by rememberSaveable { mutableStateOf(true) }
 
-    LaunchedEffect(productId) {
-        viewModel.startConversation(productId)
+    LaunchedEffect(conversationId, productId) {
+        if (conversationId != null) {
+            viewModel.openConversation(conversationId)
+        } else {
+            viewModel.startConversation(productId)
+        }
     }
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.messages.lastIndex)
+            listState.animateScrollToItem(0)
         }
     }
 
@@ -121,31 +131,55 @@ fun AiChatScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             AiChatTopBar(onBack = onBack, isEscalated = uiState.isEscalated)
         },
         bottomBar = {
+            val isKeyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
             Surface(shadowElevation = 8.dp) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White)
+                        .background(MaterialTheme.colorScheme.surface)
                         .navigationBarsPadding()
                         .imePadding()
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    if (uiState.isEscalated && uiState.humanSessionId != null) {
+                    if (uiState.isClosed) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                "Phiên tư vấn đã kết thúc",
+                                modifier = Modifier.padding(16.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    } else if (uiState.isEscalated && uiState.humanSessionId != null) {
                         Button(
                             onClick = { onOpenHumanChat(uiState.humanSessionId!!) },
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                             shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.Filled.HeadsetMic, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("Mở cuộc trò chuyện với chuyên viên", fontSize = 14.sp)
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        OutlinedButton(
+                            onClick = { viewModel.closeCurrentConversation() },
+                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text("Kết thúc tư vấn", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                         }
                     } else if (!uiState.isEscalated) {
                         if (uiState.messages.none { it.role == "user" } && !uiState.isLoading) {
@@ -170,8 +204,8 @@ fun AiChatScreen(
                                 shape = RoundedCornerShape(20.dp),
                                 maxLines = 4,
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = AiGreenLight,
-                                    unfocusedBorderColor = Color(0xFFDDDDDD)
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                                 )
                             )
                             Spacer(Modifier.width(8.dp))
@@ -181,7 +215,7 @@ fun AiChatScreen(
                                 modifier = Modifier
                                     .size(48.dp)
                                     .background(
-                                        if (uiState.inputText.isNotBlank() && !uiState.isSending) AiGreenTop
+                                        if (uiState.inputText.isNotBlank() && !uiState.isSending) MaterialTheme.colorScheme.primary
                                         else Color(0xFFBDBDBD),
                                         CircleShape
                                     )
@@ -203,20 +237,33 @@ fun AiChatScreen(
                             }
                         }
 
-                        if (uiState.messages.isNotEmpty()) {
+                        if (uiState.messages.isNotEmpty() && !isKeyboardVisible) {
                             Spacer(Modifier.height(6.dp))
-                            Button(
-                                onClick = { viewModel.escalateToHuman() },
-                                modifier = Modifier.fillMaxWidth().height(40.dp),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFF1F8E9),
-                                    contentColor = Color(0xFF388E3C)
-                                )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(Icons.Filled.HeadsetMic, null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("Kết nối chuyên viên", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                Button(
+                                    onClick = { viewModel.escalateToHuman() },
+                                    modifier = Modifier.weight(1f).height(40.dp),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Icon(Icons.Filled.HeadsetMic, null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Kết nối chuyên viên", fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                                }
+                                OutlinedButton(
+                                    onClick = { viewModel.closeCurrentConversation() },
+                                    modifier = Modifier.weight(1f).height(40.dp),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                ) {
+                                    Text("Kết thúc", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                }
                             }
                         }
                     }
@@ -226,6 +273,7 @@ fun AiChatScreen(
     ) { padding ->
         LazyColumn(
             state = listState,
+            reverseLayout = true,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -233,26 +281,26 @@ fun AiChatScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
+            if (uiState.isSending) {
+                item { TypingIndicator() }
+            }
+
+            items(uiState.messages.reversed()) { msg ->
+                MessageBubble(msg, onProductClick = onProductClick)
+            }
+
             if (uiState.isLoading && uiState.messages.isEmpty()) {
                 item {
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = AiGreenTop)
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.height(8.dp))
-                            Text("Đang kết nối AI...", color = Color.Gray, fontSize = 13.sp)
+                            Text("Đang kết nối AI...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         }
                     }
                 }
-            } else if (uiState.messages.isEmpty()) {
+            } else if (uiState.messages.isEmpty() && !uiState.isLoading) {
                 item { WelcomeCard() }
-            }
-
-            items(uiState.messages) { msg ->
-                    MessageBubble(msg, onProductClick = onProductClick)
-            }
-
-            if (uiState.isSending) {
-                item { TypingIndicator() }
             }
         }
     }
@@ -264,41 +312,36 @@ private fun AiChatTopBar(onBack: () -> Unit, isEscalated: Boolean) {
         modifier = Modifier
             .fillMaxWidth()
             .background(Brush.horizontalGradient(listOf(AiGreenTop, AiGreenLight)))
-            .padding(top = 12.dp, start = 4.dp, end = 12.dp, bottom = 12.dp)
+            .statusBarsPadding()
+            .height(64.dp)
     ) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.CenterStart)
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBackIos, contentDescription = "Quay lại", tint = Color.White)
+        }
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 28.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .align(Alignment.Center)
+                .padding(horizontal = 56.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBackIos,
-                    contentDescription = "Quay lại",
-                    tint = Color.White
-                )
-            }
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(36.dp)
                     .background(Color.White.copy(alpha = 0.2f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.SmartToy, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                Icon(Icons.Filled.SmartToy, null, tint = Color.White, modifier = Modifier.size(22.dp))
             }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "AI Medstore",
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 17.sp
-                )
+            Column {
+                Text("AI Medstore", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 Text(
                     if (isEscalated) "Đã kết nối chuyên viên" else "Dược sĩ AI · Vật tư y tế",
                     color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 12.sp
+                    fontSize = 11.sp
                 )
             }
         }
@@ -316,24 +359,24 @@ private fun WelcomeCard() {
         Box(
             modifier = Modifier
                 .size(72.dp)
-                .background(AiBubbleBg, CircleShape),
+                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Filled.SmartToy, null, tint = AiGreenTop, modifier = Modifier.size(40.dp))
+            Icon(Icons.Filled.SmartToy, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
         }
         Spacer(Modifier.height(12.dp))
         Text(
             "Xin chào! Tôi là AI Medstore",
             fontWeight = FontWeight.Bold,
             fontSize = 16.sp,
-            color = Color(0xFF1A1A1A),
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(6.dp))
         Text(
             "Tôi có thể tư vấn về vật tư y tế, cách sử dụng thiết bị\nvà gợi ý sản phẩm phù hợp cho bạn.",
             fontSize = 13.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             lineHeight = 18.sp
         )
@@ -341,7 +384,7 @@ private fun WelcomeCard() {
         Text(
             "Chọn câu hỏi gợi ý bên dưới hoặc tự nhập:",
             fontSize = 12.sp,
-            color = Color(0xFF888888),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
     }
@@ -356,7 +399,7 @@ private fun QuickSuggestionPanel(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFFF7FBF7)
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
             Row(
@@ -366,7 +409,7 @@ private fun QuickSuggestionPanel(
                 Text(
                     text = "Gợi ý câu hỏi",
                     modifier = Modifier.weight(1f),
-                    color = AiGreenTop,
+                    color = MaterialTheme.colorScheme.primary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -374,7 +417,7 @@ private fun QuickSuggestionPanel(
                     Icon(
                         imageVector = if (expanded) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
                         contentDescription = if (expanded) "Ẩn gợi ý" else "Hiện gợi ý",
-                        tint = AiGreenTop
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -393,8 +436,8 @@ private fun QuickSuggestionPanel(
                                 )
                             },
                             colors = AssistChipDefaults.assistChipColors(
-                                containerColor = AiBubbleBg,
-                                labelColor = AiGreenTop
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                labelColor = MaterialTheme.colorScheme.primary
                             )
                         )
                     }
@@ -416,10 +459,10 @@ private fun MessageBubble(msg: AiMessageDto, onProductClick: (String) -> Unit) {
             Box(
                 modifier = Modifier
                     .size(32.dp)
-                    .background(AiBubbleBg, CircleShape),
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.SmartToy, null, tint = AiGreenTop, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.SmartToy, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
             }
             Spacer(Modifier.width(6.dp))
         }
@@ -430,7 +473,7 @@ private fun MessageBubble(msg: AiMessageDto, onProductClick: (String) -> Unit) {
                 bottomStart = if (isUser) 16.dp else 4.dp,
                 bottomEnd = if (isUser) 4.dp else 16.dp
             ),
-            color = if (isUser) UserBubbleBg else AiBubbleBg,
+            color = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
             modifier = Modifier.widthIn(max = 300.dp)
         ) {
             Column(
@@ -439,7 +482,7 @@ private fun MessageBubble(msg: AiMessageDto, onProductClick: (String) -> Unit) {
             ) {
                 Text(
                     text = msg.text,
-                    color = if (isUser) Color.White else Color(0xFF1A1A1A),
+                    color = if (isUser) Color.White else MaterialTheme.colorScheme.onSurface,
                     fontSize = 14.sp,
                     lineHeight = 20.sp
                 )
@@ -468,7 +511,7 @@ private fun AiProductRecommendationCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(12.dp),
         tonalElevation = 1.dp
     ) {
@@ -485,7 +528,7 @@ private fun AiProductRecommendationCard(
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = recommendation.productName,
-                    color = Color(0xFF1A1A1A),
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
                     maxLines = 2,
@@ -493,14 +536,14 @@ private fun AiProductRecommendationCard(
                 )
                 Text(
                     text = "${formatAiMoney(recommendation.price)} đ / ${recommendation.productUnit ?: "sản phẩm"}",
-                    color = AiGreenTop,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 12.sp
                 )
                 recommendation.reason.takeIf { it.isNotBlank() }?.let {
                     Text(
                         text = it,
-                        color = Color(0xFF5F6368),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -508,7 +551,7 @@ private fun AiProductRecommendationCard(
                 }
                 Text(
                     text = "Bấm để xem chi tiết",
-                    color = AiGreenTop,
+                    color = MaterialTheme.colorScheme.primary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -525,7 +568,7 @@ private fun AiProductThumb(
 ) {
     Surface(
         modifier = modifier,
-        color = AiBubbleBg,
+        color = MaterialTheme.colorScheme.primaryContainer,
         shape = RoundedCornerShape(12.dp)
     ) {
         if (!imageUrl.isNullOrBlank()) {
@@ -540,7 +583,7 @@ private fun AiProductThumb(
                 Icon(
                     imageVector = Icons.Outlined.HealthAndSafety,
                     contentDescription = null,
-                    tint = AiGreenTop,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(26.dp)
                 )
             }
@@ -569,15 +612,15 @@ private fun TypingIndicator() {
         Box(
             modifier = Modifier
                 .size(32.dp)
-                .background(AiBubbleBg, CircleShape),
+                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Filled.SmartToy, null, tint = AiGreenTop, modifier = Modifier.size(18.dp))
+            Icon(Icons.Filled.SmartToy, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(6.dp))
         Surface(
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp),
-            color = AiBubbleBg
+            color = MaterialTheme.colorScheme.surfaceVariant
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -589,7 +632,7 @@ private fun TypingIndicator() {
                         modifier = Modifier
                             .size(8.dp)
                             .background(
-                                AiGreenTop.copy(alpha = if (it == 1) alpha else 1f - alpha * 0.5f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = if (it == 1) alpha else 1f - alpha * 0.5f),
                                 CircleShape
                             )
                     )

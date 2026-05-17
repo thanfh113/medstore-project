@@ -82,6 +82,25 @@ class NotificationViewModel @Inject constructor(
         }
     }
 
+    /** Silently fetch page 1 and prepend only brand-new items — no Loading state, no flicker. */
+    fun refreshSilently() {
+        if (_state.value is UiState.Loading) return
+        viewModelScope.launch {
+            try {
+                val response = apiService.getNotifications(page = 1, limit = 30)
+                if (response.isSuccessful) {
+                    val fetched = response.body()?.data ?: return@launch
+                    val existingIds = _notifications.value.map { it.id }.toSet()
+                    val brandNew = fetched.filter { it.id !in existingIds }
+                    if (brandNew.isNotEmpty()) {
+                        _notifications.value = brandNew + _notifications.value
+                        _unreadCount.value = _notifications.value.count { !it.isRead }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
     /** Remove a notification locally (swipe-to-dismiss style) */
     fun dismissNotification(notificationId: String) {
         _notifications.value = _notifications.value.filter { n: NotificationDto -> n.id != notificationId }

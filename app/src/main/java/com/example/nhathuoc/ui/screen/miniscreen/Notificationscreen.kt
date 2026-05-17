@@ -21,6 +21,8 @@ import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,10 +38,12 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.nhathuoc.data.model.NotificationDto
 import com.example.nhathuoc.data.model.UiState
-import com.example.nhathuoc.ui.theme.GreenLight
 import com.example.nhathuoc.viewmodel.NotificationViewModel
+import kotlinx.coroutines.delay
 
+// GreenTop and GreenLight kept for gradient header only
 private val GreenTopNtf = Color(0xFF2E7D32)
+private val GreenLightNtf = Color(0xFF66BB6A)
 
 private fun notificationMatchesCategory(item: NotificationDto, categoryKey: String): Boolean {
     if (categoryKey == "ALL") return true
@@ -79,6 +83,7 @@ private val readFilters = listOf(
 )
 
 // ── Screen ─────────────────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationScreen(
     onBack: () -> Unit = {},
@@ -88,6 +93,20 @@ fun NotificationScreen(
     val state by viewModel.state.collectAsState()
     val notifications by viewModel.notifications.collectAsState()
     val unreadCount by viewModel.unreadCount.collectAsState()
+
+    // Pull-to-refresh: manual full reload (shows inline indicator, no full-screen spinner)
+    var isRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(state) {
+        if (state !is UiState.Loading) isRefreshing = false
+    }
+
+    // Silent background poll every 30s — prepends new items without any flicker
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000)
+            viewModel.refreshSilently()
+        }
+    }
 
     var selectedCategoryKey by remember { mutableStateOf("ALL") }
     var selectedReadFilter by remember { mutableStateOf("ALL") }
@@ -130,7 +149,7 @@ fun NotificationScreen(
                 onMarkAllRead = { viewModel.markAllAsRead() }
             )
         },
-        containerColor = Color(0xFFF5F7FA)
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -138,7 +157,7 @@ fun NotificationScreen(
                 .padding(innerPadding)
         ) {
             // ── Category tab row ───────────────────────────────────────
-            Surface(color = Color.White, shadowElevation = 2.dp) {
+            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
@@ -166,9 +185,9 @@ fun NotificationScreen(
                                 }
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = GreenTopNtf,
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
                                 selectedLabelColor = Color.White,
-                                containerColor = Color(0xFFF0F0F0)
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
                             ),
                             border = null
                         )
@@ -177,7 +196,7 @@ fun NotificationScreen(
             }
 
             // ── Read state filter ────────────────────────────────────
-            Surface(color = Color.White, shadowElevation = 1.dp) {
+            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -199,9 +218,9 @@ fun NotificationScreen(
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFFE8F5E9),
-                                selectedLabelColor = GreenTopNtf,
-                                containerColor = Color.White
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.primary,
+                                containerColor = MaterialTheme.colorScheme.surface
                             )
                         )
                     }
@@ -213,7 +232,7 @@ fun NotificationScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFFF5F7FA))
+                        .background(MaterialTheme.colorScheme.background)
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
@@ -221,13 +240,13 @@ fun NotificationScreen(
                     Icon(
                         imageVector = Icons.Outlined.DoneAll,
                         contentDescription = null,
-                        tint = GreenTopNtf,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
                         text = "Đọc tất cả",
-                        color = GreenTopNtf,
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable { viewModel.markAllAsRead() }
@@ -235,59 +254,69 @@ fun NotificationScreen(
                 }
             }
 
-            // ── Content state ──────────────────────────────────────────
-            when (state) {
-                is UiState.Loading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = GreenTopNtf)
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                "Đang tải thông báo...",
-                                color = Color.Gray,
-                                fontSize = 14.sp
-                            )
-                        }
-                    }
+            // ── Content (pull-to-refresh wraps everything below filters) ──
+            PullToRefreshBox(
+                modifier = Modifier.fillMaxSize(),
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    isRefreshing = true
+                    viewModel.loadNotifications()
                 }
-                is UiState.Error -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(24.dp)
-                        ) {
-                            Icon(
-                                Icons.Outlined.Notifications,
-                                null,
-                                tint = Color.LightGray,
-                                modifier = Modifier.size(64.dp)
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                "Không thể tải thông báo",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                (state as UiState.Error).message,
-                                color = Color.Gray,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            Button(
-                                onClick = { viewModel.loadNotifications() },
-                                colors = ButtonDefaults.buttonColors(containerColor = GreenTopNtf)
-                            ) {
-                                Icon(Icons.Outlined.Refresh, null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("Thử lại")
+            ) {
+                when {
+                    // Initial load — no existing data yet
+                    state is UiState.Loading && notifications.isEmpty() -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    "Đang tải thông báo...",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 14.sp
+                                )
                             }
                         }
                     }
-                }
-                else -> {
-                    if (filtered.isEmpty()) {
+                    // Error with no existing data
+                    state is UiState.Error && notifications.isEmpty() -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Notifications,
+                                    null,
+                                    tint = Color.LightGray,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    "Không thể tải thông báo",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    (state as UiState.Error).message,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(Modifier.height(16.dp))
+                                Button(
+                                    onClick = { viewModel.loadNotifications() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Icon(Icons.Outlined.Refresh, null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Thử lại")
+                                }
+                            }
+                        }
+                    }
+                    // Empty filtered result (data loaded but nothing matches filter)
+                    filtered.isEmpty() -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
@@ -297,18 +326,20 @@ fun NotificationScreen(
                                     modifier = Modifier.size(64.dp)
                                 )
                                 Spacer(Modifier.height(12.dp))
-                                Text("Không có thông báo phù hợp", color = Color.Gray, fontSize = 15.sp)
+                                Text("Không có thông báo phù hợp", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp)
                                 if (selectedCategoryKey != "ALL") {
                                     Spacer(Modifier.height(4.dp))
                                     Text(
                                         "trong danh mục này",
-                                        color = Color(0xFFAAAAAA),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 13.sp
                                     )
                                 }
                             }
                         }
-                    } else {
+                    }
+                    // Normal list — also shown during background refresh (isRefreshing=true)
+                    else -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(vertical = 8.dp)
@@ -323,7 +354,7 @@ fun NotificationScreen(
                                     }
                                 )
                                 HorizontalDivider(
-                                    color = Color(0xFFF0F0F0),
+                                    color = MaterialTheme.colorScheme.outlineVariant,
                                     thickness = 0.8.dp
                                 )
                             }
@@ -345,7 +376,8 @@ private fun NotificationTopBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Brush.horizontalGradient(listOf(GreenTopNtf, GreenLight)))
+            // Gradient header kept with original green colors (text/icons on dark bg kept white)
+            .background(Brush.horizontalGradient(listOf(GreenTopNtf, GreenLightNtf)))
             .statusBarsPadding()
             .height(64.dp)
     ) {
@@ -408,11 +440,12 @@ private fun NotificationCard(
         else -> Pair(Icons.Filled.SystemUpdate, Color(0xFF2E7D32))
     }
 
+    val unreadBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.09f)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        color = if (item.isRead) Color.White else Color(0xFFF0F4FF)
+        color = if (item.isRead) MaterialTheme.colorScheme.surface else unreadBg
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
@@ -449,8 +482,9 @@ private fun NotificationCard(
                         Text(
                             text = item.title,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1A1A),
+                            fontWeight = if (item.isRead) FontWeight.Medium else FontWeight.Bold,
+                            color = if (item.isRead) MaterialTheme.colorScheme.onSurfaceVariant
+                                    else MaterialTheme.colorScheme.onSurface,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
@@ -461,7 +495,7 @@ private fun NotificationCard(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(GreenTopNtf)
+                                    .background(MaterialTheme.colorScheme.primary)
                             )
                         }
                     }
@@ -472,7 +506,7 @@ private fun NotificationCard(
                         Icon(
                             imageVector = Icons.Filled.Close,
                             contentDescription = "Xoá",
-                            tint = Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -485,7 +519,7 @@ private fun NotificationCard(
                 Text(
                     text = displayTime,
                     fontSize = 11.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(Modifier.height(6.dp))
@@ -497,7 +531,7 @@ private fun NotificationCard(
                 Text(
                     text = item.body ?: item.message.orEmpty(),
                     fontSize = 13.sp,
-                    color = Color(0xFF444444),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 19.sp,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
@@ -509,8 +543,9 @@ private fun NotificationCard(
 
 @Composable
 private fun ReadStatusPill(isRead: Boolean) {
-    val background = if (isRead) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
-    val content = if (isRead) Color(0xFF2E7D32) else Color(0xFFE65100)
+    val background = if (isRead) MaterialTheme.colorScheme.primaryContainer
+                     else Color(0xFFFF8F00).copy(alpha = 0.18f)
+    val content = if (isRead) MaterialTheme.colorScheme.primary else Color(0xFFFF8F00)
     Surface(
         shape = RoundedCornerShape(50),
         color = background

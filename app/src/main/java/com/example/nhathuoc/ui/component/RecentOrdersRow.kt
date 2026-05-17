@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.nhathuoc.data.model.OrderDto
-import com.example.nhathuoc.ui.theme.GreenTop
 
 @Composable
 fun RecentOrdersRow(
@@ -40,9 +39,9 @@ fun RecentOrdersRow(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Mua lại nhanh chóng", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+            Text("Mua lại nhanh chóng", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
             TextButton(onClick = onSeeAll) {
-                Text("Xem tất cả", color = GreenTop, fontSize = 13.sp)
+                Text("Xem tất cả", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
             }
         }
 
@@ -74,12 +73,12 @@ private fun RecentOrderCard(
 
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 3.dp,
         modifier = Modifier.width(185.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            Text("Đơn $formattedDate", fontSize = 11.sp, color = Color(0xFF9E9E9E), fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("Đơn $formattedDate", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(10.dp))
 
             // Product image
@@ -88,7 +87,7 @@ private fun RecentOrderCard(
                     .fillMaxWidth()
                     .height(100.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFFF0F4FF)),
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
                 contentAlignment = Alignment.Center
             ) {
                 if (!imageUrl.isNullOrBlank()) {
@@ -102,7 +101,7 @@ private fun RecentOrderCard(
                     Icon(
                         Icons.Filled.ShoppingBag,
                         contentDescription = null,
-                        tint = Color(0xFFBBCCEE),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
                         modifier = Modifier.size(44.dp)
                     )
                 }
@@ -127,32 +126,32 @@ private fun RecentOrderCard(
 
             // First product name
             if (firstItem != null) {
-                Text(firstItem.name, fontSize = 11.sp, color = Color(0xFF424242), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(firstItem.name, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(4.dp))
             }
 
-            Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF1A1A2E)) {
+            Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
                 Text(
                     "${order.items.size} sản phẩm",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                     fontSize = 10.sp,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
                 )
             }
             Spacer(Modifier.height(4.dp))
-            Text(formattedTotal, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+            Text(formattedTotal, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(10.dp))
 
             Button(
                 onClick = onReorder,
                 shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8F5E9)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                 contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Outlined.Replay, contentDescription = null, tint = GreenTop, modifier = Modifier.size(15.dp))
+                Icon(Icons.Outlined.Replay, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("Mua lại", color = GreenTop, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Mua lại", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }

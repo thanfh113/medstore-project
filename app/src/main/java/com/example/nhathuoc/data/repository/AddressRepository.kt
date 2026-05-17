@@ -14,7 +14,7 @@ class AddressRepository @Inject constructor(
     suspend fun getUserAddresses(): NetworkResult<List<UserAddress>> {
         return try {
             val response = apiService.getUserAddresses()
-            if (response.isSuccessful) NetworkResult.Success(response.body() ?: emptyList()) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+            if (response.isSuccessful) NetworkResult.Success(response.body()?.data ?: emptyList()) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
         } catch (e: HttpException) {
             NetworkResult.Error(e.code(), e.message())
         } catch (e: IOException) {
@@ -63,11 +63,5 @@ class AddressRepository @Inject constructor(
         }
     }
 
-    private fun parseErrorMessage(errorBody: String?): String {
-        return try {
-            if (errorBody != null) kotlinx.serialization.json.Json.decodeFromString<ApiError>(errorBody).message else "Co loi xay ra, vui long thu lai"
-        } catch (e: Exception) {
-            errorBody ?: "Co loi xay ra, vui long thu lai"
-        }
-    }
+    private fun parseErrorMessage(errorBody: String?): String = parseErrorBody(errorBody)
 }

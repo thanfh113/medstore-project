@@ -1,4 +1,4 @@
-﻿package com.example.nhathuoc.ui.screen
+package com.example.nhathuoc.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,19 +29,10 @@ import androidx.navigation.NavController
 import com.example.nhathuoc.data.model.OrderDto
 import com.example.nhathuoc.data.model.OrderListResponse
 import com.example.nhathuoc.data.model.UiState
-import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.viewmodel.OrderViewModel
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
-
-// Design tokens
-private val BgGray = Color(0xFFF3F7F4)
-private val TextPrimary = Color(0xFF1B2B1F)
-private val TextSecondary = Color(0xFF5A7A62)
-private val GreenLight = Color(0xFFE8F5E9)
-private val CardBg = Color.White
-private val DividerColor = Color(0xFFE0EDE3)
 
 private data class OnlineOrderStatusFilter(val backendValue: String?, val label: String)
 
@@ -70,49 +61,13 @@ fun MyOrdersScreen(
 
     Scaffold(
         modifier = modifier,
-        containerColor = BgGray,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            Surface(shadowElevation = 2.dp, color = CardBg) {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "Đơn hàng của tôi",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp,
-                                color = TextPrimary
-                            )
-                            Text(
-                                "Theo dõi tất cả đơn hàng",
-                                fontSize = 12.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(BgGray),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Quay lại",
-                                    tint = GreenTop,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CardBg,
-                        titleContentColor = Color(0xFF1B2B1F),
-                        navigationIconContentColor = Color(0xFF1B2B1F)
-                    )
-                )
-            }
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = "Đơn hàng của tôi",
+                subtitle = "Theo dõi tất cả đơn hàng",
+                onBack = onBack
+            )
         }
     ) { innerPadding ->
         Column(
@@ -121,7 +76,7 @@ fun MyOrdersScreen(
                 .padding(innerPadding)
         ) {
             // Filter chips
-            Surface(color = CardBg, shadowElevation = 1.dp) {
+            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -132,8 +87,8 @@ fun MyOrdersScreen(
                     orderStatusFilters.forEach { filter ->
                         val isSelected = filter.backendValue == selectedStatus
                         Surface(
-                            color = if (isSelected) GreenTop else CardBg,
-                            contentColor = if (isSelected) Color.White else TextSecondary,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                            contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                             shape = RoundedCornerShape(999.dp),
                             shadowElevation = if (isSelected) 0.dp else 1.dp,
                             modifier = Modifier.clickable { selectedStatus = filter.backendValue }
@@ -152,7 +107,7 @@ fun MyOrdersScreen(
             when (val state = ordersState) {
                 is UiState.Loading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = GreenTop)
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
 
@@ -173,8 +128,8 @@ fun MyOrdersScreen(
                     if (orders.isEmpty()) {
                         EmptyState(
                             icon = Icons.Outlined.ShoppingBag,
-                            iconBg = GreenLight,
-                            iconTint = GreenTop,
+                            iconBg = Color(0xFFE8F5E9),
+                            iconTint = MaterialTheme.colorScheme.primary,
                             title = if (selectedStatus == null) "Chưa có đơn hàng nào" else "Không có đơn ở trạng thái này",
                             subtitle = "Khi bạn đặt hàng trên ứng dụng, đơn sẽ xuất hiện ở đây."
                         )
@@ -225,8 +180,8 @@ private fun EmptyState(
             ) {
                 Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(40.dp))
             }
-            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            Text(subtitle, fontSize = 13.sp, color = TextSecondary)
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Text(subtitle, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -242,7 +197,7 @@ private fun OrderCard(
 
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = CardBg,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
     ) {
@@ -259,13 +214,13 @@ private fun OrderCard(
                         "Đơn #${order.orderCode}",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
                         formatOrderDate(order.createdAt),
                         fontSize = 12.sp,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Surface(
@@ -291,7 +246,7 @@ private fun OrderCard(
             }
 
             Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = DividerColor)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(12.dp))
 
             // — Product list —
@@ -311,13 +266,13 @@ private fun OrderCard(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(GreenTop)
+                                    .background(MaterialTheme.colorScheme.primary)
                             )
                             Text(
                                 item.name,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = TextPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
@@ -329,12 +284,12 @@ private fun OrderCard(
                                 formatCurrency(item.totalPrice ?: item.price),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = GreenTop
+                                color = MaterialTheme.colorScheme.primary
                             )
                             Text(
                                 "×${item.quantity} ${item.unit}",
                                 fontSize = 11.sp,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -344,13 +299,13 @@ private fun OrderCard(
                         "+ ${order.items.size - 2} sản phẩm khác",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = GreenTop
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
             Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = DividerColor)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(12.dp))
 
             // — Bottom row: total + continue payment / view detail —
@@ -360,19 +315,19 @@ private fun OrderCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Tổng tiền", fontSize = 11.sp, color = TextSecondary)
+                    Text("Tổng tiền", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         formatCurrency(order.total),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = GreenTop
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 if (canResume) {
                     Button(
                         onClick = onResumePayment,
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                         elevation = ButtonDefaults.buttonElevation(0.dp)
                     ) {
@@ -384,7 +339,7 @@ private fun OrderCard(
                             Icon(
                                 Icons.Outlined.LocalShipping,
                                 contentDescription = null,
-                                tint = GreenTop,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(Modifier.width(4.dp))
@@ -393,12 +348,12 @@ private fun OrderCard(
                             "Xem chi tiết",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GreenTop
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Icon(
                             Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                             contentDescription = null,
-                            tint = GreenTop,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -411,8 +366,8 @@ private fun OrderCard(
 @Composable
 private fun InfoPill(
     text: String,
-    bg: Color = Color(0xFFF0F4F1),
-    fg: Color = TextSecondary
+    bg: Color = MaterialTheme.colorScheme.surfaceVariant,
+    fg: Color = MaterialTheme.colorScheme.onSurfaceVariant
 ) {
     Surface(color = bg, shape = RoundedCornerShape(999.dp)) {
         Text(
@@ -429,7 +384,7 @@ private fun InfoPill(
 private fun PaymentPill(method: String, status: String) {
     val label = "${labelForPaymentMethod(method)} • ${labelForPaymentStatus(status)}"
     val (bg, fg) = when (status.uppercase()) {
-        "COMPLETED" -> GreenLight to GreenTop
+        "COMPLETED" -> Color(0xFFE8F5E9) to MaterialTheme.colorScheme.primary
         "PENDING" -> Color(0xFFFFF3E0) to Color(0xFFEF6C00)
         "FAILED", "REFUNDED" -> Color(0xFFFFEBEE) to Color(0xFFC62828)
         else -> Color(0xFFF1F3F4) to Color(0xFF5F6368)
@@ -441,7 +396,7 @@ private fun statusAppearance(status: String): Triple<String, Color, Color> = whe
     "PENDING" -> Triple("Chờ xác nhận", Color(0xFFFFF3E0), Color(0xFFEF6C00))
     "PROCESSING" -> Triple("Đang xử lý", Color(0xFFE3F2FD), Color(0xFF1565C0))
     "SHIPPING" -> Triple("Đang giao", Color(0xFFE0F2F1), Color(0xFF00796B))
-    "DELIVERED" -> Triple("Đã giao", GreenLight, Color(0xFF2E7D32))
+    "DELIVERED" -> Triple("Đã giao", Color(0xFFE8F5E9), Color(0xFF2E7D32))
     "CANCELLED" -> Triple("Đã hủy", Color(0xFFFFEBEE), Color(0xFFC62828))
     "RETURNED" -> Triple("Hoàn trả", Color(0xFFF3E5F5), Color(0xFF7B1FA2))
     else -> Triple(status, Color(0xFFF1F3F4), Color(0xFF5F6368))

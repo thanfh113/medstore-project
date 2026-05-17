@@ -30,17 +30,19 @@ class NhathuocFirebaseMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(message)
         // App is in foreground — Firebase won't auto-show, so we do it here
         val title = message.notification?.title ?: message.data["title"] ?: return
-        val body  = message.notification?.body  ?: message.data["body"]  ?: ""
-        val type  = message.data["type"]  ?: ""
-        val refId = message.data["refId"] ?: ""
-        showNotification(title, body, type, refId)
+        val body           = message.notification?.body  ?: message.data["body"]  ?: ""
+        val type           = message.data["type"]           ?: ""
+        val refId          = message.data["refId"]          ?: ""
+        val notificationId = message.data["notificationId"] ?: ""
+        showNotification(title, body, type, refId, notificationId)
     }
 
-    private fun showNotification(title: String, body: String, type: String, refId: String) {
+    private fun showNotification(title: String, body: String, type: String, refId: String, notificationId: String) {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(EXTRA_NOTIFICATION_TYPE, type)
             putExtra(EXTRA_NOTIFICATION_REF_ID, refId)
+            putExtra(EXTRA_NOTIFICATION_ID, notificationId)
         }
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
@@ -82,7 +84,7 @@ class NhathuocFirebaseMessagingService : FirebaseMessagingService() {
             inboxStyle.setBigContentTitle("$count thông báo mới")
 
             val summary = NotificationCompat.Builder(this, channelId)
-                .setContentTitle("nhathuoc")
+                .setContentTitle("Medstore")
                 .setContentText("$count thông báo mới")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setStyle(inboxStyle)
@@ -102,6 +104,7 @@ class NhathuocFirebaseMessagingService : FirebaseMessagingService() {
         const val KEY_TOKEN_SYNCED     = "fcm_token_synced"
         const val EXTRA_NOTIFICATION_TYPE   = "notification_type"
         const val EXTRA_NOTIFICATION_REF_ID = "notification_ref_id"
+        const val EXTRA_NOTIFICATION_ID     = "notification_id"
         private const val GROUP_SUMMARY_ID  = 0
     }
 }

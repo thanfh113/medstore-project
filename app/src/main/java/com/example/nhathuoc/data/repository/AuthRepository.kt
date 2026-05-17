@@ -131,6 +131,23 @@ class AuthRepository @Inject constructor(
         }
     }
 
+    suspend fun changePassword(currentPassword: String, newPassword: String): NetworkResult<String> {
+        return try {
+            val response = apiService.changePassword(ChangePasswordRequest(currentPassword, newPassword))
+            if (response.isSuccessful) {
+                NetworkResult.Success(response.body()?.message ?: "Đổi mật khẩu thành công")
+            } else {
+                NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+            }
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
     fun isLoggedIn(): Flow<Boolean> = sessionManager.isLoggedIn
     fun getUserFullName(): Flow<String?> = sessionManager.userFullName
     fun getUserPhone(): Flow<String?> = sessionManager.userPhone
@@ -138,11 +155,5 @@ class AuthRepository @Inject constructor(
     fun getUserRole(): Flow<String?> = sessionManager.userRole
     suspend fun getUserId(): String? = sessionManager.getUserId()
 
-    private fun parseErrorMessage(errorBody: String?): String {
-        return try {
-            if (errorBody != null) kotlinx.serialization.json.Json.decodeFromString<ApiError>(errorBody).message else "Co loi xay ra, vui long thu lai"
-        } catch (e: Exception) {
-            errorBody ?: "Co loi xay ra, vui long thu lai"
-        }
-    }
+    private fun parseErrorMessage(errorBody: String?): String = parseErrorBody(errorBody)
 }

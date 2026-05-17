@@ -2,6 +2,13 @@
 
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -53,6 +60,7 @@ import com.example.nhathuoc.ui.screen.miniscreen.OrderDetailScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ProductDetail
 import com.example.nhathuoc.ui.screen.miniscreen.ProductDetailScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ProductListScreen
+import com.example.nhathuoc.ui.screen.miniscreen.ChangePasswordScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ProfileScreen
 import com.example.nhathuoc.ui.screen.miniscreen.RegisterScreen
 // Note: AddressSelectionScreen not registered in NavHost; AddressBookScreen is used instead
@@ -101,7 +109,31 @@ fun AppnavHost(navController: NavHostController) {
 
     NavHost(
         navController = navController,
-        startDestination = "MainScreen"
+        startDestination = "MainScreen",
+        enterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { it },
+                animationSpec = tween(350, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(250))
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { -it / 4 },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(200))
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { -it / 4 },
+                animationSpec = tween(350, easing = LinearOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(250))
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { it },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(200))
+        }
     ) {
         composable("LoginScreen") {
             LoginScreen(navController = navController)
@@ -131,9 +163,14 @@ fun AppnavHost(navController: NavHostController) {
             )
         }
         composable(
-            route = "AiChatScreen?productId={productId}",
+            route = "AiChatScreen?productId={productId}&conversationId={conversationId}",
             arguments = listOf(
                 navArgument("productId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("conversationId") {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
@@ -141,6 +178,7 @@ fun AppnavHost(navController: NavHostController) {
             )
         ) { backStackEntry ->
             val productId = backStackEntry.arguments?.getString("productId")
+            val conversationId = backStackEntry.arguments?.getString("conversationId")
             AiChatScreen(
                 onBack = { navController.popBackStack() },
                 onOpenHumanChat = { sessionId ->
@@ -149,7 +187,8 @@ fun AppnavHost(navController: NavHostController) {
                 onProductClick = { id ->
                     navController.navigate("ProductDetailScreen/${Uri.encode(id)}")
                 },
-                productId = productId
+                productId = productId,
+                conversationId = conversationId
             )
         }
 
@@ -159,7 +198,10 @@ fun AppnavHost(navController: NavHostController) {
                 onOpenSession = { sessionId ->
                     navController.navigate("ChatScreen?sessionId=${Uri.encode(sessionId)}")
                 },
-                onNewChat = { navController.navigate("ChatScreen") }
+                onOpenAiConversation = { conversationId ->
+                    navController.navigate("AiChatScreen?conversationId=${Uri.encode(conversationId)}")
+                },
+                onNewChat = { navController.navigate("AiChatScreen") }
             )
         }
         composable(
@@ -296,7 +338,7 @@ fun AppnavHost(navController: NavHostController) {
                         }
                     },
                     onFindPharmacy = {
-                        Toast.makeText(context, "Tính năng tìm nhà thuốc đang phát triển", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Tính năng tìm cửa hàng gần đây đang phát triển", Toast.LENGTH_SHORT).show()
                     },
                     onAddToCart = { _ ->
                         Toast.makeText(
@@ -466,7 +508,7 @@ fun AppnavHost(navController: NavHostController) {
                                 }
                             },
                             onFindPharmacy = {
-                                Toast.makeText(context, "Tính năng tìm nhà thuốc đang phát triển", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Tính năng tìm cửa hàng gần đây đang phát triển", Toast.LENGTH_SHORT).show()
                             },
                             onAddToCart = { quantity ->
                                 addToCartAction(quantity)
@@ -627,6 +669,9 @@ fun AppnavHost(navController: NavHostController) {
         }
         composable("ProfileScreen") {
             ProfileScreen(onBack = { navController.popBackStack() })
+        }
+        composable("ChangePasswordScreen") {
+            ChangePasswordScreen(onBack = { navController.popBackStack() })
         }
 
         // ── Profile Address Management ──────────────────────────────────

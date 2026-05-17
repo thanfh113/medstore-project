@@ -1,6 +1,8 @@
 package com.example.nhathuoc.data.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /**
  * Authentication related data transfer objects
@@ -64,6 +66,12 @@ data class LogoutResponse(
     val message: String
 )
 
+@Serializable
+data class ChangePasswordRequest(
+    val currentPassword: String,
+    val newPassword: String
+)
+
 // User profile update
 @Serializable
 data class UpdateUserRequest(
@@ -83,35 +91,39 @@ data class UpdateUserResponse(
 // Address related
 @Serializable
 data class UserAddress(
-    val id: String, // UUID from backend
-    val userId: String, // UUID from backend
-    val type: String, // "home", "work", "other"
-    val recipientName: String,
-    val recipientPhone: String, // Updated to match schema
-    val fullAddress: String, // Updated to match schema
-    val ward: String,
+    val id: String,
+    val userId: String = "",
+    val label: String? = null,
+    val recipientName: String? = null,
+    @SerialName("phone") val recipientPhone: String? = null,
+    val address: String = "",           // backend's primary street address (always present)
+    val fullAddress: String? = null,    // backend's optional composed full address
+    val ward: String? = null,
     val wardCode: String? = null,
-    val district: String,
-    val province: String,
+    val district: String? = null,
+    val province: String? = null,
     val provinceCode: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
     val locationSource: String = "MANUAL",
-    val isDefault: Boolean,
-    val createdAt: String,
-    val updatedAt: String,
-    // Compatibility fields for legacy Android screens until Phase 2 rewrite.
-    val label: String? = null,
-    val phone: String? = recipientPhone,
-    val address: String = fullAddress
+    val isDefault: Boolean = false,
+    val createdAt: String? = null,
+    val updatedAt: String? = null,
+    @Transient val type: String = "home"  // UI-only chip state, not serialized
+)
+
+@Serializable
+data class AddressListResponse(
+    val data: List<UserAddress>,
+    val message: String = ""
 )
 
 @Serializable
 data class AddAddressRequest(
-    val type: String,
+    val type: String = "home",
     val recipientName: String,
-    val recipientPhone: String, // Updated to match schema
-    val fullAddress: String, // Updated to match schema
+    @SerialName("phone") val recipientPhone: String,
+    @SerialName("address") val fullAddress: String,
     val ward: String,
     val wardCode: String? = null,
     val district: String,
@@ -125,6 +137,9 @@ data class AddAddressRequest(
 
 @Serializable
 data class AddAddressResponse(
-    val message: String,
-    val address: UserAddress
+    val message: String = "",
+    val data: AddressIdData? = null
 )
+
+@Serializable
+data class AddressIdData(val addressId: String? = null)

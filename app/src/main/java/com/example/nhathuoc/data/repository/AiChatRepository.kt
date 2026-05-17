@@ -39,4 +39,9 @@ class AiChatRepository @Inject constructor(
         ApiErrorHandler.safeApiCall("Không thể kết nối chuyên viên") {
             apiService.escalateAiToHuman(conversationId)
         }
+
+    suspend fun closeConversation(conversationId: String): NetworkResult<DataMessageResponse<AiConversationDto>> =
+        ApiErrorHandler.safeApiCall("Không thể kết thúc cuộc trò chuyện") {
+            apiService.closeAiConversation(conversationId)
+        }
 }

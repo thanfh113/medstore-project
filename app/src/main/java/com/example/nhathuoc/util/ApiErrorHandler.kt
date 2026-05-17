@@ -2,6 +2,7 @@ package com.example.nhathuoc.util
 
 import com.example.nhathuoc.data.model.ApiError
 import com.example.nhathuoc.data.model.NetworkResult
+import com.example.nhathuoc.data.model.parseErrorBody
 import retrofit2.HttpException
 import retrofit2.Response
 import java.io.IOException
@@ -15,17 +16,8 @@ object ApiErrorHandler {
     /**
      * Parse error message from API response body
      */
-    fun parseErrorMessage(errorBody: String?, defaultMessage: String = "Có lỗi xảy ra, vui lòng thử lại"): String {
-        return try {
-            if (errorBody != null) {
-                kotlinx.serialization.json.Json.decodeFromString<ApiError>(errorBody).message
-            } else {
-                defaultMessage
-            }
-        } catch (e: Exception) {
-            errorBody ?: defaultMessage
-        }
-    }
+    fun parseErrorMessage(errorBody: String?, defaultMessage: String = "Có lỗi xảy ra, vui lòng thử lại"): String =
+        parseErrorBody(errorBody).takeIf { it != "Có lỗi xảy ra, vui lòng thử lại" } ?: defaultMessage
 
     /**
      * Safe API call wrapper that handles all common exceptions

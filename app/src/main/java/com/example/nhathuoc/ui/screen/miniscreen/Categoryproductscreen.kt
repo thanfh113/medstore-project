@@ -29,11 +29,10 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.nhathuoc.data.model.ProductDto
 import com.example.nhathuoc.data.model.UiState
-import com.example.nhathuoc.ui.theme.GreenLight
+
 import com.example.nhathuoc.viewmodel.CategoryProductViewModel
 
-private val GreenTopCat = Color(0xFF2E7D32)
-private val BgColorCat = Color(0xFFF5F7FA)
+
 
 @Composable
 fun CategoryProductScreen(
@@ -55,49 +54,56 @@ fun CategoryProductScreen(
     var sortMode by remember { mutableStateOf("price_asc") }
     val sortOptions = listOf("price_asc" to "Giá thấp", "price_desc" to "Giá cao", "name" to "Tên A-Z")
 
-    Scaffold(containerColor = BgColorCat) { innerPadding ->
+    Scaffold(
+        contentWindowInsets = WindowInsets(0),
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             // ── TopBar ─────────────────────────────────────────────────────
-            Surface(color = Color.White, shadowElevation = 2.dp) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Brush.horizontalGradient(listOf(GreenTopCat, GreenLight)))
-                        .statusBarsPadding()
-                        .height(56.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Brush.horizontalGradient(listOf(Color(0xFF2E7D32), Color(0xFF66BB6A))))
+                    .statusBarsPadding()
+                    .padding(vertical = 8.dp)
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.align(Alignment.CenterStart)
                 ) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.align(Alignment.CenterStart)
-                    ) {
-                        Icon(Icons.Filled.ArrowBackIosNew, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.ArrowBackIosNew, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+                Text(
+                    categoryTitle,
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    lineHeight = 20.sp,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 80.dp)
+                )
+                Row(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = {}) {
+                        Icon(Icons.Outlined.Search, null, tint = Color.White, modifier = Modifier.size(22.dp))
                     }
-                    Text(
-                        categoryTitle,
-                        color = Color.White,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                    Row(
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = {}) {
-                            Icon(Icons.Outlined.Search, null, tint = Color.White, modifier = Modifier.size(22.dp))
-                        }
-                        IconButton(onClick = { navController?.navigate("CartScreen") }) {
-                            Icon(
-                                Icons.Outlined.ShoppingCart,
-                                null,
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                    IconButton(onClick = { navController?.navigate("CartScreen") }) {
+                        Icon(
+                            Icons.Outlined.ShoppingCart,
+                            null,
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
                 }
             }
@@ -110,9 +116,9 @@ fun CategoryProductScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = GreenTopCat)
+                            CircularProgressIndicator()
                             Spacer(Modifier.height(12.dp))
-                            Text("Đang tải sản phẩm...", color = Color.Gray, fontSize = 14.sp)
+                            Text("Đang tải sản phẩm...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                         }
                     }
                 }
@@ -122,21 +128,18 @@ fun CategoryProductScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Outlined.WarningAmber, null, tint = Color(0xFFE53935), modifier = Modifier.size(48.dp))
+                            Icon(Icons.Outlined.WarningAmber, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(12.dp))
                             Text("Không thể tải danh mục", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             Spacer(Modifier.height(8.dp))
                             Text(
                                 (state as UiState.Error).message,
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(horizontal = 24.dp)
                             )
                             Spacer(Modifier.height(16.dp))
-                            Button(
-                                onClick = { viewModel.loadProductsByCategory(categoryId) },
-                                colors = ButtonDefaults.buttonColors(containerColor = GreenTopCat)
-                            ) {
+                            Button(onClick = { viewModel.loadProductsByCategory(categoryId) }) {
                                 Text("Thử lại")
                             }
                         }
@@ -152,11 +155,11 @@ fun CategoryProductScreen(
                                 Icon(
                                     Icons.Outlined.SearchOff,
                                     null,
-                                    tint = Color.LightGray,
+                                    tint = MaterialTheme.colorScheme.outline,
                                     modifier = Modifier.size(64.dp)
                                 )
                                 Spacer(Modifier.height(12.dp))
-                                Text("Không có sản phẩm trong danh mục này", color = Color.Gray)
+                                Text("Không có sản phẩm trong danh mục này", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     } else {
@@ -173,28 +176,22 @@ fun CategoryProductScreen(
                             item(span = { GridItemSpan(2) }) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Sắp xếp:", fontSize = 13.sp, color = Color(0xFF555555))
+                                    Text("Sắp xếp:", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
                                     sortOptions.forEach { (key, label) ->
                                         val isSelected = sortMode == key
-                                        Surface(
-                                            shape = RoundedCornerShape(16.dp),
-                                            color = if (isSelected) GreenTopCat.copy(alpha = 0.12f) else Color.Transparent,
-                                            modifier = Modifier.clickable {
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
                                                 sortMode = key
                                                 viewModel.updateSort(key)
+                                            },
+                                            label = {
+                                                Text(label, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
                                             }
-                                        ) {
-                                            Text(
-                                                label,
-                                                fontSize = 12.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (isSelected) GreenTopCat else Color(0xFF777777),
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                            )
-                                        }
+                                        )
                                     }
                                 }
                             }
@@ -227,7 +224,7 @@ private fun CategoryProductCard(
 
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
@@ -245,7 +242,7 @@ private fun CategoryProductCard(
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFFEEF2FF)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 if (!product.imageUrl.isNullOrBlank()) {
@@ -259,7 +256,7 @@ private fun CategoryProductCard(
                     Icon(
                         Icons.Outlined.MedicalServices,
                         null,
-                        tint = GreenTopCat,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(40.dp)
                     )
                 }
@@ -272,7 +269,7 @@ private fun CategoryProductCard(
                 Text(
                     text = product.brand,
                     fontSize = 10.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -283,7 +280,7 @@ private fun CategoryProductCard(
                 text = product.name,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1A1A1A),
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Start,
@@ -297,7 +294,7 @@ private fun CategoryProductCard(
                 Text(
                     text = product.origin,
                     fontSize = 10.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -315,13 +312,13 @@ private fun CategoryProductCard(
                     text = "${String.format("%,d", product.price.toLong()).replace(',', '.')}đ",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = GreenTopCat
+                    color = MaterialTheme.colorScheme.primary
                 )
                 if (product.originalPrice != null && product.originalPrice > product.price) {
                     Text(
                         text = "${String.format("%,d", product.originalPrice.toLong()).replace(',', '.')}đ",
                         fontSize = 11.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textDecoration = TextDecoration.LineThrough
                     )
                 }
@@ -355,7 +352,7 @@ private fun CategoryProductCard(
                     text = if (product.stock > 0) "Còn ${product.stock} ${product.unit}" else "Hết hàng",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (product.stock > 0) GreenTopCat else Color(0xFFE53935),
+                    color = if (product.stock > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
@@ -366,7 +363,7 @@ private fun CategoryProductCard(
             Text(
                 text = "/ ${product.unit}",
                 fontSize = 10.sp,
-                color = Color(0xFF999999),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth()
             )
         }

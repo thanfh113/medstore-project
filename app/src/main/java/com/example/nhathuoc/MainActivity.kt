@@ -24,6 +24,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -89,10 +90,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleNotificationIntent(intent: Intent?) {
-        val type  = intent?.getStringExtra(NhathuocFirebaseMessagingService.EXTRA_NOTIFICATION_TYPE)  ?: return
-        val refId = intent.getStringExtra(NhathuocFirebaseMessagingService.EXTRA_NOTIFICATION_REF_ID) ?: ""
+        val type   = intent?.getStringExtra(NhathuocFirebaseMessagingService.EXTRA_NOTIFICATION_TYPE)  ?: return
+        val refId  = intent.getStringExtra(NhathuocFirebaseMessagingService.EXTRA_NOTIFICATION_REF_ID) ?: ""
+        val notifId = intent.getStringExtra(NhathuocFirebaseMessagingService.EXTRA_NOTIFICATION_ID) ?: ""
         if (type.isNotBlank()) {
             NotificationNavBus.navigate(type, refId)
+            if (notifId.isNotBlank()) {
+                lifecycleScope.launch {
+                    try { apiService.markNotificationAsRead(notifId) } catch (_: Exception) {}
+                }
+            }
         }
     }
 
@@ -125,8 +132,8 @@ class MainActivity : ComponentActivity() {
             // Register with backend only when user is logged in
             if (!isSynced || stored != token) {
                 lifecycleScope.launch {
-                    val loggedIn = sessionManager.isLoggedIn.first()
-                    if (!loggedIn) return@launch
+                    // Wait until user is logged in (handles reinstall before login scenario)
+                    sessionManager.isLoggedIn.filter { it }.first()
                     try {
                         val response = apiService.registerPushToken(
                             PushTokenRequest(

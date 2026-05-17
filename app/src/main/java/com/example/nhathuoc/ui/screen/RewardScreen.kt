@@ -158,23 +158,21 @@ fun RewardScreen(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color(0xFFF5F7FA)
-    ) { innerPadding ->
-        Box(modifier = modifier.fillMaxSize().padding(innerPadding)) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().background(Color(0xFFF5F7FA)),
-                contentPadding = PaddingValues(bottom = 24.dp)
-            ) {
-                // ── Header xanh ───────────────────────────────────────
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Brush.verticalGradient(listOf(GreenTopRw, GreenLight)))
-                            .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 32.dp)
-                    ) {
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
+
+            // ── Header xanh ───────────────────────────────────────
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Brush.verticalGradient(listOf(GreenTopRw, GreenLight)))
+                        .statusBarsPadding()
+                        .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 32.dp)
+                ) {
                         Column {
                             // Header tabs
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -258,7 +256,7 @@ fun RewardScreen(
                         Box(modifier = Modifier.padding(horizontal = 16.dp).offset(y = (-16).dp)) {
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.surface,
                                 shadowElevation = 4.dp,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -269,7 +267,7 @@ fun RewardScreen(
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             "Mua sắm để tích điểm và đổi quà vật tư y tế ngay hôm nay!",
-                                            fontSize = 13.sp, color = Color(0xFF1A1A1A), lineHeight = 18.sp
+                                            fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, lineHeight = 18.sp
                                         )
                                         Spacer(Modifier.height(10.dp))
                                         Button(
@@ -294,7 +292,7 @@ fun RewardScreen(
                                 onClick = { showBanner = false },
                                 modifier = Modifier.align(Alignment.TopEnd).size(32.dp)
                             ) {
-                                Icon(Icons.Filled.Close, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Filled.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -314,24 +312,27 @@ fun RewardScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column {
-                                    Text("Quà tặng", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
-                                    Text("Tích điểm đổi quà với giá 1.000 VNĐ.", fontSize = 12.sp, color = Color.Gray)
+                                    Text("Quà tặng", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("Tích điểm đổi quà với giá 1.000 VNĐ.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             Spacer(Modifier.height(10.dp))
+                            val surfaceColor = MaterialTheme.colorScheme.surface
+                            val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+                            val outlineColor = MaterialTheme.colorScheme.outline
                             Row(
                                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 pointFilters.forEach { filter ->
                                     val isSelected = selectedFilter == filter
-                                    val bgColor by animateColorAsState(if (isSelected) GreenTopRw else Color.White, tween(200))
-                                    val textColor by animateColorAsState(if (isSelected) Color.White else Color(0xFF333333), tween(200))
+                                    val bgColor by animateColorAsState(if (isSelected) GreenTopRw else surfaceColor, tween(200))
+                                    val textColor by animateColorAsState(if (isSelected) Color.White else onSurfaceColor, tween(200))
                                     Surface(
                                         onClick = { selectedFilter = filter },
                                         shape = RoundedCornerShape(50),
                                         color = bgColor,
-                                        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDDDDDD)),
+                                        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, outlineColor),
                                         shadowElevation = if (isSelected) 2.dp else 0.dp
                                     ) {
                                         Row(
@@ -357,7 +358,7 @@ fun RewardScreen(
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     CircularProgressIndicator(color = GreenTopRw)
                                     Spacer(Modifier.height(8.dp))
-                                    Text("Đang tải danh sách quà...", color = Color.Gray, fontSize = 13.sp)
+                                    Text("Đang tải danh sách quà...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                                 }
                             }
                         }
@@ -530,7 +531,10 @@ fun RewardScreen(
                     viewModel.redeemProduct(id, qty)
                 }
             )
-        }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+        )
     }
 }
 
@@ -545,7 +549,7 @@ private fun ApiRewardProductCard(
     val canRedeem = userPoints >= product.pointCost
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
         modifier = modifier
     ) {
@@ -553,13 +557,13 @@ private fun ApiRewardProductCard(
             Box(
                 modifier = Modifier.fillMaxWidth().height(110.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFFE8F5E9)),
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Outlined.CardGiftcard, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(56.dp))
+                Icon(Icons.Outlined.CardGiftcard, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Text(product.name, fontSize = 12.sp, color = Color(0xFF1A1A1A), fontWeight = FontWeight.Medium,
+            Text(product.name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium,
                 lineHeight = 16.sp, maxLines = 3, modifier = Modifier.heightIn(min = 48.dp))
             Spacer(Modifier.height(6.dp))
             Text("${product.pointCost.toLong().fmtPts()} điểm", fontSize = 12.sp, color = Color.Gray)
@@ -600,7 +604,7 @@ private fun FallbackRewardProductCard(
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
         modifier = modifier
     ) {
@@ -613,7 +617,7 @@ private fun FallbackRewardProductCard(
                 Icon(product.icon, null, tint = product.iconTint, modifier = Modifier.size(56.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Text(product.name, fontSize = 12.sp, color = Color(0xFF1A1A1A), fontWeight = FontWeight.Medium,
+            Text(product.name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium,
                 lineHeight = 16.sp, maxLines = 3, modifier = Modifier.heightIn(min = 48.dp))
             Spacer(Modifier.height(6.dp))
             Text(product.priceText, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = GreenTopRw)
@@ -687,7 +691,7 @@ private fun RewardHistorySummaryCard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 4.dp
     ) {
         Column(
@@ -696,7 +700,7 @@ private fun RewardHistorySummaryCard(
         ) {
             Text(
                 "Tổng quan điểm thưởng",
-                color = Color(0xFF1A1A1A),
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -722,7 +726,7 @@ private fun RewardHistorySummaryCard(
             }
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFF6FAF6)
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             ) {
                 Row(
                     modifier = Modifier
@@ -733,7 +737,7 @@ private fun RewardHistorySummaryCard(
                 ) {
                     Text(
                         "Lượt đổi quà đã tạo",
-                        color = Color(0xFF4A4A4A),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp
                     )
                     Text(
@@ -758,13 +762,13 @@ private fun RewardHistoryMetricCard(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
-        color = Color(0xFFF8FAFC)
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(title, color = Color(0xFF6B7280), fontSize = 12.sp)
+            Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             Text(value, color = accent, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
         }
     }
@@ -781,15 +785,15 @@ private fun RewardHistorySection(
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(18.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             content = {
-                Text(title, color = Color(0xFF1A1A1A), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = Color(0xFF6B7280), fontSize = 12.sp, lineHeight = 18.sp)
+                Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, lineHeight = 18.sp)
                 content()
             }
         )
@@ -831,7 +835,7 @@ private fun RewardVoucherCard(voucher: RewardVoucherDto, onUseVoucher: (String) 
     val unusable = normalizedStatus in setOf("USED", "CANCELLED", "EXPIRED")
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = if (unusable) Color(0xFFF3F4F6) else Color(0xFFFFFBEB)
+        color = if (unusable) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.secondaryContainer
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -843,14 +847,14 @@ private fun RewardVoucherCard(voucher: RewardVoucherDto, onUseVoucher: (String) 
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(voucher.name, color = Color(0xFF1A1A1A), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(voucher.name, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Text(voucher.code, color = GreenTopRw, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(formatRewardVoucherValue(voucher), color = Color(0xFF4B5563), fontSize = 12.sp)
+                    Text(formatRewardVoucherValue(voucher), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
                 RedemptionStatusChip(normalizedStatus)
             }
             voucher.terms?.takeIf { it.isNotBlank() }?.let {
-                Text(it, color = Color(0xFF6B7280), fontSize = 12.sp, lineHeight = 18.sp)
+                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, lineHeight = 18.sp)
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -859,7 +863,7 @@ private fun RewardVoucherCard(voucher: RewardVoucherDto, onUseVoucher: (String) 
             ) {
                 Text(
                     "Nhận lúc: ${formatRewardDateTime(voucher.createdAt)}",
-                    color = Color(0xFF9CA3AF),
+                    color = MaterialTheme.colorScheme.outline,
                     fontSize = 11.sp
                 )
                 Button(
@@ -905,7 +909,7 @@ private fun HistoryLoadingState(message: String) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator(color = GreenTopRw, modifier = Modifier.size(26.dp), strokeWidth = 2.dp)
             Spacer(Modifier.height(8.dp))
-            Text(message, color = Color(0xFF6B7280), fontSize = 12.sp)
+            Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         }
     }
 }
@@ -933,7 +937,7 @@ private fun HistoryErrorState(message: String) {
 private fun EmptyHistoryState(message: String) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFFF8FAFC)
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column(
             modifier = Modifier
@@ -943,7 +947,7 @@ private fun EmptyHistoryState(message: String) {
         ) {
             Icon(Icons.Outlined.HourglassEmpty, null, tint = Color(0xFF9CA3AF), modifier = Modifier.size(22.dp))
             Spacer(Modifier.height(8.dp))
-            Text(message, color = Color(0xFF6B7280), fontSize = 12.sp, textAlign = TextAlign.Center)
+            Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, textAlign = TextAlign.Center)
         }
     }
 }
@@ -972,7 +976,7 @@ private fun PointTransactionCard(transaction: PointTransactionDto) {
 
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = Color(0xFFFAFBFC)
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -1000,13 +1004,13 @@ private fun PointTransactionCard(transaction: PointTransactionDto) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
                             formatRewardTransactionType(transactionType),
-                            color = Color(0xFF1A1A1A),
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             transaction.description ?: "Không có mô tả giao dịch.",
-                            color = Color(0xFF4B5563),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp,
                             lineHeight = 18.sp
                         )
@@ -1026,13 +1030,13 @@ private fun PointTransactionCard(transaction: PointTransactionDto) {
             ) {
                 Text(
                     formatRewardDateTime(transaction.createdAt),
-                    color = Color(0xFF9CA3AF),
+                    color = MaterialTheme.colorScheme.outline,
                     fontSize = 11.sp
                 )
                 if (reference != null) {
                     Text(
                         reference,
-                        color = Color(0xFF6B7280),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp
                     )
                 }
@@ -1045,7 +1049,7 @@ private fun PointTransactionCard(transaction: PointTransactionDto) {
 private fun RewardRedemptionCard(redemption: RewardRedemptionHistoryDto) {
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = Color(0xFFFAFBFC)
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -1062,13 +1066,13 @@ private fun RewardRedemptionCard(redemption: RewardRedemptionHistoryDto) {
                 ) {
                     Text(
                         redemption.productName,
-                        color = Color(0xFF1A1A1A),
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         "Số lượng: ${redemption.quantity} • -${redemption.pointsUsed.toLong().fmtPts()} điểm",
-                        color = Color(0xFF4B5563),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                 }
@@ -1081,12 +1085,12 @@ private fun RewardRedemptionCard(redemption: RewardRedemptionHistoryDto) {
             ) {
                 Text(
                     "Mã đổi: ${shortRewardId(redemption.id)}",
-                    color = Color(0xFF6B7280),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp
                 )
                 Text(
                     formatRewardDateTime(redemption.createdAt),
-                    color = Color(0xFF9CA3AF),
+                    color = MaterialTheme.colorScheme.outline,
                     fontSize = 11.sp
                 )
             }
@@ -1216,7 +1220,7 @@ fun UnifiedRedeemSheet(
                     .align(Alignment.BottomCenter)
                     .offset { IntOffset(0, offsetY.value.roundToInt()) },
                 shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 16.dp
             ) {
                 Column(Modifier.fillMaxSize()) {
@@ -1224,12 +1228,12 @@ fun UnifiedRedeemSheet(
                     Box(
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                             .padding(top = 10.dp).width(36.dp).height(4.dp)
-                            .background(Color(0xFFDDDDDD), RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
                     )
                     // Title
                     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp)) {
                         Text("Đổi quà", fontSize = 17.sp, fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1A1A), modifier = Modifier.align(Alignment.Center))
+                            color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.align(Alignment.Center))
                         IconButton(
                             onClick = {
                                 scope.launch {
@@ -1240,10 +1244,10 @@ fun UnifiedRedeemSheet(
                             },
                             modifier = Modifier.align(Alignment.CenterEnd)
                         ) {
-                            Icon(Icons.Filled.Close, null, tint = Color(0xFF555555), modifier = Modifier.size(22.dp))
+                            Icon(Icons.Filled.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
                         }
                     }
-                    HorizontalDivider(color = Color(0xFFF0F0F0))
+                    HorizontalDivider()
 
                     // Product row
                     Row(
@@ -1263,10 +1267,10 @@ fun UnifiedRedeemSheet(
                                 modifier = Modifier.size(38.dp)
                             )
                         }
-                        Text(productName, fontSize = 14.sp, color = Color(0xFF1A1A1A),
+                        Text(productName, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface,
                             lineHeight = 20.sp, modifier = Modifier.weight(1f))
                     }
-                    HorizontalDivider(color = Color(0xFFF0F0F0))
+                    HorizontalDivider()
 
                     // Quantity
                     Row(
@@ -1274,24 +1278,24 @@ fun UnifiedRedeemSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Số lượng:", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+                        Text("Số lượng:", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             Surface(onClick = { if (quantity > 1) quantity-- }, shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFFF0F0F0), modifier = Modifier.size(34.dp)) {
+                                color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(34.dp)) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Filled.Remove, null, tint = Color(0xFF333333), modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Filled.Remove, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
                                 }
                             }
-                            Text(quantity.toString(), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+                            Text(quantity.toString(), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             Surface(onClick = { quantity++ }, shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFFF0F0F0), modifier = Modifier.size(34.dp)) {
+                                color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(34.dp)) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Filled.Add, null, tint = Color(0xFF333333), modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
                                 }
                             }
                         }
                     }
-                    HorizontalDivider(color = Color(0xFFF0F0F0))
+                    HorizontalDivider()
 
                     // Points used
                     Row(
@@ -1299,7 +1303,7 @@ fun UnifiedRedeemSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Điểm sử dụng:", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+                        Text("Điểm sử dụng:", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Icon(Icons.Filled.EmojiEvents, null, tint = GoldColorRw, modifier = Modifier.size(20.dp))
                             Text("-${totalCost.toLong().fmtPts()}", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = GoldColorRw)
@@ -1312,8 +1316,8 @@ fun UnifiedRedeemSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Điểm hiện có:", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
-                        Text(userPoints.toString(), fontSize = 15.sp, color = Color(0xFF555555))
+                        Text("Điểm hiện có:", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Text(userPoints.toString(), fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     if (!hasEnough) {

@@ -54,7 +54,6 @@ import kotlinx.coroutines.launch
 import com.example.nhathuoc.data.model.ProductReviewSummaryDto
 import com.example.nhathuoc.data.model.ReviewDto
 import com.example.nhathuoc.data.remote.BackendUrlResolver
-import com.example.nhathuoc.ui.theme.GreenLight
 private val GreenTop = Color(0xFF2E7D32)
 
 private val GoldColor = Color(0xFFFFAB00)
@@ -155,7 +154,7 @@ fun ProductDetailScreen(
     val unavailableMessage = when {
         !inStock -> "Sản phẩm đang hết hàng. Bạn có thể nhắn tư vấn để được báo khi có hàng."
         normalizedRisk == "C" || normalizedRisk == "D" ->
-            "Sản phẩm loại $normalizedRisk cần tư vấn/ký kết tại nhà thuốc, chưa hỗ trợ đặt online."
+            "Sản phẩm loại $normalizedRisk cần tư vấn/ký kết tại Medstore, chưa hỗ trợ đặt online."
         else -> ""
     }
     val productCode = remember(product.sku, product.registrationNumber, product.id) {
@@ -186,7 +185,7 @@ fun ProductDetailScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             ProductBottomBar(
                 onChat = onChat,
@@ -215,7 +214,7 @@ fun ProductDetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(300.dp)
-                    .background(Color(0xFFF8F9FF))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 // Swipeable image pager
                 androidx.compose.foundation.pager.HorizontalPager(
@@ -285,7 +284,7 @@ fun ProductDetailScreen(
                             modifier = Modifier
                                 .size(if (selected) 8.dp else 5.dp)
                                 .clip(CircleShape)
-                                .background(if (selected) GreenTop else Color(0xFFBBBBBB))
+                                .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
                         )
                     }
                 }
@@ -309,29 +308,23 @@ fun ProductDetailScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f), CircleShape)
+                    ) {
                         Icon(
                             Icons.Filled.ArrowBackIosNew,
                             contentDescription = "Quay lại",
-                            tint = Color(0xFF333333),
+                            tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(20.dp)
                         )
-                    }
-                    Row {
-                        IconButton(onClick = {}) {
-                            Icon(
-                                Icons.Outlined.Share,
-                                contentDescription = "Chia sẻ",
-                                tint = Color(0xFF333333),
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
                     }
                 }
             }
 
             // -- Thumbnail strip (click ? jump pager) ---------------------------
-            Surface(color = Color.White, shadowElevation = 1.dp) {
+            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
                 LazyRow(
                     state = thumbListState,
                     modifier = Modifier
@@ -348,8 +341,8 @@ fun ProductDetailScreen(
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(product.iconBg.copy(alpha = if (isSelected) 1f else 0.35f))
                                 .then(
-                                    if (isSelected) Modifier.border(2.dp, GreenTop, RoundedCornerShape(8.dp))
-                                    else Modifier.border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
+                                    if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                    else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
                                 )
                                 .clickable {
                                     scope.launch { pagerState.animateScrollToPage(idx) }
@@ -395,7 +388,7 @@ fun ProductDetailScreen(
 
             // -- Product info card ----------------------------------------------
             Surface(
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
@@ -409,7 +402,7 @@ fun ProductDetailScreen(
                             else      -> "Thông tin sản phẩm được cập nhật theo tồn kho thực tế"
                         },
                         fontSize = 11.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 10.dp)
                     )
 
@@ -431,12 +424,12 @@ fun ProductDetailScreen(
                         Text(
                             "Thương hiệu: ",
                             fontSize = 13.sp,
-                            color = Color(0xFF555555)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             product.brand,
                             fontSize = 13.sp,
-                            color = GreenTop,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -448,7 +441,7 @@ fun ProductDetailScreen(
                         text = product.name,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A1A),
+                        color = MaterialTheme.colorScheme.onSurface,
                         lineHeight = 22.sp
                     )
 
@@ -462,7 +455,7 @@ fun ProductDetailScreen(
                         Text(
                             "Mã: $productCode",
                             fontSize = 12.sp,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.widthIn(max = 120.dp)
@@ -470,13 +463,13 @@ fun ProductDetailScreen(
                         DotHorizontalDivider()
                         RatingStars(effectiveRating)
                         DotHorizontalDivider()
-                        Text("${effectiveReviewCount} đánh giá", fontSize = 12.sp, color = Color.Gray)
+                        Text("${effectiveReviewCount} đánh giá", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         DotHorizontalDivider()
-                        Text("${effectiveCommentCount} bình luận", fontSize = 12.sp, color = Color.Gray)
+                        Text("${effectiveCommentCount} bình luận", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     Spacer(Modifier.height(14.dp))
-                    HorizontalDivider(color = Color(0xFFF0F0F0))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(Modifier.height(14.dp))
 
                     // Price row
@@ -485,7 +478,7 @@ fun ProductDetailScreen(
                             "${product.price} / ${product.unit}",
                             fontSize = 26.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = GreenTop
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Column(horizontalAlignment = Alignment.Start) {
                             Surface(
@@ -503,7 +496,7 @@ fun ProductDetailScreen(
                             Text(
                                 product.originalPrice,
                                 fontSize = 13.sp,
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textDecoration = TextDecoration.LineThrough
                             )
                         }
@@ -513,11 +506,11 @@ fun ProductDetailScreen(
 
                     Surface(
                         shape = RoundedCornerShape(999.dp),
-                        color = if (inStock) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                        color = if (inStock) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
                     ) {
                         Text(
                             text = if (inStock) "Còn ${product.stockQuantity} ${product.unit}" else "Hết hàng",
-                            color = if (inStock) GreenTop else RedColor,
+                            color = if (inStock) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
@@ -558,11 +551,11 @@ fun ProductDetailScreen(
             Spacer(Modifier.height(8.dp))
 
             // -- Promotion / quick info strip ------------------------------
-            Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
+            Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    Text("Thông tin nổi bật", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+                    Text("Thông tin nổi bật", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.height(10.dp))
-                    InfoRow(Icons.Outlined.LocalShipping,  GreenTop,           "Giao nhanh")
+                    InfoRow(Icons.Outlined.LocalShipping,  MaterialTheme.colorScheme.primary, "Giao nhanh")
                     InfoRow(Icons.Outlined.VerifiedUser,   Color(0xFF2E7D32),  "Vật tư chính hãng, có giấy phép lưu hành")
                     InfoRow(Icons.Outlined.SwapHoriz,      Color(0xFFE65100),  "Đổi trả trong 30 ngày nếu lỗi nhà sản xuất")
                     InfoRow(Icons.Outlined.SupportAgent,   Color(0xFF6A1B9A),  "Kỹ thuật viên hỗ trợ kỹ thuật 24/7")
@@ -573,7 +566,7 @@ fun ProductDetailScreen(
             Spacer(Modifier.height(8.dp))
 
             // -- Gi?y t? & Ch?ng nh?n -----------------------------------------
-            Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
+            Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -584,12 +577,12 @@ fun ProductDetailScreen(
                             "Giấy tờ & Chứng nhận",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1A1A)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             "Xem tất cả",
                             fontSize = 13.sp,
-                            color = GreenTop,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.clickable { showCertSheet = true }
                         )
@@ -601,13 +594,13 @@ fun ProductDetailScreen(
                             Icon(
                                 Icons.Outlined.AssignmentTurnedIn,
                                 contentDescription = null,
-                                tint = Color(0xFF2E7D32),
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(8.dp))
                             Column {
-                                Text("Số đăng ký lưu hành", fontSize = 11.sp, color = Color.Gray)
-                                Text(product.registrationNumber, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1A1A1A))
+                                Text("Số đăng ký lưu hành", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(product.registrationNumber, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                         Spacer(Modifier.height(8.dp))
@@ -621,7 +614,7 @@ fun ProductDetailScreen(
                         Text(
                             "Chưa có giấy tờ được cập nhật",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -630,9 +623,9 @@ fun ProductDetailScreen(
             Spacer(Modifier.height(8.dp))
 
             // -- Product description stub ---------------------------------------
-            Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
+            Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                    Text("Mô tả sản phẩm", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+                    Text("Mô tả sản phẩm", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.height(8.dp))
                     Text(
                         "${product.name} là vật tư y tế chính hãng, nguồn gốc ${product.origin}, " +
@@ -640,7 +633,7 @@ fun ProductDetailScreen(
                                 "Sản phẩm đạt tiêu chuẩn kiểm định chất lượng, được cấp phép lưu hành " +
                                 "và phân phối bởi hệ thống MedStore.",
                         fontSize = 13.sp,
-                        color = Color(0xFF555555),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 20.sp
                     )
                 }
@@ -704,7 +697,7 @@ private fun ReviewsSection(
         )
     }
 
-    Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
+    Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -715,33 +708,25 @@ private fun ReviewsSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Đánh giá sản phẩm", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+                    Text("Đánh giá sản phẩm", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         RatingStars(averageRating.toFloat())
                         Text(
                             if (totalReviews > 0) String.format("%.1f/5 • %d đánh giá", averageRating, totalReviews)
                             else "Chưa có đánh giá",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                }
-                if (openReviewOnStart && onSubmitReview != null) {
-                    OutlinedButton(
-                        onClick = { showDialog = true },
-                        shape = RoundedCornerShape(999.dp)
-                    ) {
-                        Text("Viết đánh giá", color = GreenTop, fontSize = 12.sp)
                     }
                 }
             }
 
             if (!submitMessage.isNullOrBlank() && !showDialog) {
-                Text(submitMessage, color = GreenTop, fontSize = 12.sp)
+                Text(submitMessage, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
             }
 
             if (reviews.isEmpty()) {
-                Text("Khách đã mua có thể đánh giá sản phẩm tại đây.", fontSize = 12.sp, color = Color.Gray)
+                Text("Khách đã mua có thể đánh giá sản phẩm tại đây.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 reviews.take(5).forEach { review ->
                     ReviewRow(review, onReportReview)
@@ -788,7 +773,7 @@ private fun ReviewInputDialog(
                 .padding(horizontal = 20.dp)
                 .wrapContentHeight(),
             shape = RoundedCornerShape(24.dp),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -802,12 +787,12 @@ private fun ReviewInputDialog(
                         "Viết đánh giá",
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
-                        color = GreenTop
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         "Chia sẻ trải nghiệm của bạn về sản phẩm",
                         fontSize = 13.sp,
-                        color = Color(0xFF5A7A62),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
@@ -827,30 +812,24 @@ private fun ReviewInputDialog(
                             "Đánh giá của bạn",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp,
-                            color = Color(0xFF374151)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // 5 ngôi sao tap được, to rõ
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                (1..5).forEach { value ->
-                                    Icon(
-                                        imageVector = if (value <= rating) Icons.Filled.Star else Icons.Outlined.StarOutline,
-                                        contentDescription = "$value sao",
-                                        tint = if (value <= rating) GoldColor else Color(0xFFD1D5DB),
-                                        modifier = Modifier
-                                            .size(38.dp)
-                                            .clickable(
-                                                indication = null,
-                                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                                            ) { rating = value }
-                                    )
-                                }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            (1..5).forEach { value ->
+                                Icon(
+                                    imageVector = if (value <= rating) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                                    contentDescription = "$value sao",
+                                    tint = if (value <= rating) GoldColor else MaterialTheme.colorScheme.outlineVariant,
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clickable(
+                                            indication = null,
+                                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                                        ) { rating = value }
+                                )
                             }
-                            // Label mô tả mức sao
+                        }
+                        if (rating > 0) {
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
                                 color = starLabelBg(rating)
@@ -860,8 +839,6 @@ private fun ReviewInputDialog(
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = starLabelFg(rating),
-                                    maxLines = 1,
-                                    softWrap = false,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                 )
                             }
@@ -900,10 +877,10 @@ private fun ReviewInputDialog(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GreenTop,
-                            focusedLabelColor = GreenTop,
-                            unfocusedBorderColor = Color(0xFFE0EDE3),
-                            cursorColor = GreenTop
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            cursorColor = MaterialTheme.colorScheme.primary
                         )
                     )
 
@@ -912,15 +889,15 @@ private fun ReviewInputDialog(
                         value = comment,
                         onValueChange = { comment = it },
                         label = { Text("Nội dung đánh giá *", fontSize = 13.sp) },
-                        placeholder = { Text("Bạn cảm thấy thế nào về sản phẩm?", fontSize = 13.sp, color = Color(0xFFB0BEC5)) },
+                        placeholder = { Text("Bạn cảm thấy thế nào về sản phẩm?", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         minLines = 3,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GreenTop,
-                            focusedLabelColor = GreenTop,
-                            unfocusedBorderColor = Color(0xFFE0EDE3),
-                            cursorColor = GreenTop
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            cursorColor = MaterialTheme.colorScheme.primary
                         )
                     )
 
@@ -930,8 +907,8 @@ private fun ReviewInputDialog(
                         enabled = !isSubmitting && attachments.size < 5,
                         modifier = Modifier.fillMaxWidth().height(46.dp),
                         shape = RoundedCornerShape(14.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0EDE3)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop)
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(Icons.Outlined.AttachFile, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(8.dp))
@@ -949,7 +926,7 @@ private fun ReviewInputDialog(
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFFF0F4F1)
+                                    color = MaterialTheme.colorScheme.surfaceVariant
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -966,13 +943,13 @@ private fun ReviewInputDialog(
                                             Icon(
                                                 if (att.fileType == "IMAGE") Icons.Outlined.Image else Icons.Outlined.PictureAsPdf,
                                                 contentDescription = null,
-                                                tint = GreenTop,
+                                                tint = MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.size(16.dp)
                                             )
                                             Text(
                                                 att.name,
                                                 fontSize = 12.sp,
-                                                color = Color(0xFF374151),
+                                                color = MaterialTheme.colorScheme.onSurface,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
@@ -993,7 +970,7 @@ private fun ReviewInputDialog(
                     // Error banner
                     if (!errorMessage.isNullOrBlank()) {
                         Surface(
-                            color = Color(0xFFFFEBEE),
+                            color = MaterialTheme.colorScheme.errorContainer,
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -1003,14 +980,14 @@ private fun ReviewInputDialog(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Icon(Icons.Outlined.ErrorOutline, null, tint = RedColor, modifier = Modifier.size(16.dp))
-                                Text(errorMessage, color = Color(0xFFC62828), fontSize = 12.sp)
+                                Text(errorMessage, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 12.sp)
                             }
                         }
                     }
                 }
 
                 // ── Action buttons — LUÔN hiển thị, không bị cắt ────────
-                HorizontalDivider(color = Color(0xFFE0EDE3))
+                HorizontalDivider()
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1022,8 +999,8 @@ private fun ReviewInputDialog(
                         enabled = !isSubmitting,
                         modifier = Modifier.weight(1f).height(48.dp),
                         shape = RoundedCornerShape(14.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0EDE3)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF374151))
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
                     ) {
                         Text("Đóng", fontWeight = FontWeight.SemiBold)
                     }
@@ -1033,16 +1010,16 @@ private fun ReviewInputDialog(
                         modifier = Modifier.weight(2f).height(48.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = GreenTop,
-                            contentColor = Color.White,
-                            disabledContainerColor = Color(0xFFB0C4B1)
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            disabledContainerColor = MaterialTheme.colorScheme.outline
                         ),
                         elevation = ButtonDefaults.buttonElevation(0.dp)
                     ) {
                         if (isSubmitting) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Filled.Star, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Filled.Star, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("Gửi đánh giá", fontWeight = FontWeight.Bold)
                         }
@@ -1088,7 +1065,7 @@ private fun ReviewRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFFF8FAF8))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -1101,15 +1078,15 @@ private fun ReviewRow(
                 review.userName ?: "Khách hàng",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1A1A1A)
+                color = MaterialTheme.colorScheme.onSurface
             )
             RatingStars(review.rating.toFloat())
         }
         if (!review.title.isNullOrBlank()) {
-            Text(review.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = GreenTop)
+            Text(review.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         }
         if (!review.comment.isNullOrBlank()) {
-            Text(review.comment, fontSize = 13.sp, color = Color(0xFF444444), lineHeight = 18.sp)
+            Text(review.comment, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, lineHeight = 18.sp)
         }
         if (review.attachments.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1122,13 +1099,13 @@ private fun ReviewRow(
                             modifier = Modifier
                                 .size(72.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color.White),
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentScale = ContentScale.Crop
                         )
                     } else {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFEFF6FF)
+                            color = MaterialTheme.colorScheme.secondaryContainer
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -1138,10 +1115,10 @@ private fun ReviewRow(
                                 Icon(
                                     Icons.Outlined.PictureAsPdf,
                                     contentDescription = null,
-                                    tint = GreenTop,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(16.dp)
                                 )
-                                Text("PDF", color = GreenTop, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text("PDF", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -1150,9 +1127,9 @@ private fun ReviewRow(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (review.isVerifiedPurchase) {
-                Text("Đã mua hàng", fontSize = 11.sp, color = GreenTop, fontWeight = FontWeight.SemiBold)
+                Text("Đã mua hàng", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
             }
-            Text(review.createdAt.take(10), fontSize = 11.sp, color = Color.Gray)
+            Text(review.createdAt.take(10), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (onReportReview != null) {
                 Text(
                     "Báo cáo",
@@ -1174,7 +1151,7 @@ private fun AuthenticBadge(modifier: Modifier = Modifier, onTraceClick: () -> Un
     ) {
         Surface(
             shape = RoundedCornerShape(8.dp),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.surface,
             shadowElevation = 3.dp,
             modifier = Modifier.size(72.dp)
         ) {
@@ -1207,13 +1184,13 @@ private fun AuthenticBadge(modifier: Modifier = Modifier, onTraceClick: () -> Un
         Spacer(Modifier.height(4.dp))
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = Color(0xFFE3F2FD),
+            color = MaterialTheme.colorScheme.secondaryContainer,
             modifier = Modifier.clickable { onTraceClick() }
         ) {
             Text(
                 "Tra cứu",
                 fontSize = 11.sp,
-                color = GreenTop,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
             )
@@ -1225,7 +1202,7 @@ private fun AuthenticBadge(modifier: Modifier = Modifier, onTraceClick: () -> Un
 private fun OriginChip(origin: String) {
     Surface(
         shape = RoundedCornerShape(6.dp),
-        color = Color(0xFFF5F5F5),
+        color = MaterialTheme.colorScheme.surfaceVariant,
         border = ButtonDefaults.outlinedButtonBorder(enabled = true)
     ) {
         Row(
@@ -1240,7 +1217,7 @@ private fun OriginChip(origin: String) {
                     .clip(CircleShape)
                     .background(Color(0xFFE53935))
             )
-            Text(origin, fontSize = 12.sp, color = Color(0xFF444444))
+            Text(origin, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
@@ -1318,7 +1295,7 @@ private fun CertificatePreviewRow(cert: ProductCertificate) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFF5F7FA))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(enabled = hasFile) {
                 context.openCertificateDocument(resolvedFileUrl, cert.name, isPdf)
             }
@@ -1332,25 +1309,25 @@ private fun CertificatePreviewRow(cert: ProductCertificate) {
                 cert.name,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1A1A1A),
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             if (!cert.issuedBy.isNullOrBlank()) {
-                Text(cert.issuedBy, fontSize = 11.sp, color = Color.Gray)
+                Text(cert.issuedBy, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (hasFile) {
             Spacer(Modifier.width(8.dp))
             Surface(
                 shape = RoundedCornerShape(999.dp),
-                color = GreenTop.copy(alpha = 0.10f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, GreenTop.copy(alpha = 0.30f))
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f))
             ) {
                 Text(
                     if (isPdf) "Tải" else "Mở",
                     fontSize = 11.sp,
-                    color = GreenTop,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                 )
@@ -1459,7 +1436,7 @@ private fun CertificateBottomSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
     ) {
         Column(
@@ -1472,21 +1449,21 @@ private fun CertificateBottomSheet(
                 "Giấy tờ & Chứng nhận",
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1A1A1A)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 "Thông tin kiểm tra nguồn gốc & chất lượng sản phẩm",
-                fontSize = 12.sp, color = Color.Gray
+                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(16.dp))
 
             // Lo?i s?n ph?m
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Category, null, tint = GreenTop, modifier = Modifier.size(18.dp))
+                Icon(Icons.Outlined.Category, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Column {
-                    Text("Loại sản phẩm", fontSize = 11.sp, color = Color.Gray)
+                    Text("Loại sản phẩm", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     ProductRiskChip(riskClassification)
                 }
             }
@@ -1494,14 +1471,14 @@ private fun CertificateBottomSheet(
             // S? dang k� luu h�nh
             if (!registrationNumber.isNullOrBlank()) {
                 Spacer(Modifier.height(12.dp))
-                HorizontalDivider(color = Color(0xFFF0F0F0))
+                HorizontalDivider()
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.AssignmentTurnedIn, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Outlined.AssignmentTurnedIn, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Column {
-                        Text("Số đăng ký lưu hành", fontSize = 11.sp, color = Color.Gray)
-                        Text(registrationNumber, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+                        Text("Số đăng ký lưu hành", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(registrationNumber, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
@@ -1509,10 +1486,10 @@ private fun CertificateBottomSheet(
             // Danh s�ch gi?y t?
             if (certificates.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
-                HorizontalDivider(color = Color(0xFFF0F0F0))
+                HorizontalDivider()
                 Spacer(Modifier.height(12.dp))
                 Text("Tài liệu đính kèm (${certificates.size})",
-                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1A1A1A))
+                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(8.dp))
                 certificates.forEach { cert ->
                     CertificatePreviewRow(cert)
@@ -1522,7 +1499,7 @@ private fun CertificateBottomSheet(
                 Spacer(Modifier.height(16.dp))
                 Text(
                     "Chưa có giấy tờ nào được cập nhật cho sản phẩm này.",
-                    fontSize = 13.sp, color = Color.Gray
+                    fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -1565,7 +1542,7 @@ private fun InfoRow(icon: ImageVector, iconTint: Color, text: String) {
     ) {
         Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(10.dp))
-        Text(text, fontSize = 13.sp, color = Color(0xFF444444))
+        Text(text, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -1592,7 +1569,7 @@ private fun ProductBottomBar(
     }
 
     Surface(
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 8.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1607,13 +1584,13 @@ private fun ProductBottomBar(
                     .fillMaxWidth()
                     .height(2.dp)
                     .background(
-                        Brush.horizontalGradient(listOf(GreenTop, GreenLight))
+                        Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer))
                     )
             )
             if (!canOrderOnline) {
                 Text(
                     text = restrictedMessage,
-                    color = RedColor,
+                    color = MaterialTheme.colorScheme.error,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -1625,11 +1602,11 @@ private fun ProductBottomBar(
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                         .height(50.dp),
                     shape = RoundedCornerShape(25.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(Icons.Outlined.SupportAgent, null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Tư vấn với nhân viên", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Tư vấn với nhân viên", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
                 }
             } else {
                 Row(
@@ -1642,13 +1619,13 @@ private fun ProductBottomBar(
                     Column {
                         Text(
                             "Còn $stockQuantity $unit",
-                            color = GreenTop,
+                            color = MaterialTheme.colorScheme.primary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             "Chọn số lượng mua ngay",
-                            color = Color(0xFF6B7280),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
                         )
                     }
@@ -1657,7 +1634,7 @@ private fun ProductBottomBar(
                         horizontalArrangement = Arrangement.spacedBy(0.dp),
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFFF3F7F4))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         IconButton(
                             onClick = { onQuantityChange(selectedQuantity - 1) },
@@ -1667,12 +1644,12 @@ private fun ProductBottomBar(
                             Icon(
                                 Icons.Default.Remove,
                                 contentDescription = "Giảm",
-                                tint = if (selectedQuantity > 1) GreenTop else Color(0xFFBDBDBD),
+                                tint = if (selectedQuantity > 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         Surface(
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.surface,
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier
                                 .defaultMinSize(minWidth = 42.dp)
@@ -1693,7 +1670,7 @@ private fun ProductBottomBar(
                                     textAlign = TextAlign.Center,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
-                                    color = Color(0xFF111827)
+                                    color = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier
                                     .width(42.dp)
@@ -1711,7 +1688,7 @@ private fun ProductBottomBar(
                             Icon(
                                 Icons.Default.Add,
                                 contentDescription = "Tăng",
-                                tint = if (selectedQuantity < stockQuantity) GreenTop else Color(0xFFBDBDBD),
+                                tint = if (selectedQuantity < stockQuantity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -1729,14 +1706,14 @@ private fun ProductBottomBar(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(CircleShape)
-                            .background(Brush.verticalGradient(listOf(GreenTop, GreenLight)))
+                            .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)))
                             .clickable { onChat() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Outlined.SupportAgent,
                             contentDescription = "Tư vấn kỹ thuật",
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -1749,7 +1726,7 @@ private fun ProductBottomBar(
                             .weight(1f)
                             .height(48.dp),
                         shape = RoundedCornerShape(24.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                         border = ButtonDefaults.outlinedButtonBorder(enabled = canOrderOnline).copy(width = 1.5.dp)
                     ) {
                         Icon(Icons.Outlined.ShoppingCart, null, modifier = Modifier.size(16.dp))
@@ -1765,13 +1742,13 @@ private fun ProductBottomBar(
                             .weight(1.4f)
                             .height(48.dp),
                         shape = RoundedCornerShape(24.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Text(
                             "Mua ngay",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 }

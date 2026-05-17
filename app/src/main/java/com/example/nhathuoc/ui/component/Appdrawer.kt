@@ -30,7 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.nhathuoc.ui.theme.GreenLight
-import com.example.nhathuoc.ui.theme.GreenTop
 import kotlin.math.max
 import kotlin.math.min
 
@@ -204,7 +203,7 @@ fun AppDrawer(
                 .width(DrawerWidth)
                 .fillMaxHeight()
                 .graphicsLayer { this.translationX = translationX }
-                .background(Color.White, RoundedCornerShape(topEnd = 0.dp, bottomEnd = 0.dp))
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(topEnd = 0.dp, bottomEnd = 0.dp))
         ) {
             DrawerContent(
                 userName          = userName,
@@ -248,13 +247,13 @@ private fun DrawerContent(
         ) {
             // Logo
             Column {
-                Text("VẬT TƯ Y TẾ", fontSize = 10.sp, color = GreenTop,
+                Text("VẬT TƯ Y TẾ", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
-                Text("MedStore", fontSize = 18.sp, color = GreenTop,
+                Text("MedStore", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp)
             }
             IconButton(onClick = onClose) {
-                Icon(Icons.Filled.Close, contentDescription = "Đóng", tint = Color.Gray)
+                Icon(Icons.Filled.Close, contentDescription = "Đóng", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -308,7 +307,7 @@ private fun DrawerContent(
                     item = item,
                     onClick = onMenuItemClick
                 )
-                HorizontalDivider(color = Color(0xFFF0F0F0), thickness = 0.8.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.8.dp)
             }
         }
 
@@ -321,7 +320,7 @@ private fun DrawerContent(
         ) {
             Surface(
                 shape = RoundedCornerShape(50),
-                color = Color(0xFFEEF2FF),
+                color = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -332,14 +331,14 @@ private fun DrawerContent(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Outlined.Phone, null, tint = GreenTop, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Outlined.Phone, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Hotline hỗ trợ: 1800 1234", color = GreenTop,
+                    Text("Hotline hỗ trợ: 1800 1234", color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Text("Phiên bản: 4.3.9", color = Color.Gray, fontSize = 12.sp)
+            Text("Phiên bản: 4.3.9", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         }
     }
 }
@@ -366,7 +365,7 @@ private fun DrawerMenuRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(item.label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1A1A1A))
+                Text(item.label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 if (item.badge > 0) {
                     Spacer(Modifier.width(8.dp))
                     Badge(containerColor = GoldColor) {
@@ -379,7 +378,7 @@ private fun DrawerMenuRow(
                 Icon(
                     imageVector = Icons.Outlined.KeyboardArrowDown,
                     contentDescription = null,
-                    tint = Color.Gray,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .size(20.dp)
                         .graphicsLayer { rotationZ = rotation }
@@ -400,10 +399,10 @@ private fun DrawerMenuRow(
                     modifier = Modifier
                         .size(5.dp)
                         .clip(CircleShape)
-                        .background(GoldColor)
+                        .background(MaterialTheme.colorScheme.tertiary)
                 )
                 Spacer(Modifier.width(10.dp))
-                Text("Tất cả ${item.label}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = GreenTop)
+                Text("Tất cả ${item.label}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
             }
             item.children.forEach { child ->
                 Row(
@@ -417,10 +416,10 @@ private fun DrawerMenuRow(
                         modifier = Modifier
                             .size(5.dp)
                             .clip(CircleShape)
-                            .background(GreenTop)
+                            .background(MaterialTheme.colorScheme.primary)
                     )
                     Spacer(Modifier.width(10.dp))
-                    Text(child.label, fontSize = 13.sp, color = Color(0xFF555555))
+                    Text(child.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Spacer(Modifier.height(6.dp))

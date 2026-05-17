@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.nhathuoc.ui.theme.GreenTop
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Product Card Model
@@ -70,7 +69,7 @@ fun ProductCard(
             .height(cardHeight)
             .clip(RoundedCornerShape(12.dp))
             .clickable { onProductClick(data.id) },
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -85,7 +84,7 @@ fun ProductCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(0.5f)
+                        .weight(0.45f)
                         .clip(RoundedCornerShape(10.dp))
                         .background(data.iconBg.copy(alpha = 0.2f)),
                     contentAlignment = Alignment.Center
@@ -122,8 +121,9 @@ fun ProductCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(0.5f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                        .weight(0.55f)
+                        .padding(bottom = 2.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
                     // Brand
@@ -131,7 +131,7 @@ fun ProductCard(
                         Text(
                             text = data.brand,
                             fontSize = 10.sp,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -142,6 +142,7 @@ fun ProductCard(
                         text = data.name,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         lineHeight = 13.sp
@@ -156,7 +157,7 @@ fun ProductCard(
                         Text(
                             text = data.originalPrice,
                             fontSize = 10.sp,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textDecoration = TextDecoration.LineThrough,
                             maxLines = 1
                         )
@@ -164,21 +165,21 @@ fun ProductCard(
                             text = data.price,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = GreenTop,
+                            color = MaterialTheme.colorScheme.primary,
                             maxLines = 1
                         )
                     }
 
                     // Stock
                     Surface(
-                        color = if (data.stock > 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                        color = if (data.stock > 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
                         shape = RoundedCornerShape(4.dp),
                         modifier = Modifier.wrapContentSize()
                     ) {
                         Text(
                             text = if (data.stock > 0) "Còn ${data.stock}" else "Hết hàng",
                             fontSize = 9.sp,
-                            color = if (data.stock > 0) GreenTop else Color(0xFFE53935),
+                            color = if (data.stock > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
@@ -284,7 +285,7 @@ fun ProductCard(
                         .align(Alignment.BottomEnd)
                         .padding(8.dp)
                         .size(36.dp),
-                    containerColor = GreenTop,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     shape = CircleShape,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
                 ) {

@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocalHospital
@@ -46,12 +48,6 @@ import com.example.nhathuoc.viewmodel.CartViewModel
 import java.text.NumberFormat
 import java.util.Locale
 
-// ── Colors ────────────────────────────────────────────────────────────────
-private val CartGreen = Color(0xFF2E7D32)
-private val CartGreenLight = Color(0xFFE8F5E9)
-private val CartBg = Color(0xFFF5F7FA)
-private val CartRed = Color(0xFFE53935)
-
 private val cartLocale: Locale = Locale.Builder().setLanguage("vi").setRegion("VN").build()
 private fun Double.fmtVnd() = NumberFormat.getCurrencyInstance(cartLocale)
     .format(this).replace("₫", "đ")
@@ -60,7 +56,8 @@ private fun Double.fmtVnd() = NumberFormat.getCurrencyInstance(cartLocale)
 @Composable
 fun CartScreen(
     modifier: Modifier = Modifier,
-    navController: NavController? = null
+    navController: NavController? = null,
+    showBackButton: Boolean = true
 ) {
     val viewModel: CartViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
@@ -108,10 +105,10 @@ fun CartScreen(
     if (itemToRemove != null) {
         AlertDialog(
             onDismissRequest = { itemToRemove = null },
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(20.dp),
             icon = {
-                Icon(Icons.Filled.Delete, null, tint = CartRed, modifier = Modifier.size(28.dp))
+                Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(28.dp))
             },
             title = {
                 Text(
@@ -123,7 +120,7 @@ fun CartScreen(
             text = {
                 Text(
                     "Bạn có chắc muốn xoá \"${itemToRemove!!.displayName}\" khỏi giỏ hàng?",
-                    color = Color(0xFF555555),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
             },
@@ -133,7 +130,7 @@ fun CartScreen(
                         viewModel.removeCartItem(itemToRemove!!.id)
                         itemToRemove = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = CartRed),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     shape = RoundedCornerShape(50)
                 ) {
                     Text("Xoá", color = Color.White)
@@ -141,7 +138,7 @@ fun CartScreen(
             },
             dismissButton = {
                 TextButton(onClick = { itemToRemove = null }) {
-                    Text("Huỷ", color = Color.Gray)
+                    Text("Huỷ", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -154,7 +151,7 @@ fun CartScreen(
                 quantityEditorItem = null
                 quantityEditorError = null
             },
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(20.dp),
             title = {
                 Text(
@@ -167,7 +164,7 @@ fun CartScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         editingItem.displayName,
-                        color = Color(0xFF555555),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -208,7 +205,7 @@ fun CartScreen(
                         quantityEditorItem = null
                         quantityEditorError = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = CartGreen),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(50)
                 ) {
                     Text("Lưu", color = Color.White)
@@ -219,7 +216,7 @@ fun CartScreen(
                     quantityEditorItem = null
                     quantityEditorError = null
                 }) {
-                    Text("Hủy", color = Color.Gray)
+                    Text("Hủy", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -227,7 +224,7 @@ fun CartScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = { CartTopBar(itemCount = uiState.totalItems, onBack = { navController?.popBackStack() }) },
+        topBar = { CartTopBar(itemCount = uiState.totalItems, onBack = { navController?.popBackStack() }, showBackButton = showBackButton) },
         bottomBar = {
             CartBottomBar(
                 totalAmount = selectedTotal,
@@ -241,7 +238,7 @@ fun CartScreen(
                 }
             )
         },
-        containerColor = CartBg
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Box(
             modifier = modifier
@@ -327,8 +324,8 @@ fun CartScreen(
                     ) {
                         LinearProgressIndicator(
                             modifier = Modifier.fillMaxWidth(),
-                            color = CartGreen,
-                            trackColor = CartGreenLight
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.primaryContainer
                         )
                     }
                 }
@@ -338,50 +335,57 @@ fun CartScreen(
 }
 
 // ── TopBar ─────────────────────────────────────────────────────────────────
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CartTopBar(itemCount: Int, onBack: () -> Unit) {
-    TopAppBar(
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Giỏ hàng",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 19.sp,
-                    color = Color.White
-                )
-                if (itemCount > 0) {
-                    Spacer(Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.25f))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            "$itemCount sản phẩm",
-                            fontSize = 12.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        },
-        navigationIcon = {
-            IconButton(onClick = onBack) {
+private fun CartTopBar(itemCount: Int, onBack: () -> Unit, showBackButton: Boolean = true) {
+    val gradient = Brush.horizontalGradient(listOf(Color(0xFF2E7D32), Color(0xFF66BB6A)))
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(gradient)
+            .statusBarsPadding()
+            .height(64.dp)
+    ) {
+        if (showBackButton) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.CenterStart)
+            ) {
                 Icon(
-                    Icons.AutoMirrored.Filled.ArrowBackIos,
-                    contentDescription = "Quay lai",
+                    Icons.Filled.ArrowBackIosNew,
+                    contentDescription = "Quay lại",
                     tint = Color.White,
                     modifier = Modifier.size(20.dp)
                 )
             }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = CartGreen
-        )
-    )
+        }
+        Row(
+            modifier = Modifier.align(Alignment.Center),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Giỏ hàng",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = Color.White
+            )
+            if (itemCount > 0) {
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.25f))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        "$itemCount",
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
 }
 
 // ── BottomBar ──────────────────────────────────────────────────────────────
@@ -392,50 +396,68 @@ private fun CartBottomBar(
     isLoading: Boolean,
     onCheckout: () -> Unit
 ) {
-    Surface(
-        color = Color.White,
-        shadowElevation = 12.dp
-    ) {
-        Row(
+    val enabled = itemCount > 0 && !isLoading
+    val gradient = Brush.horizontalGradient(listOf(Color(0xFF2E7D32), Color(0xFF66BB6A)))
+    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 16.dp) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column {
-                Text("Tổng cộng", fontSize = 12.sp, color = Color.Gray)
-                Text(
-                    totalAmount.fmtVnd(),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = CartGreen
-                )
-            }
-            Button(
-                onClick = onCheckout,
-                enabled = itemCount > 0 && !isLoading,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = CartGreen,
-                    disabledContainerColor = Color(0xFFBDBDBD)
-                ),
-                shape = RoundedCornerShape(50),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Đặt hàng",
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
+                    "Tổng thanh toán",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.width(6.dp))
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
-                    null,
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
+                Text(
+                    totalAmount.fmtVnd(),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
                 )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(if (enabled) gradient else Brush.horizontalGradient(listOf(Color(0xFFBDBDBD), Color(0xFFBDBDBD))))
+                    .then(if (enabled) Modifier.clickable(onClick = onCheckout) else Modifier)
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    Text(
+                        if (itemCount == 0) "Chưa có sản phẩm" else "Đặt hàng ngay",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (!isLoading) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
         }
     }
@@ -451,7 +473,7 @@ private fun CartSelectionHeader(
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -467,19 +489,19 @@ private fun CartSelectionHeader(
                     checked = allSelected && totalCount > 0,
                     onCheckedChange = { onToggleAll() },
                     colors = CheckboxDefaults.colors(
-                        checkedColor = CartGreen,
+                        checkedColor = MaterialTheme.colorScheme.primary,
                         uncheckedColor = Color(0xFFBDBDBD)
                     )
                 )
                 Text(
                     "Chọn tất cả",
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1A1A1A)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             Text(
                 "$selectedCount/$totalCount sản phẩm",
-                color = CartGreen,
+                color = MaterialTheme.colorScheme.primary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -508,7 +530,7 @@ private fun CartItemCard(
 
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -521,7 +543,7 @@ private fun CartItemCard(
                     checked = selected,
                     onCheckedChange = onSelectedChange,
                     colors = CheckboxDefaults.colors(
-                        checkedColor = CartGreen,
+                        checkedColor = MaterialTheme.colorScheme.primary,
                         uncheckedColor = Color(0xFFBDBDBD)
                     )
                 )
@@ -530,7 +552,7 @@ private fun CartItemCard(
                     modifier = Modifier
                         .size(64.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(CartGreenLight),
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!item.imageUrl.isNullOrBlank()) {
@@ -546,7 +568,7 @@ private fun CartItemCard(
                         Icon(
                             Icons.Outlined.MedicalServices,
                             contentDescription = null,
-                            tint = CartGreen,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(32.dp)
                         )
                     }
@@ -559,20 +581,20 @@ private fun CartItemCard(
                         fontSize = 14.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        color = Color(0xFF1A1A1A)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         item.unit,
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         item.unitPrice.fmtVnd(),
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
-                        color = CartGreen
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 // Delete button
@@ -583,14 +605,14 @@ private fun CartItemCard(
                     Icon(
                         Icons.Filled.Delete,
                         contentDescription = "Xoa",
-                        tint = CartRed,
+                        tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
             Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = Color(0xFFF0F0F0))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(10.dp))
 
             Row(
@@ -601,7 +623,7 @@ private fun CartItemCard(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         "Tồn: ${item.stock}",
-                        color = CartGreen,
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -611,7 +633,7 @@ private fun CartItemCard(
                         horizontalArrangement = Arrangement.spacedBy(0.dp),
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFFF3F7F4))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         // Nút giảm
                         IconButton(
@@ -622,13 +644,13 @@ private fun CartItemCard(
                             Icon(
                                 Icons.Filled.Remove,
                                 contentDescription = "Giảm",
-                                tint = if (item.quantity > 1) CartGreen else Color(0xFFBDBDBD),
+                                tint = if (item.quantity > 1) MaterialTheme.colorScheme.primary else Color(0xFFBDBDBD),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         // Số lượng — bấm để nhập tay
                         Surface(
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.surface,
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier
                                 .defaultMinSize(minWidth = 42.dp)
@@ -645,7 +667,7 @@ private fun CartItemCard(
                                     textAlign = TextAlign.Center,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
-                                    color = if (quantityError) CartRed else Color(0xFF1A1A1A)
+                                    color = if (quantityError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier
                                     .width(42.dp)
@@ -664,7 +686,7 @@ private fun CartItemCard(
                             Icon(
                                 Icons.Filled.Add,
                                 contentDescription = "Tăng",
-                                tint = if (item.quantity < maxQuantity) CartGreen else Color(0xFFBDBDBD),
+                                tint = if (item.quantity < maxQuantity) MaterialTheme.colorScheme.primary else Color(0xFFBDBDBD),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -673,7 +695,7 @@ private fun CartItemCard(
                     if (canSaveQuantity) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = CartGreen,
+                            color = MaterialTheme.colorScheme.primary,
                             onClick = { onQuantityChange(draftQuantity!!) }
                         ) {
                             Text(
@@ -692,7 +714,7 @@ private fun CartItemCard(
                     item.totalPrice.fmtVnd(),
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 15.sp,
-                    color = CartGreen
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -704,7 +726,7 @@ private fun CartItemCard(
 private fun CartSummarySection(subtotal: Double, itemCount: Int) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -713,7 +735,7 @@ private fun CartSummarySection(subtotal: Double, itemCount: Int) {
                 "Tóm tắt đơn hàng",
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp,
-                color = Color(0xFF1A1A1A)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(12.dp))
 
@@ -721,19 +743,19 @@ private fun CartSummarySection(subtotal: Double, itemCount: Int) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("$itemCount sản phẩm", color = Color.Gray, fontSize = 13.sp)
-                Text(subtotal.fmtVnd(), fontSize = 13.sp, color = Color(0xFF1A1A1A))
+                Text("$itemCount sản phẩm", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                Text(subtotal.fmtVnd(), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
             }
             Spacer(Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Phí vận chuyển", color = Color.Gray, fontSize = 13.sp)
-                Text("Sẽ tính khi thanh toán", fontSize = 12.sp, color = Color.Gray)
+                Text("Phí vận chuyển", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                Text("Sẽ tính khi thanh toán", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = Color(0xFFF0F0F0))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(10.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -745,7 +767,7 @@ private fun CartSummarySection(subtotal: Double, itemCount: Int) {
                     subtotal.fmtVnd(),
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 16.sp,
-                    color = CartGreen
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -757,9 +779,9 @@ private fun CartSummarySection(subtotal: Double, itemCount: Int) {
 private fun CartLoadingState() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = CartGreen, strokeWidth = 3.dp)
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 3.dp)
             Spacer(Modifier.height(16.dp))
-            Text("Đang tải giỏ hàng...", color = Color.Gray, fontSize = 14.sp)
+            Text("Đang tải giỏ hàng...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
         }
     }
 }
@@ -783,19 +805,19 @@ private fun CartErrorState(message: String, onRetry: () -> Unit) {
                 "Không thể tải giỏ hàng",
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
-                color = Color(0xFF1A1A1A)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 message,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(20.dp))
             Button(
                 onClick = onRetry,
-                colors = ButtonDefaults.buttonColors(containerColor = CartGreen),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(50)
             ) {
                 Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(18.dp))
@@ -819,14 +841,14 @@ private fun CartEmptyState(onShop: () -> Unit) {
                     .size(120.dp)
                     .clip(CircleShape)
                     .background(
-                        Brush.radialGradient(listOf(CartGreenLight, Color(0xFFF5F7FA)))
+                        Brush.radialGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.background))
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Outlined.ShoppingCart,
                     contentDescription = null,
-                    tint = CartGreen,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(60.dp)
                 )
             }
@@ -835,12 +857,12 @@ private fun CartEmptyState(onShop: () -> Unit) {
                 "Giỏ hàng trống",
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
-                color = Color(0xFF1A1A1A)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 "Thêm vật tư y tế vào giỏ để tiếp tục mua sắm!",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
                 lineHeight = 20.sp
@@ -848,7 +870,7 @@ private fun CartEmptyState(onShop: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Button(
                 onClick = onShop,
-                colors = ButtonDefaults.buttonColors(containerColor = CartGreen),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(50),
                 contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp)
             ) {

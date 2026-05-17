@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.MedicalServices
 import androidx.compose.material.icons.outlined.RemoveRedEye
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -149,7 +150,7 @@ fun PromoBannerPager(
                         .padding(horizontal = 3.dp)
                         .size(if (isSelected) 20.dp else 6.dp, 6.dp)
                         .clip(CircleShape)
-                        .background(if (isSelected) Color(0xFF2E7D32) else Color(0xFFBBBBBB))
+                        .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
                 )
             }
         }
@@ -196,13 +197,13 @@ private fun PromoBannerCard(
                         text = item.title,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = if (item.imageUrl.isNullOrBlank()) Color(0xFF2E7D32) else Color.White
+                        color = if (item.imageUrl.isNullOrBlank()) MaterialTheme.colorScheme.primary else Color.White
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = item.subtitle,
                         fontSize = 13.sp,
-                        color = if (item.imageUrl.isNullOrBlank()) Color(0xFF444444) else Color.White.copy(alpha = 0.92f)
+                        color = if (item.imageUrl.isNullOrBlank()) MaterialTheme.colorScheme.onSurfaceVariant else Color.White.copy(alpha = 0.92f)
                     )
                 }
                 if (item.imageUrl.isNullOrBlank()) {

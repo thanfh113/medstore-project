@@ -1,7 +1,9 @@
 package com.example.nhathuoc.ui.screen.miniscreen
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -34,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.nhathuoc.PaymentReturnBus
 import com.example.nhathuoc.data.model.CartItemDto
 import com.example.nhathuoc.data.model.PaymentStatusDto
 import com.example.nhathuoc.data.model.UserAddress
@@ -110,15 +113,24 @@ fun CheckoutRealScreen(
         }
     }
 
+    // Collect deep link return from ZaloPay/MoMo native app (via nhathuoc://payment-return)
+    LaunchedEffect(activeOrderId) {
+        val orderId = activeOrderId ?: return@LaunchedEffect
+        PaymentReturnBus.events.collect {
+            viewModel.pollPaymentStatus(orderId, maxAttempts = 8)
+        }
+    }
+
     if (activeGatewayUrl != null && activeOrderId != null) {
+        val capturedOrderId = activeOrderId!!
         CheckoutGatewayWebView(
             title = paymentTitleFor(state.paymentMethod),
             url = activeGatewayUrl!!,
-            orderId = activeOrderId!!,
+            orderId = capturedOrderId,
             paymentStatus = state.paymentStatus,
             onClose = { activeGatewayUrl = null },
-            onCheckStatus = { viewModel.pollPaymentStatus(activeOrderId!!, maxAttempts = 8) },
-            onReturnUrlDetected = { viewModel.pollPaymentStatus(activeOrderId!!, maxAttempts = 8) }
+            onCheckStatus = { viewModel.pollPaymentStatus(capturedOrderId, maxAttempts = 8) },
+            onReturnUrlDetected = { viewModel.pollPaymentStatus(capturedOrderId, maxAttempts = 8) }
         )
         return
     }
@@ -126,49 +138,11 @@ fun CheckoutRealScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            Surface(shadowElevation = 2.dp, color = CardBg) {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "Xác nhận đơn hàng",
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            if (state.totalItems > 0) {
-                                Text(
-                                    "${state.totalItems} sản phẩm",
-                                    fontSize = 12.sp,
-                                    color = TextSecondary
-                                )
-                            }
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { navController.popBackStack() }) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(BgGray),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Quay lại",
-                                    tint = GreenTop,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CardBg,
-                        titleContentColor = Color(0xFF1B2B1F),
-                        navigationIconContentColor = Color(0xFF1B2B1F)
-                    )
-                )
-            }
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = "Xác nhận đơn hàng",
+                subtitle = if (state.totalItems > 0) "${state.totalItems} sản phẩm" else null,
+                onBack = { navController.popBackStack() }
+            )
         },
         snackbarHost = { SnackbarHost(hostState = snackbars) },
         bottomBar = {
@@ -447,10 +421,14 @@ fun CheckoutRealScreen(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SummaryRow("Tạm tính", state.subtotal)
-                        SummaryRow("Giảm giá", -state.discount)
+                        if (state.discount > 0)
+                            SummaryRow("Giảm giá", -state.discount)
                         if (state.pointsToUse > 0)
                             SummaryRow("Điểm thưởng", -state.pointsToUse.toDouble())
-                        SummaryRow("Phí vận chuyển", state.shipping)
+                        SummaryRow(
+                            "Phí vận chuyển",
+                            valueText = if (state.shipping == 0.0) "Miễn phí" else formatCurrency(state.shipping)
+                        )
                         SummaryRow("Thuế VAT", state.tax)
                         Spacer(Modifier.height(4.dp))
                         HorizontalDivider(color = DividerColor)
@@ -596,7 +574,7 @@ private fun SelectedAddressCard(address: UserAddress) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    address.recipientName,
+                    address.recipientName.orEmpty(),
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = TextPrimary
@@ -614,11 +592,12 @@ private fun SelectedAddressCard(address: UserAddress) {
                 }
             }
             Spacer(Modifier.height(3.dp))
-            Text(address.recipientPhone, fontSize = 13.sp, color = TextSecondary)
+            Text(address.recipientPhone.orEmpty(), fontSize = 13.sp, color = TextSecondary)
             Spacer(Modifier.height(4.dp))
+            val addrStreet = address.fullAddress?.takeIf(String::isNotBlank) ?: address.address
             Text(
-                text = listOf(address.fullAddress, address.ward, address.district, address.province)
-                    .filter { it.isNotBlank() }
+                text = listOf(addrStreet, address.ward, address.district, address.province)
+                    .mapNotNull { it?.takeIf(String::isNotBlank) }
                     .joinToString(", "),
                 color = Color(0xFF4B5563),
                 fontSize = 13.sp,
@@ -740,6 +719,11 @@ private fun CartItemRow(item: CartItemDto) {
 
 @Composable
 private fun SummaryRow(label: String, value: Double, emphasize: Boolean = false) {
+    SummaryRow(label = label, valueText = formatCurrency(value), emphasize = emphasize)
+}
+
+@Composable
+private fun SummaryRow(label: String, valueText: String, emphasize: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -752,7 +736,7 @@ private fun SummaryRow(label: String, value: Double, emphasize: Boolean = false)
             color = if (emphasize) TextPrimary else TextSecondary
         )
         Text(
-            text = formatCurrency(value),
+            text = valueText,
             fontSize = if (emphasize) 18.sp else 14.sp,
             fontWeight = if (emphasize) FontWeight.ExtraBold else FontWeight.SemiBold,
             color = if (emphasize) GreenTop else Color(0xFF111827)
@@ -774,38 +758,15 @@ private fun CheckoutGatewayWebView(
     BackHandler(onBack = onClose)
     Scaffold(
         topBar = {
-            Surface(shadowElevation = 2.dp, color = CardBg) {
-                CenterAlignedTopAppBar(
-                    title = { Text(title, fontWeight = FontWeight.Bold, color = TextPrimary) },
-                    navigationIcon = {
-                        IconButton(onClick = onClose) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(BgGray),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    tint = GreenTop,
-                                    modifier = Modifier.size(20.dp),
-                                    contentDescription = "Đóng"
-                                )
-                            }
-                        }
-                    },
-                    actions = {
-                        TextButton(onClick = onCheckStatus) {
-                            Text("Kiểm tra", color = GreenTop, fontWeight = FontWeight.Bold)
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CardBg,
-                        titleContentColor = Color(0xFF1B2B1F),
-                        navigationIconContentColor = Color(0xFF1B2B1F)
-                    )
-                )
-            }
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = title,
+                onBack = onClose,
+                trailingContent = {
+                    TextButton(onClick = onCheckStatus) {
+                        Text("Kiểm tra", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
         },
         containerColor = CardBg
     ) { innerPadding ->
@@ -879,21 +840,45 @@ private fun GatewayWebView(
                 settings.domStorageEnabled = true
                 webChromeClient = WebChromeClient()
                 webViewClient = object : WebViewClient() {
+                    private fun handleUrl(targetUrl: String?): Boolean {
+                        if (targetUrl == null) return false
+                        // Payment return deep links
+                        if (targetUrl.startsWith("nhathuoc://payment-return") ||
+                            targetUrl.startsWith("app://payment/callback")) {
+                            onReturnUrlDetected()
+                            return true
+                        }
+                        // Native payment app schemes (zalopay://, momo://, intent://)
+                        val scheme = Uri.parse(targetUrl).scheme?.lowercase() ?: return false
+                        if (scheme == "zalopay" || scheme == "momo" || scheme == "intent") {
+                            return try {
+                                val intent = if (scheme == "intent")
+                                    Intent.parseUri(targetUrl, Intent.URI_INTENT_SCHEME)
+                                else
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl))
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(intent)
+                                true
+                            } catch (_: Exception) { false }
+                        }
+                        return false
+                    }
+
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                        if (request?.url?.toString()?.startsWith("app://payment/callback") == true) {
-                            onReturnUrlDetected(); return true
-                        }
-                        return false
+                        return handleUrl(request?.url?.toString())
                     }
+
+                    @Deprecated("Needed for Android < 21")
                     override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                        if (url?.startsWith("app://payment/callback") == true) {
-                            onReturnUrlDetected(); return true
-                        }
-                        return false
+                        return handleUrl(url)
                     }
+
                     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                         super.onPageStarted(view, url, favicon)
-                        if (url?.startsWith("app://payment/callback") == true) onReturnUrlDetected()
+                        if (url?.startsWith("nhathuoc://payment-return") == true ||
+                            url?.startsWith("app://payment/callback") == true) {
+                            onReturnUrlDetected()
+                        }
                     }
                 }
                 loadUrl(url)

@@ -14,6 +14,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class AiConversationsState(
+    val conversations: List<AiConversationDto> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
+
 data class AiChatUiState(
     val conversationId: String? = null,
     val messages: List<AiMessageDto> = emptyList(),
@@ -21,6 +27,7 @@ data class AiChatUiState(
     val isLoading: Boolean = false,
     val isSending: Boolean = false,
     val isEscalated: Boolean = false,
+    val isClosed: Boolean = false,
     val humanSessionId: String? = null,
     val error: String? = null
 )
@@ -32,6 +39,23 @@ class AiChatViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(AiChatUiState())
     val uiState: StateFlow<AiChatUiState> = _uiState.asStateFlow()
+
+    private val _conversationsState = MutableStateFlow(AiConversationsState())
+    val conversationsState: StateFlow<AiConversationsState> = _conversationsState.asStateFlow()
+
+    fun loadConversations() {
+        viewModelScope.launch {
+            _conversationsState.update { it.copy(isLoading = true, error = null) }
+            when (val result = repository.getConversations()) {
+                is NetworkResult.Success ->
+                    _conversationsState.update { it.copy(isLoading = false, conversations = result.data.data) }
+                is NetworkResult.Error ->
+                    _conversationsState.update { it.copy(isLoading = false, error = result.message) }
+                is NetworkResult.Exception ->
+                    _conversationsState.update { it.copy(isLoading = false, error = result.e.localizedMessage ?: "Lỗi kết nối") }
+            }
+        }
+    }
 
     fun startConversation(productId: String? = null) {
         if (_uiState.value.conversationId != null) return
@@ -71,7 +95,8 @@ class AiChatViewModel @Inject constructor(
                             conversationId = conv.id,
                             messages = conv.messages,
                             isEscalated = conv.escalatedToConsultant,
-                            humanSessionId = conv.chatSessionId
+                            humanSessionId = conv.chatSessionId,
+                            isClosed = conv.status.equals("CLOSED", ignoreCase = true)
                         )
                     }
                 }
@@ -89,7 +114,7 @@ class AiChatViewModel @Inject constructor(
 
     fun sendMessage(text: String = _uiState.value.inputText.trim()) {
         val convId = _uiState.value.conversationId ?: return
-        if (text.isBlank() || _uiState.value.isSending || _uiState.value.isEscalated) return
+        if (text.isBlank() || _uiState.value.isSending || _uiState.value.isEscalated || _uiState.value.isClosed) return
 
         val userMsg = AiMessageDto(role = "user", text = text)
         _uiState.update {
@@ -149,6 +174,25 @@ class AiChatViewModel @Inject constructor(
                 is NetworkResult.Exception ->
                     _uiState.update { it.copy(isSending = false, error = result.e.localizedMessage ?: "Không thể kết nối chuyên viên") }
             }
+        }
+    }
+
+    fun closeCurrentConversation() {
+        val convId = _uiState.value.conversationId ?: run {
+            _uiState.update { it.copy(isClosed = true) }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSending = true, error = null) }
+            when (val result = repository.closeConversation(convId)) {
+                is NetworkResult.Success ->
+                    _uiState.update { it.copy(isSending = false, isClosed = true) }
+                is NetworkResult.Error ->
+                    _uiState.update { it.copy(isSending = false, isClosed = true, error = result.message) }
+                is NetworkResult.Exception ->
+                    _uiState.update { it.copy(isSending = false, isClosed = true) }
+            }
+            _conversationsState.update { it.copy(conversations = emptyList()) }
         }
     }
 

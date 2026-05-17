@@ -131,7 +131,7 @@ class ProductRepository @Inject constructor(
     }
 
     private fun parseErrorMessage(errorBody: String?): String {
-        val fallback = "Co loi xay ra, vui long thu lai"
+        val fallback = "Có lỗi xảy ra, vui lòng thử lại"
         val body = errorBody?.trim().orEmpty()
         if (body.isBlank()) return fallback
 

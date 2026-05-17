@@ -352,15 +352,23 @@ class CheckoutViewModel @Inject constructor(
             _checkoutState.update { it.copy(isLoading = true, error = null) }
             when (val result = addressRepository.addAddress(request)) {
                 is NetworkResult.Success -> {
-                    val address = result.data.address
-                    _checkoutState.update { state ->
-                        state.copy(
-                            addresses = listOf(address) + state.addresses.filterNot { it.id == address.id },
-                            selectedAddressId = address.id,
-                            isLoading = false
-                        )
+                    val newId = result.data.data?.addressId
+                    when (val refreshed = addressRepository.getUserAddresses()) {
+                        is NetworkResult.Success -> {
+                            _checkoutState.update { state ->
+                                val addresses = refreshed.data
+                                state.copy(
+                                    addresses = addresses,
+                                    selectedAddressId = newId
+                                        ?: addresses.firstOrNull { it.isDefault }?.id
+                                        ?: addresses.firstOrNull()?.id,
+                                    isLoading = false
+                                )
+                            }
+                            recalculateTotals()
+                        }
+                        else -> _checkoutState.update { it.copy(isLoading = false) }
                     }
-                    recalculateTotals()
                 }
                 is NetworkResult.Error -> {
                     _checkoutState.update { it.copy(isLoading = false, error = result.message) }
@@ -382,15 +390,19 @@ class CheckoutViewModel @Inject constructor(
             _checkoutState.update { it.copy(isLoading = true, error = null) }
             when (val result = addressRepository.updateAddress(addressId, request)) {
                 is NetworkResult.Success -> {
-                    val address = result.data.address
-                    _checkoutState.update { state ->
-                        state.copy(
-                            addresses = state.addresses.map { if (it.id == address.id) address else it },
-                            selectedAddressId = state.selectedAddressId ?: address.id,
-                            isLoading = false
-                        )
+                    when (val refreshed = addressRepository.getUserAddresses()) {
+                        is NetworkResult.Success -> {
+                            _checkoutState.update { state ->
+                                state.copy(
+                                    addresses = refreshed.data,
+                                    selectedAddressId = state.selectedAddressId ?: addressId,
+                                    isLoading = false
+                                )
+                            }
+                            recalculateTotals()
+                        }
+                        else -> _checkoutState.update { it.copy(isLoading = false) }
                     }
-                    recalculateTotals()
                 }
                 is NetworkResult.Error -> {
                     _checkoutState.update { it.copy(isLoading = false, error = result.message) }
@@ -540,7 +552,8 @@ class CheckoutViewModel @Inject constructor(
                 requestedPoints.coerceAtMost(maxUsableRewardPoints)
             }
             val pointsValue = appliedPoints.toDouble()
-            val shipping = estimateShippingFee(state, state.subtotal)
+            val isFreeship = selectedVoucher?.discountType?.uppercase() == "FREESHIP"
+            val shipping = if (isFreeship) 0.0 else estimateShippingFee(state, state.subtotal)
             val taxableAmount = (state.subtotal - combinedDiscount - pointsValue).coerceAtLeast(0.0)
             val tax = taxableAmount * 0.10
             state.copy(
@@ -793,6 +806,7 @@ class CheckoutViewModel @Inject constructor(
 
     private fun estimateVoucherDiscount(voucher: RewardVoucherDto, subtotal: Double): Double {
         if (subtotal <= 0.0) return 0.0
+        if (voucher.discountType.uppercase() == "FREESHIP") return 0.0
         val minOrderTotal = voucher.minOrderTotal ?: 0.0
         if (subtotal < minOrderTotal) return 0.0
 

@@ -110,7 +110,7 @@ class ProductDetailViewModel @Inject constructor(
             _reviewSubmitState.value = UiState.Loading
             _reviewFeedbackMessage.value = null
             val attachments = if (attachmentUris.isNotEmpty()) {
-                when (val uploadResult = fileUploadRepository.uploadEvidenceFiles(attachmentUris)) {
+                when (val uploadResult = fileUploadRepository.uploadReviewImages(attachmentUris)) {
                     is NetworkResult.Success -> uploadResult.data.mapIndexed { index, file ->
                         ReviewAttachmentInput(
                             fileUrl = file.fileUrl,
@@ -124,7 +124,7 @@ class ProductDetailViewModel @Inject constructor(
                         return@launch
                     }
                     is NetworkResult.Exception -> {
-                        _reviewSubmitState.value = UiState.Error(uploadResult.e.message ?: "Khong the upload file")
+                        _reviewSubmitState.value = UiState.Error(uploadResult.e.message ?: "Không thể upload file")
                         return@launch
                     }
                 }

@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nhathuoc.data.model.*
+import com.example.nhathuoc.data.model.toUserMessage
 import com.example.nhathuoc.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -23,6 +24,9 @@ class AuthViewModel @Inject constructor(
     private val _logoutState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val logoutState: StateFlow<UiState<String>> = _logoutState.asStateFlow()
 
+    private val _changePasswordState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val changePasswordState: StateFlow<UiState<String>> = _changePasswordState.asStateFlow()
+
     private val _userState = MutableStateFlow<UiState<UserResponse>>(UiState.Idle)
     val userState: StateFlow<UiState<UserResponse>> = _userState.asStateFlow()
 
@@ -39,7 +43,7 @@ class AuthViewModel @Inject constructor(
             when (val result = authRepository.register(fullName, phone, email, password)) {
                 is NetworkResult.Success -> _registerState.value = UiState.Success(result.data)
                 is NetworkResult.Error -> _registerState.value = UiState.Error(result.message)
-                is NetworkResult.Exception -> _registerState.value = UiState.Error(result.e.message ?: "Co loi xay ra")
+                is NetworkResult.Exception -> _registerState.value = UiState.Error(result.e.toUserMessage())
             }
         }
     }
@@ -51,7 +55,7 @@ class AuthViewModel @Inject constructor(
             when (val result = authRepository.login(phone, password)) {
                 is NetworkResult.Success -> _loginState.value = UiState.Success(result.data)
                 is NetworkResult.Error -> _loginState.value = UiState.Error(result.message)
-                is NetworkResult.Exception -> _loginState.value = UiState.Error(result.e.message ?: "Co loi xay ra")
+                is NetworkResult.Exception -> _loginState.value = UiState.Error(result.e.toUserMessage())
             }
         }
     }
@@ -64,7 +68,7 @@ class AuthViewModel @Inject constructor(
             when (val result = authRepository.logout()) {
                 is NetworkResult.Success -> _logoutState.value = UiState.Success(result.data)
                 is NetworkResult.Error -> _logoutState.value = UiState.Error(result.message)
-                is NetworkResult.Exception -> _logoutState.value = UiState.Error(result.e.message ?: "Co loi xay ra")
+                is NetworkResult.Exception -> _logoutState.value = UiState.Error(result.e.toUserMessage())
             }
         }
     }
@@ -75,7 +79,7 @@ class AuthViewModel @Inject constructor(
             when (val result = authRepository.getCurrentUser()) {
                 is NetworkResult.Success -> _userState.value = UiState.Success(result.data)
                 is NetworkResult.Error -> _userState.value = UiState.Error(result.message)
-                is NetworkResult.Exception -> _userState.value = UiState.Error(result.e.message ?: "Co loi xay ra")
+                is NetworkResult.Exception -> _userState.value = UiState.Error(result.e.toUserMessage())
             }
         }
     }
@@ -86,7 +90,18 @@ class AuthViewModel @Inject constructor(
             when (val result = authRepository.updateProfile(fullName, email)) {
                 is NetworkResult.Success -> _userState.value = UiState.Success(result.data.user)
                 is NetworkResult.Error -> _userState.value = UiState.Error(result.message)
-                is NetworkResult.Exception -> _userState.value = UiState.Error(result.e.message ?: "Co loi xay ra")
+                is NetworkResult.Exception -> _userState.value = UiState.Error(result.e.toUserMessage())
+            }
+        }
+    }
+
+    fun changePassword(currentPassword: String, newPassword: String) {
+        viewModelScope.launch {
+            _changePasswordState.value = UiState.Loading
+            when (val result = authRepository.changePassword(currentPassword, newPassword)) {
+                is NetworkResult.Success -> _changePasswordState.value = UiState.Success(result.data)
+                is NetworkResult.Error -> _changePasswordState.value = UiState.Error(result.message)
+                is NetworkResult.Exception -> _changePasswordState.value = UiState.Error(result.e.toUserMessage())
             }
         }
     }
@@ -95,6 +110,7 @@ class AuthViewModel @Inject constructor(
     fun clearRegisterState() { _registerState.value = UiState.Idle }
     fun clearLogoutState() { _logoutState.value = UiState.Idle }
     fun clearUserState() { _userState.value = UiState.Idle }
+    fun clearChangePasswordState() { _changePasswordState.value = UiState.Idle }
 
     fun isValidPhone(phone: String): Boolean = phone.matches(Regex("^0[0-9]{9}$"))
     fun isValidEmail(email: String): Boolean =

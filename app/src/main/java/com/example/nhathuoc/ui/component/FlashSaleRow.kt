@@ -114,7 +114,7 @@ fun FlashSaleRow(
 
         Surface(
             shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.surface,
             shadowElevation = 2.dp
         ) {
             if (isLoading) {
@@ -131,7 +131,7 @@ fun FlashSaleRow(
                                 .width(160.dp)
                                 .height(240.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFEEEEEE))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                         )
                     }
                 }

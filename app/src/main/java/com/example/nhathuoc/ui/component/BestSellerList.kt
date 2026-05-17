@@ -81,7 +81,7 @@ fun BestSellerList(
 
         Surface(
             shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.surface,
             shadowElevation = 2.dp
         ) {
             if (isLoading) {
@@ -98,7 +98,7 @@ fun BestSellerList(
                                         .weight(1f)
                                         .height(200.dp)
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(Color(0xFFEEEEEE))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
                                 )
                             }
                         }
@@ -149,7 +149,7 @@ fun BestSellerList(
                     ) {
                         Text(
                             "Xem tất cả",
-                            color = Color(0xFFE53935),
+                            color = MaterialTheme.colorScheme.primary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold
                         )

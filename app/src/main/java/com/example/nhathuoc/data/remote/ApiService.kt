@@ -27,6 +27,9 @@ interface ApiService {
     @POST(ApiConstants.AUTH_LOGOUT)
     suspend fun logout(): Response<LogoutResponse>
 
+    @POST(ApiConstants.AUTH_CHANGE_PASSWORD)
+    suspend fun changePassword(@Body request: ChangePasswordRequest): Response<MessageResponse>
+
     @GET(ApiConstants.USER_ME)
     suspend fun getMe(): Response<UserResponse>
 
@@ -34,7 +37,7 @@ interface ApiService {
     suspend fun updateUser(@Body request: UpdateUserRequest): Response<UpdateUserResponse>
 
     @GET(ApiConstants.USER_ADDRESSES)
-    suspend fun getUserAddresses(): Response<List<UserAddress>>
+    suspend fun getUserAddresses(): Response<AddressListResponse>
 
     @POST(ApiConstants.USER_ADDRESS_ADD)
     suspend fun addAddress(@Body request: AddAddressRequest): Response<AddAddressResponse>
@@ -160,6 +163,17 @@ interface ApiService {
         @Body request: ComplaintMessageRequest
     ): Response<DataMessageResponse<ComplaintMessageDto>>
 
+    @POST(ApiConstants.COMPLAINT_ATTACHMENTS)
+    suspend fun addComplaintAttachments(
+        @Path("id") complaintId: String,
+        @Body request: AddComplaintAttachmentsRequest
+    ): Response<DataMessageResponse<ComplaintDto>>
+
+    @POST(ApiConstants.COMPLAINT_REQUEST_REFUND)
+    suspend fun requestRefundForComplaint(
+        @Path("id") complaintId: String
+    ): Response<DataMessageResponse<ComplaintDto>>
+
     @GET(ApiConstants.REWARD_ACCOUNT)
     suspend fun getRewardAccount(): Response<DataMessageResponse<RewardAccountDto>>
 
@@ -248,6 +262,9 @@ interface ApiService {
 
     @POST(ApiConstants.AI_CHAT_ESCALATE)
     suspend fun escalateAiToHuman(@Path("conversationId") conversationId: String): Response<DataMessageResponse<AiSendMessageResponse>>
+
+    @POST(ApiConstants.AI_CHAT_CLOSE)
+    suspend fun closeAiConversation(@Path("conversationId") conversationId: String): Response<DataMessageResponse<AiConversationDto>>
 
     @GET(ApiConstants.CHAT_SESSIONS)
     suspend fun getChatSessions(): Response<DataMessageResponse<List<ChatSessionDto>>>

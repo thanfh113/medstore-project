@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -64,8 +65,9 @@ import com.example.nhathuoc.data.remote.BackendUrlResolver
 import com.example.nhathuoc.viewmodel.ChatViewModel
 import kotlinx.serialization.json.Json
 
-private val GreenTop = Color(0xFF2E7D32)
-private val GreenLight = Color(0xFF66BB6A)
+// Kept only for gradient header — white text/icons on gradient remain untouched
+private val ChatGreenTop = Color(0xFF2E7D32)
+private val ChatGreenLight = Color(0xFF66BB6A)
 private val ChatJson = Json { ignoreUnknownKeys = true }
 
 @Composable
@@ -100,7 +102,7 @@ fun ChatScreen(
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.messages.lastIndex)
+            listState.animateScrollToItem(0)
         }
     }
 
@@ -112,45 +114,43 @@ fun ChatScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Brush.horizontalGradient(listOf(GreenTop, GreenLight)))
-                    .padding(top = 12.dp, start = 4.dp, end = 12.dp, bottom = 12.dp)
+                    .background(Brush.horizontalGradient(listOf(ChatGreenTop, ChatGreenLight)))
+                    .statusBarsPadding()
+                    .height(64.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 28.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.align(Alignment.CenterStart)
                 ) {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                            contentDescription = "Quay lại",
-                            tint = Color.White
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Tư vấn vật tư y tế",
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 18.sp
-                        )
-                        Text(
-                            text = when (uiState.session?.status) {
-                                "ASSIGNED" -> consultantSubtitle ?: "Nhân viên đang hỗ trợ"
-                                "RESOLVED" -> "Phiên tư vấn đã hoàn tất"
-                                else -> "Sẵn sàng tư vấn cho bạn"
-                            },
-                            color = Color.White.copy(alpha = 0.92f),
-                            fontSize = 13.sp
-                        )
-                    }
+                    Icon(Icons.AutoMirrored.Filled.ArrowBackIos, contentDescription = "Quay lại", tint = Color.White)
+                }
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 56.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Tư vấn vật tư y tế",
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        text = when (uiState.session?.status) {
+                            "ASSIGNED" -> consultantSubtitle ?: "Nhân viên đang hỗ trợ"
+                            "RESOLVED" -> "Phiên tư vấn đã hoàn tất"
+                            else -> "Sẵn sàng tư vấn cho bạn"
+                        },
+                        color = Color.White.copy(alpha = 0.92f),
+                        fontSize = 11.sp
+                    )
                 }
             }
         },
@@ -159,7 +159,7 @@ fun ChatScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White)
+                        .background(MaterialTheme.colorScheme.surface)
                         .navigationBarsPadding()
                         .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
@@ -178,7 +178,7 @@ fun ChatScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Send,
                                     contentDescription = "Gửi",
-                                    tint = if (uiState.inputText.isNotBlank() && !isResolved) GreenTop else Color.Gray
+                                    tint = if (uiState.inputText.isNotBlank() && !isResolved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         },
@@ -218,7 +218,7 @@ fun ChatScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = GreenTop)
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(16.dp))
                             Text("Đang tải cuộc trò chuyện...")
                         }
@@ -232,11 +232,12 @@ fun ChatScreen(
                 else -> {
                     LazyColumn(
                         state = listState,
+                        reverseLayout = true,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(uiState.messages, key = { it.id }) { message ->
+                        items(uiState.messages.reversed(), key = { it.id }) { message ->
                             ChatMessageBubble(
                                 message = message,
                                 isCurrentUser = message.senderId == uiState.currentUserId,
@@ -264,9 +265,9 @@ private fun ProductPendingChip() {
             )
         },
         colors = AssistChipDefaults.assistChipColors(
-            disabledContainerColor = Color(0xFFE8F5E9),
-            disabledLabelColor = GreenTop,
-            disabledLeadingIconContentColor = GreenTop
+            disabledContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            disabledLabelColor = MaterialTheme.colorScheme.primary,
+            disabledLeadingIconContentColor = MaterialTheme.colorScheme.primary
         )
     )
 }
@@ -291,7 +292,7 @@ private fun ChatContextCards(
                         session.productId?.let(onProductClick)
                     },
                 shape = RoundedCornerShape(18.dp),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 1.dp
             ) {
                 Row(
@@ -307,10 +308,10 @@ private fun ChatContextCards(
                         modifier = Modifier.size(70.dp)
                     )
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Sản phẩm đang tư vấn", fontSize = 12.sp, color = Color(0xFF5F6368))
+                        Text("Sản phẩm đang tư vấn", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(productName, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         session.productPrice?.let {
-                            Text("${formatMoney(it)} đ / ${session.productUnit ?: "sản phẩm"}", fontSize = 12.sp, color = GreenTop)
+                            Text("${formatMoney(it)} đ / ${session.productUnit ?: "sản phẩm"}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -318,25 +319,25 @@ private fun ChatContextCards(
         }
 
         session.consultantName?.takeIf { it.isNotBlank() }?.let { consultantName ->
-            Surface(shape = RoundedCornerShape(18.dp), color = Color(0xFFE8F5E9), tonalElevation = 1.dp) {
+            Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer, tonalElevation = 1.dp) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text("Nhân viên đang tư vấn", fontSize = 12.sp, color = Color(0xFF5F6368))
-                    Text(consultantName, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = GreenTop)
+                    Text("Nhân viên đang tư vấn", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(consultantName, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     session.consultantQualificationTitle?.takeIf { it.isNotBlank() }?.let {
                         Text(it, fontSize = 13.sp)
                     }
                     session.consultantQualificationInstitution?.takeIf { it.isNotBlank() }?.let {
-                        Text("Đơn vị cấp: $it", fontSize = 12.sp, color = Color(0xFF5F6368))
+                        Text("Đơn vị cấp: $it", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text(
                         if (session.consultantVerified == true) "Hồ sơ chuyên môn đã xác minh" else "Hồ sơ chuyên môn chưa xác minh",
                         fontSize = 12.sp,
-                        color = if (session.consultantVerified == true) GreenTop else Color(0xFFE65100)
+                        color = if (session.consultantVerified == true) MaterialTheme.colorScheme.primary else Color(0xFFE65100)
                     )
                     session.consultantQualificationDocumentUrl?.takeIf { it.isNotBlank() }?.let { url ->
                         AssistChip(
@@ -364,7 +365,7 @@ private fun EmptyChatState() {
     ) {
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.surface,
             tonalElevation = 1.dp
         ) {
             Column(
@@ -375,7 +376,7 @@ private fun EmptyChatState() {
                 Box(
                     modifier = Modifier
                         .size(52.dp)
-                        .background(GreenTop, CircleShape),
+                        .background(MaterialTheme.colorScheme.primary, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -392,7 +393,7 @@ private fun EmptyChatState() {
                 Text(
                     text = "Hãy nhập câu hỏi để được tư vấn về vật tư y tế, cách sử dụng hoặc lựa chọn sản phẩm phù hợp.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF5F6368),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
             }
@@ -425,7 +426,7 @@ private fun ChatMessageBubble(
                 modifier = Modifier
                     .padding(end = 8.dp)
                     .size(34.dp)
-                    .background(GreenTop, CircleShape),
+                    .background(MaterialTheme.colorScheme.primary, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -444,7 +445,7 @@ private fun ChatMessageBubble(
                 bottomStart = 18.dp,
                 bottomEnd = 18.dp
             ),
-            color = if (isCurrentUser) GreenTop else Color.White,
+            color = if (isCurrentUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
             tonalElevation = 1.dp,
             modifier = Modifier.fillMaxWidth(0.8f)
         ) {
@@ -455,7 +456,7 @@ private fun ChatMessageBubble(
                 if (!isCurrentUser && !message.senderName.isNullOrBlank()) {
                     Text(
                         text = "${chatRoleLabel(message.senderRole)} • ${message.senderName}",
-                        color = GreenTop,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp
                     )
@@ -471,7 +472,7 @@ private fun ChatMessageBubble(
                 Text(
                     text = message.content?.takeIf { it.isNotBlank() }
                         ?: "Tin nhắn ${message.type.lowercase()}",
-                    color = if (isCurrentUser) Color.White else Color(0xFF1A1A1A),
+                    color = if (isCurrentUser) Color.White else MaterialTheme.colorScheme.onSurface,
                     fontSize = 14.sp,
                         lineHeight = 20.sp
                     )
@@ -479,7 +480,7 @@ private fun ChatMessageBubble(
 
                 Text(
                     text = message.createdAt.replace('T', ' ').take(16),
-                    color = if (isCurrentUser) Color.White.copy(alpha = 0.72f) else Color(0xFF8C9196),
+                    color = if (isCurrentUser) Color.White.copy(alpha = 0.72f) else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp
                 )
             }
@@ -496,7 +497,7 @@ private fun ChatProductRecommendationCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 1.dp
     ) {
@@ -513,13 +514,13 @@ private fun ChatProductRecommendationCard(
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     text = "Sản phẩm được gợi ý",
-                    color = GreenTop,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 12.sp
                 )
                 Text(
                     text = recommendation.productName,
-                    color = Color(0xFF1A1A1A),
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     maxLines = 2,
@@ -527,14 +528,14 @@ private fun ChatProductRecommendationCard(
                 )
                 Text(
                     text = "${formatMoney(recommendation.price)} đ / ${recommendation.productUnit ?: "sản phẩm"}",
-                    color = GreenTop,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp
                 )
                 recommendation.reason.takeIf { it.isNotBlank() }?.let {
                     Text(
                         text = it,
-                        color = Color(0xFF5F6368),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -542,7 +543,7 @@ private fun ChatProductRecommendationCard(
                 }
                 Text(
                     text = "Bấm để xem chi tiết và đặt hàng",
-                    color = GreenTop,
+                    color = MaterialTheme.colorScheme.primary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -559,7 +560,7 @@ private fun ProductThumb(
 ) {
     Surface(
         modifier = modifier,
-        color = Color(0xFFE8F5E9),
+        color = MaterialTheme.colorScheme.primaryContainer,
         shape = RoundedCornerShape(14.dp)
     ) {
         if (!imageUrl.isNullOrBlank()) {
@@ -575,7 +576,7 @@ private fun ProductThumb(
                 Icon(
                     imageVector = Icons.Outlined.HealthAndSafety,
                     contentDescription = null,
-                    tint = GreenTop,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(28.dp)
                 )
             }

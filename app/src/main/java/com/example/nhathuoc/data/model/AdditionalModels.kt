@@ -205,6 +205,7 @@ data class AiConversationDto(
     val status: String,
     val escalatedToConsultant: Boolean,
     val chatSessionId: String? = null,
+    val createdAt: String = "",
     val messages: List<AiMessageDto> = emptyList()
 )
 

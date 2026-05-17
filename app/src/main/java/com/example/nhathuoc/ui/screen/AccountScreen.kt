@@ -31,7 +31,6 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.nhathuoc.data.local.SessionManager
 import com.example.nhathuoc.data.model.UiState
-import com.example.nhathuoc.ui.theme.BgColor
 import com.example.nhathuoc.ui.theme.GoldColor
 import com.example.nhathuoc.ui.theme.GreenLight
 import com.example.nhathuoc.ui.theme.GreenTop
@@ -56,6 +55,7 @@ private val orderStatuses = listOf(
 private val accountMenuItems = listOf(
     MenuItem(Icons.Outlined.QrCode2,         "Mã QR của tôi"),
     MenuItem(Icons.Outlined.AccountCircle,   "Thông tin cá nhân"),
+    MenuItem(Icons.Outlined.Lock,            "Đổi mật khẩu"),
     MenuItem(Icons.Outlined.LocationOn,      "Quản lý sổ địa chỉ"),
     MenuItem(Icons.Outlined.CreditCard,      "Phương thức thanh toán"),
     MenuItem(Icons.Outlined.SupportAgent,    "Khiếu nại của tôi"),
@@ -114,7 +114,7 @@ private fun LoginPromptScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgColor)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         // Header gradient
         Box(
@@ -152,14 +152,14 @@ private fun LoginPromptScreen(navController: NavController) {
                 "Đăng nhập để trải nghiệm đầy đủ",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1A1A1A),
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 "Quản lý đơn hàng, theo dõi điểm thưởng\nvà nhiều tiện ích khác",
                 fontSize = 14.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 lineHeight = 20.sp
             )
@@ -168,10 +168,10 @@ private fun LoginPromptScreen(navController: NavController) {
             Button(
                 onClick = { navController.navigate("LoginScreen") },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(24.dp)
             ) {
-                Text("Đăng nhập", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("Đăng nhập", color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
 
             Spacer(Modifier.height(12.dp))
@@ -179,10 +179,10 @@ private fun LoginPromptScreen(navController: NavController) {
             OutlinedButton(
                 onClick = { navController.navigate("RegisterScreen") },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, GreenTop),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(24.dp)
             ) {
-                Text("Đăng ký tài khoản", color = GreenTop, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("Đăng ký tài khoản", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -272,7 +272,7 @@ private fun AuthenticatedAccountContent(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .background(BgColor)
+                .background(MaterialTheme.colorScheme.background)
         ) {
 
             // ── Đơn của tôi ─────────────────────────────────────────
@@ -284,7 +284,7 @@ private fun AuthenticatedAccountContent(
             )
             Spacer(Modifier.height(6.dp))
             Surface(
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth()
             ) {
@@ -322,7 +322,7 @@ private fun AuthenticatedAccountContent(
             // ── Đăng xuất ────────────────────────────────────────────
             Spacer(Modifier.height(20.dp))
             Surface(
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth()
             ) {
@@ -338,9 +338,9 @@ private fun AuthenticatedAccountContent(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Outlined.Logout, null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Outlined.Logout, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Đăng xuất", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFE53935))
+                    Text("Đăng xuất", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
                 }
             }
 
@@ -386,12 +386,12 @@ private fun SectionLabel(title: String, action: String? = null, onActionClick: (
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, fontSize = 13.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
+        Text(title, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
         if (action != null) {
             Text(
                 action,
                 fontSize = 13.sp,
-                color = GreenTop,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.clickable { onActionClick?.invoke() }
             )
@@ -406,13 +406,13 @@ private fun OrderStatusItem(item: MenuItem, onClick: () -> Unit = {}) {
         modifier = Modifier.clickable { onClick() }.padding(horizontal = 8.dp)
     ) {
         Box(
-            modifier = Modifier.size(44.dp).clip(CircleShape).background(Color(0xFFE8F5E9)),
+            modifier = Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
-            Icon(item.icon, null, tint = GreenTop, modifier = Modifier.size(24.dp))
+            Icon(item.icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.height(6.dp))
-        Text(item.label, fontSize = 11.sp, color = Color(0xFF333333), fontWeight = FontWeight.Medium)
+        Text(item.label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -420,7 +420,7 @@ private fun OrderStatusItem(item: MenuItem, onClick: () -> Unit = {}) {
 private fun MenuGroup(items: List<MenuItem>, navController: NavController) {
     val context = LocalContext.current
     Surface(
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth()
     ) {
@@ -433,6 +433,7 @@ private fun MenuGroup(items: List<MenuItem>, navController: NavController) {
                     onClick = {
                         when (item.label) {
                             "Thông tin cá nhân"   -> navController.navigate("ProfileScreen")
+                            "Đổi mật khẩu"        -> navController.navigate("ChangePasswordScreen")
                             "Quản lý sổ địa chỉ"  -> navController.navigate("ProfileAddressBookScreen")
                             "Đơn hàng của tôi"    -> navController.navigate("MyOrdersScreen")
                             "Khiếu nại của tôi"   -> navController.navigate("MyComplaintsScreen")
@@ -461,25 +462,25 @@ private fun MenuRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFFE8F5E9)),
+                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, null, tint = GreenTop, modifier = Modifier.size(20.dp))
+                Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.width(14.dp))
             Text(
                 label,
                 fontSize = 14.sp,
-                color = Color(0xFF1A1A1A),
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
                 lineHeight = 19.sp
             )
-            Icon(Icons.Outlined.ChevronRight, null, tint = Color(0xFFBBBBBB), modifier = Modifier.size(20.dp))
+            Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(20.dp))
         }
         if (showDivider) {
             HorizontalDivider(
                 modifier = Modifier.padding(start = 66.dp, end = 16.dp),
-                color = Color(0xFFF0F0F0),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                 thickness = 0.8.dp
             )
         }

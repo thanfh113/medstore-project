@@ -1,5 +1,9 @@
 package com.example.nhathuoc.ui.screen.miniscreen
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -32,12 +37,14 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -99,14 +106,22 @@ fun RegisterScreen(
     var confirmPasswordError by remember { mutableStateOf<String?>(null) }
     var termsError by remember { mutableStateOf<String?>(null) }
     var hasNavigated by remember { mutableStateOf(false) }
+    var formVisible by remember { mutableStateOf(false) }
 
     val passwordStrength = remember(password) {
         ValidationUtils.assessPasswordStrength(password)
     }
 
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
+        focusedLabelColor = MaterialTheme.colorScheme.primary,
+        cursorColor = MaterialTheme.colorScheme.primary
+    )
+
     LaunchedEffect(Unit) {
         viewModel.clearRegisterState()
         hasNavigated = false
+        formVisible = true
     }
 
     LaunchedEffect(registerState) {
@@ -129,168 +144,267 @@ fun RegisterScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            RegisterHeader(
-                onBack = { navController?.popBackStack() }
-            )
+            RegisterHeader(onBack = { navController?.popBackStack() })
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 24.dp, bottom = 32.dp),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            AnimatedVisibility(
+                visible = formVisible,
+                enter = slideInVertically(
+                    initialOffsetY = { it / 4 },
+                    animationSpec = tween(420)
+                ) + fadeIn(animationSpec = tween(400))
             ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(15.dp)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 24.dp, bottom = 32.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
                 ) {
-                    Text(
-                        text = "Tạo tài khoản",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = GreenTop
-                    )
-                    Text(
-                        text = "Đăng ký để đặt mua vật tư y tế và nhận tư vấn từ nhân viên chuyên môn.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF5E6B5F),
-                        lineHeight = 20.sp
-                    )
-
-                    OutlinedTextField(
-                        value = fullName,
-                        onValueChange = {
-                            fullName = it
-                            fullNameError = null
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Họ và tên") },
-                        leadingIcon = {
-                            Icon(Icons.Outlined.Person, contentDescription = null, tint = GreenTop)
-                        },
-                        isError = fullNameError != null,
-                        supportingText = fullNameError?.let { { Text(it) } },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                    Column(
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "Tạo tài khoản",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
-                    )
-
-                    OutlinedTextField(
-                        value = phone,
-                        onValueChange = {
-                            phone = it
-                            phoneError = null
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Số điện thoại") },
-                        leadingIcon = {
-                            Icon(Icons.Outlined.Phone, contentDescription = null, tint = GreenTop)
-                        },
-                        isError = phoneError != null,
-                        supportingText = phoneError?.let { { Text(it) } },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Phone,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                        Text(
+                            text = "Đăng ký để đặt mua vật tư y tế và nhận tư vấn từ nhân viên chuyên môn.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 20.sp
                         )
-                    )
 
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = {
-                            email = it
-                            emailError = null
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Email") },
-                        leadingIcon = {
-                            Icon(Icons.Outlined.Email, contentDescription = null, tint = GreenTop)
-                        },
-                        isError = emailError != null,
-                        supportingText = emailError?.let { { Text(it) } },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                        )
-                    )
-
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = {
-                            password = it
-                            passwordError = null
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Mật khẩu") },
-                        leadingIcon = {
-                            Icon(Icons.Outlined.Lock, contentDescription = null, tint = GreenTop)
-                        },
-                        trailingIcon = {
-                            IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                        OutlinedTextField(
+                            value = fullName,
+                            onValueChange = {
+                                fullName = it
+                                fullNameError = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Họ và tên") },
+                            leadingIcon = {
                                 Icon(
-                                    imageVector = if (isPasswordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                    contentDescription = if (isPasswordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu"
+                                    Icons.Outlined.Person,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
-                            }
-                        },
-                        visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        isError = passwordError != null,
-                        supportingText = passwordError?.let { { Text(it) } },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                            },
+                            isError = fullNameError != null,
+                            supportingText = fullNameError?.let { { Text(it) } },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = textFieldColors,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                            )
                         )
-                    )
 
-                    if (password.isNotBlank()) {
-                        PasswordStrengthView(passwordStrength)
-                    }
-
-                    OutlinedTextField(
-                        value = confirmPassword,
-                        onValueChange = {
-                            confirmPassword = it
-                            confirmPasswordError = null
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Nhập lại mật khẩu") },
-                        leadingIcon = {
-                            Icon(Icons.Outlined.Lock, contentDescription = null, tint = GreenTop)
-                        },
-                        trailingIcon = {
-                            IconButton(onClick = { isConfirmPasswordVisible = !isConfirmPasswordVisible }) {
+                        OutlinedTextField(
+                            value = phone,
+                            onValueChange = {
+                                phone = it
+                                phoneError = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Số điện thoại") },
+                            leadingIcon = {
                                 Icon(
-                                    imageVector = if (isConfirmPasswordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                    contentDescription = if (isConfirmPasswordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu"
+                                    Icons.Outlined.Phone,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
-                            }
-                        },
-                        visualTransformation = if (isConfirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        isError = confirmPasswordError != null,
-                        supportingText = confirmPasswordError?.let { { Text(it) } },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                focusManager.clearFocus()
+                            },
+                            isError = phoneError != null,
+                            supportingText = phoneError?.let { { Text(it) } },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = textFieldColors,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Phone,
+                                imeAction = ImeAction.Next
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                            )
+                        )
+
+                        OutlinedTextField(
+                            value = email,
+                            onValueChange = {
+                                email = it
+                                emailError = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Email") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Outlined.Email,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            isError = emailError != null,
+                            supportingText = emailError?.let { { Text(it) } },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = textFieldColors,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Email,
+                                imeAction = ImeAction.Next
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                            )
+                        )
+
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = {
+                                password = it
+                                passwordError = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Mật khẩu") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Outlined.Lock,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingIcon = {
+                                IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                    Icon(
+                                        imageVector = if (isPasswordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                                        contentDescription = if (isPasswordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            isError = passwordError != null,
+                            supportingText = passwordError?.let { { Text(it) } },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = textFieldColors,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                imeAction = ImeAction.Next
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                            )
+                        )
+
+                        if (password.isNotBlank()) {
+                            PasswordStrengthView(passwordStrength)
+                        }
+
+                        OutlinedTextField(
+                            value = confirmPassword,
+                            onValueChange = {
+                                confirmPassword = it
+                                confirmPasswordError = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Nhập lại mật khẩu") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Outlined.Lock,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingIcon = {
+                                IconButton(onClick = { isConfirmPasswordVisible = !isConfirmPasswordVisible }) {
+                                    Icon(
+                                        imageVector = if (isConfirmPasswordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                                        contentDescription = if (isConfirmPasswordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            visualTransformation = if (isConfirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            isError = confirmPasswordError != null,
+                            supportingText = confirmPasswordError?.let { { Text(it) } },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = textFieldColors,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                imeAction = ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = {
+                                    focusManager.clearFocus()
+                                    submitRegister(
+                                        fullName = fullName,
+                                        phone = phone,
+                                        email = email,
+                                        password = password,
+                                        confirmPassword = confirmPassword,
+                                        agreeToTerms = agreeToTerms,
+                                        onFullNameError = { fullNameError = it },
+                                        onPhoneError = { phoneError = it },
+                                        onEmailError = { emailError = it },
+                                        onPasswordError = { passwordError = it },
+                                        onConfirmPasswordError = { confirmPasswordError = it },
+                                        onTermsError = { termsError = it },
+                                        onSubmit = viewModel::register
+                                    )
+                                }
+                            )
+                        )
+
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Checkbox(
+                                checked = agreeToTerms,
+                                onCheckedChange = {
+                                    agreeToTerms = it
+                                    termsError = null
+                                },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            Text(
+                                text = buildAnnotatedString {
+                                    append("Tôi đồng ý với ")
+                                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)) {
+                                        append("điều khoản sử dụng")
+                                    }
+                                    append(" và ")
+                                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)) {
+                                        append("chính sách bảo mật")
+                                    }
+                                },
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(top = 12.dp)
+                            )
+                        }
+                        if (termsError != null) {
+                            Text(
+                                text = termsError.orEmpty(),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        if (registerState is UiState.Error) {
+                            RegisterErrorCard((registerState as UiState.Error).message)
+                        }
+
+                        Button(
+                            onClick = {
                                 submitRegister(
                                     fullName = fullName,
                                     phone = phone,
@@ -306,103 +420,51 @@ fun RegisterScreen(
                                     onTermsError = { termsError = it },
                                     onSubmit = viewModel::register
                                 )
-                            }
-                        )
-                    )
-
-                    Row(
-                        verticalAlignment = Alignment.Top,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Checkbox(
-                            checked = agreeToTerms,
-                            onCheckedChange = {
-                                agreeToTerms = it
-                                termsError = null
-                            }
-                        )
-                        Text(
-                            text = buildAnnotatedString {
-                                append("Tôi đồng ý với ")
-                                withStyle(SpanStyle(color = GreenTop, fontWeight = FontWeight.Bold)) {
-                                    append("điều khoản sử dụng")
-                                }
-                                append(" và ")
-                                withStyle(SpanStyle(color = GreenTop, fontWeight = FontWeight.Bold)) {
-                                    append("chính sách bảo mật")
-                                }
                             },
-                            color = Color(0xFF5E6B5F),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(top = 12.dp)
-                        )
-                    }
-                    if (termsError != null) {
-                        Text(
-                            text = termsError.orEmpty(),
-                            color = Color(0xFFC62828),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-
-                    if (registerState is UiState.Error) {
-                        RegisterErrorCard((registerState as UiState.Error).message)
-                    }
-
-                    Button(
-                        onClick = {
-                            submitRegister(
-                                fullName = fullName,
-                                phone = phone,
-                                email = email,
-                                password = password,
-                                confirmPassword = confirmPassword,
-                                agreeToTerms = agreeToTerms,
-                                onFullNameError = { fullNameError = it },
-                                onPhoneError = { phoneError = it },
-                                onEmailError = { emailError = it },
-                                onPasswordError = { passwordError = it },
-                                onConfirmPasswordError = { confirmPasswordError = it },
-                                onTermsError = { termsError = it },
-                                onSubmit = viewModel::register
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(54.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            enabled = registerState !is UiState.Loading,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
                             )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = RoundedCornerShape(18.dp),
-                        enabled = registerState !is UiState.Loading,
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
-                    ) {
-                        if (registerState is UiState.Loading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(22.dp),
-                                strokeWidth = 2.dp,
-                                color = Color.White
-                            )
-                        } else {
+                        ) {
+                            if (registerState is UiState.Loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(22.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White
+                                )
+                            } else {
+                                Text(
+                                    text = "Tạo tài khoản",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Color.White
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = "Tạo tài khoản",
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold
+                                "Đã có tài khoản? ",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Đăng nhập",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable {
+                                    navController?.navigate("LoginScreen")
+                                }
                             )
                         }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Đã có tài khoản? ", color = Color(0xFF5E6B5F))
-                        Text(
-                            text = "Đăng nhập",
-                            color = GreenTop,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable {
-                                navController?.navigate("LoginScreen")
-                            }
-                        )
                     }
                 }
             }
@@ -415,17 +477,35 @@ private fun RegisterHeader(onBack: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(210.dp)
+            .height(220.dp)
             .background(
-                Brush.verticalGradient(
-                    colors = listOf(GreenTop, GreenLight)
+                Brush.linearGradient(
+                    colors = listOf(GreenTop, GreenLight),
+                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                    end = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
                 )
             )
     ) {
+        // Decorative circles
+        Box(
+            modifier = Modifier
+                .size(160.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 50.dp, y = (-30).dp)
+                .background(Color.White.copy(alpha = 0.07f), CircleShape)
+        )
+        Box(
+            modifier = Modifier
+                .size(90.dp)
+                .align(Alignment.BottomStart)
+                .offset(x = (-25).dp, y = 35.dp)
+                .background(Color.White.copy(alpha = 0.08f), CircleShape)
+        )
+
         IconButton(
             onClick = onBack,
             modifier = Modifier
-                .padding(start = 12.dp, top = 16.dp)
+                .padding(start = 8.dp, top = 12.dp)
                 .align(Alignment.TopStart)
         ) {
             Icon(
@@ -438,14 +518,15 @@ private fun RegisterHeader(onBack: () -> Unit) {
         Column(
             modifier = Modifier
                 .align(Alignment.Center)
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 24.dp)
+                .padding(top = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.18f)),
+                    .background(Color.White.copy(alpha = 0.22f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -455,18 +536,19 @@ private fun RegisterHeader(onBack: () -> Unit) {
                     modifier = Modifier.size(38.dp)
                 )
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
             Text(
-                text = "Tạo tài khoản",
+                text = "MedStore",
                 color = Color.White,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.ExtraBold,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                letterSpacing = 0.5.sp
             )
             Text(
-                text = "Mua vật tư y tế nhanh và an toàn",
-                color = Color.White.copy(alpha = 0.9f),
-                fontSize = 15.sp,
+                text = "Đăng ký tài khoản mới",
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 14.sp,
                 textAlign = TextAlign.Center
             )
         }
@@ -476,9 +558,9 @@ private fun RegisterHeader(onBack: () -> Unit) {
 @Composable
 private fun PasswordStrengthView(result: ValidationUtils.PasswordStrengthResult) {
     val color = when (result.strength) {
-        ValidationUtils.PasswordStrength.WEAK -> Color(0xFFD32F2F)
+        ValidationUtils.PasswordStrength.WEAK -> MaterialTheme.colorScheme.error
         ValidationUtils.PasswordStrength.MEDIUM -> Color(0xFFF57C00)
-        ValidationUtils.PasswordStrength.STRONG -> GreenTop
+        ValidationUtils.PasswordStrength.STRONG -> MaterialTheme.colorScheme.primary
     }
     val label = when (result.strength) {
         ValidationUtils.PasswordStrength.WEAK -> "Yếu"
@@ -494,7 +576,7 @@ private fun PasswordStrengthView(result: ValidationUtils.PasswordStrengthResult)
         ) {
             Text(
                 text = "Độ mạnh mật khẩu",
-                color = Color(0xFF5E6B5F),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )
             Text(
@@ -511,11 +593,11 @@ private fun PasswordStrengthView(result: ValidationUtils.PasswordStrengthResult)
                 .height(6.dp)
                 .clip(RoundedCornerShape(99.dp)),
             color = color,
-            trackColor = Color(0xFFE5EDE5)
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
         )
         Text(
             text = result.feedback,
-            color = Color(0xFF6C786D),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall
         )
     }
@@ -525,12 +607,12 @@ private fun PasswordStrengthView(result: ValidationUtils.PasswordStrengthResult)
 private fun RegisterErrorCard(message: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
         shape = RoundedCornerShape(14.dp)
     ) {
         Text(
             text = message,
-            color = Color(0xFFC62828),
+            color = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.padding(14.dp),
             style = MaterialTheme.typography.bodyMedium
         )

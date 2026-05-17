@@ -15,7 +15,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-import com.example.nhathuoc.ui.theme.GreenTop
 
 data class TrustBadge(
     val icon: ImageVector,
@@ -37,7 +36,7 @@ fun TrustBadgesGrid(
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
         modifier = modifier.fillMaxWidth()
     ) {
@@ -71,7 +70,7 @@ private fun TrustBadgeCell(
         Icon(
             imageVector = badge.icon,
             contentDescription = badge.title,
-            tint = GreenTop,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(32.dp)
         )
         Spacer(Modifier.height(6.dp))
@@ -79,13 +78,13 @@ private fun TrustBadgeCell(
             text = badge.title,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF1A1A1A),
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center
         )
         Text(
             text = badge.subtitle,
             fontSize = 11.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
     }

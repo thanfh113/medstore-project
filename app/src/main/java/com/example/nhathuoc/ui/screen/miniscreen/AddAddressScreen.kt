@@ -62,49 +62,11 @@ fun AddAddressScreen(
 
     Scaffold(
         topBar = {
-            Surface(shadowElevation = 2.dp, color = Color.White) {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "Thêm địa chỉ mới",
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                "Điền thông tin giao hàng",
-                                fontSize = 12.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(BgGray),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.ArrowBackIosNew,
-                                    contentDescription = "Quay lại",
-                                    modifier = Modifier.size(16.dp),
-                                    tint = GreenTop
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color.White
-                        ,
-                        titleContentColor = Color(0xFF1B2B1F),
-                        navigationIconContentColor = Color(0xFF1B2B1F)
-                    )
-                )
-            }
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = "Thêm địa chỉ mới",
+                subtitle = "Điền thông tin giao hàng",
+                onBack = onBack
+            )
         },
         bottomBar = {
             Surface(

@@ -34,13 +34,6 @@ import com.example.nhathuoc.viewmodel.OrderViewModel
 import java.text.NumberFormat
 import java.util.Locale
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
-private val BgGray    = Color(0xFFF3F7F4)
-private val CardBg    = Color.White
-private val TextPrimary   = Color(0xFF1B2B1F)
-private val TextSecondary = Color(0xFF5A7A62)
-private val GreenLight    = Color(0xFFE8F5E9)
-private val DividerColor  = Color(0xFFE0EDE3)
 
 private data class ComplaintStatusFilter(val value: String?, val label: String)
 
@@ -68,46 +61,13 @@ fun MyComplaintsScreen(
     LaunchedEffect(Unit) { viewModel.getComplaints() }
 
     Scaffold(
-        containerColor = BgGray,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            Surface(shadowElevation = 2.dp, color = CardBg) {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "Khiếu nại của tôi",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp,
-                                color = TextPrimary
-                            )
-                            Text(
-                                "Theo dõi trạng thái xử lý",
-                                fontSize = 12.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(BgGray),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Quay lại",
-                                    tint = GreenTop,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CardBg)
-                )
-            }
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = "Khiếu nại của tôi",
+                subtitle = "Theo dõi trạng thái xử lý",
+                onBack = onBack
+            )
         }
     ) { paddingValues ->
         Column(
@@ -116,7 +76,7 @@ fun MyComplaintsScreen(
                 .padding(paddingValues)
         ) {
             // ── Filter bar ────────────────────────────────────────────────────
-            Surface(color = CardBg, shadowElevation = 1.dp) {
+            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -127,8 +87,8 @@ fun MyComplaintsScreen(
                     complaintFilters.forEach { filter ->
                         val isSelected = filter.value == selectedStatus
                         Surface(
-                            color = if (isSelected) GreenTop else CardBg,
-                            contentColor = if (isSelected) Color.White else TextSecondary,
+                            color = if (isSelected) GreenTop else MaterialTheme.colorScheme.surface,
+                            contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                             shape = RoundedCornerShape(999.dp),
                             shadowElevation = if (isSelected) 0.dp else 1.dp,
                             modifier = Modifier.clickable { selectedStatus = filter.value }
@@ -147,12 +107,12 @@ fun MyComplaintsScreen(
             // ── Content ───────────────────────────────────────────────────────
             when (val current = state) {
                 is UiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = GreenTop)
+                    CircularProgressIndicator()
                 }
 
                 is UiState.Error -> ComplaintEmptyState(
-                    iconTint = Color(0xFFE57373),
-                    iconBg = Color(0xFFFFEBEE),
+                    iconTint = MaterialTheme.colorScheme.error,
+                    iconBg = MaterialTheme.colorScheme.errorContainer,
                     title = "Không tải được khiếu nại",
                     subtitle = current.message
                 )
@@ -164,7 +124,7 @@ fun MyComplaintsScreen(
                     if (complaints.isEmpty()) {
                         ComplaintEmptyState(
                             iconTint = GreenTop,
-                            iconBg = GreenLight,
+                            iconBg = MaterialTheme.colorScheme.primaryContainer,
                             title = if (selectedStatus == null) "Chưa có khiếu nại nào" else "Không có khiếu nại ở trạng thái này",
                             subtitle = "Bạn có thể tạo khiếu nại từ trang chi tiết đơn hàng sau khi đơn đã được xử lý.",
                             onGoToOrders = if (selectedStatus == null) ({ navController?.navigate("MyOrdersScreen") }) else null
@@ -197,7 +157,7 @@ private fun ComplaintCard(complaint: ComplaintDto, onClick: () -> Unit) {
     val (statusLabel, statusBg, statusFg) = complaintStatusAppearance(complaint.status)
 
     Surface(
-        color = CardBg,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(20.dp),
         shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
@@ -219,7 +179,7 @@ private fun ComplaintCard(complaint: ComplaintDto, onClick: () -> Unit) {
                         modifier = Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(GreenLight),
+                            .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -239,7 +199,7 @@ private fun ComplaintCard(complaint: ComplaintDto, onClick: () -> Unit) {
                         Text(
                             complaintTypeLabel(complaint.type),
                             fontSize = 11.sp,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -261,7 +221,7 @@ private fun ComplaintCard(complaint: ComplaintDto, onClick: () -> Unit) {
                 complaint.title,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
-                color = TextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -269,14 +229,14 @@ private fun ComplaintCard(complaint: ComplaintDto, onClick: () -> Unit) {
             Text(
                 complaint.description,
                 fontSize = 13.sp,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = 18.sp
             )
 
             Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = DividerColor)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(10.dp))
 
             // ── Meta row: order + attachments ─────────────────────────────────
@@ -377,8 +337,8 @@ private fun MetaPill(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(14.dp))
-        Text(text, fontSize = 12.sp, color = TextSecondary)
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
+        Text(text, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -403,8 +363,8 @@ private fun ComplaintEmptyState(
             ) {
                 Icon(Icons.Outlined.SupportAgent, null, tint = iconTint, modifier = Modifier.size(42.dp))
             }
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextPrimary)
-            Text(subtitle, fontSize = 13.sp, color = TextSecondary, lineHeight = 19.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text(subtitle, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 19.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             if (onGoToOrders != null) {
                 Button(
                     onClick = onGoToOrders,
@@ -423,7 +383,7 @@ private fun complaintStatusAppearance(status: String): Triple<String, Color, Col
     "OPEN"           -> Triple("Mới tạo",        Color(0xFFDBEAFE), Color(0xFF2563EB))
     "IN_REVIEW"      -> Triple("Đang xử lý",     Color(0xFFFEF3C7), Color(0xFFD97706))
     "NEED_MORE_INFO" -> Triple("Cần bổ sung",     Color(0xFFFFF3E0), Color(0xFFB45309))
-    "APPROVED"       -> Triple("Đã duyệt",        GreenLight,        GreenTop)
+    "APPROVED"       -> Triple("Đã duyệt",        Color(0xFFE8F5E9),        GreenTop)
     "RESOLVED"       -> Triple("Đã giải quyết",   Color(0xFFE8F5E9), Color(0xFF2E7D32))
     "REJECTED"       -> Triple("Từ chối",          Color(0xFFFFEBEE), Color(0xFFE53935))
     "CANCELLED"      -> Triple("Đã hủy",           Color(0xFFF3F4F6), Color(0xFF6B7280))

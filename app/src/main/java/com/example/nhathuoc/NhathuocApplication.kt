@@ -22,7 +22,7 @@ class NhathuocApplication : Application() {
             NotificationChannel(
                 CHANNEL_DEFAULT,
                 "Thông báo chung",
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Thông báo đơn hàng, điểm thưởng và các cập nhật hệ thống"
             }

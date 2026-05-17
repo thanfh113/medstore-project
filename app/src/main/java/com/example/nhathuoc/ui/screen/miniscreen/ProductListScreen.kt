@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -35,7 +36,6 @@ import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import com.example.nhathuoc.data.model.ProductDto
 import com.example.nhathuoc.data.model.UiState
-import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.viewmodel.ProductListViewModel
 
 private data class SortOption(val label: String, val value: String?)
@@ -77,7 +77,7 @@ fun ProductListScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F7FA))
+            .background(MaterialTheme.colorScheme.background)
     ) {
         ProductListHeader(
             searchQuery = searchText,
@@ -91,9 +91,9 @@ fun ProductListScreen(
             is UiState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = GreenTop)
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(12.dp))
-                        Text("Đang tải sản phẩm...", color = Color.Gray, fontSize = 14.sp)
+                        Text("Đang tải sản phẩm...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                     }
                 }
             }
@@ -123,7 +123,7 @@ fun ProductListScreen(
     if (showFilterSheet) {
         ModalBottomSheet(
             onDismissRequest = { showFilterSheet = false },
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
         ) {
             FilterSheetContent(
@@ -149,7 +149,8 @@ private fun ProductListHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(GreenTop)
+            .background(Brush.horizontalGradient(listOf(Color(0xFF2E7D32), Color(0xFF66BB6A))))
+            .statusBarsPadding()
             .padding(horizontal = 4.dp, vertical = 12.dp)
     ) {
         Row(
@@ -179,17 +180,17 @@ private fun ProductListHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                 .padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Filled.Search, "Tìm kiếm", tint = Color.Gray, modifier = Modifier.size(20.dp))
+            Icon(Icons.Filled.Search, "Tìm kiếm", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(6.dp))
             TextField(
                 value = searchQuery,
                 onValueChange = onSearchChange,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Tìm tên, thương hiệu sản phẩm...", fontSize = 13.sp, color = Color.Gray) },
+                placeholder = { Text("Tìm tên, thương hiệu sản phẩm...", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 singleLine = true,
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
@@ -200,18 +201,18 @@ private fun ProductListHeader(
             )
             if (searchQuery.isNotBlank()) {
                 IconButton(onClick = { onSearchChange("") }, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Filled.Close, "Xóa", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Filled.Close, "Xóa", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 }
             }
             Box {
                 IconButton(onClick = onFilterClick, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Outlined.FilterAlt, "Lọc", tint = GreenTop)
+                    Icon(Icons.Outlined.FilterAlt, "Lọc", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (filterActive) {
                     Box(
                         modifier = Modifier
                             .size(8.dp)
-                            .background(Color.Red, CircleShape)
+                            .background(MaterialTheme.colorScheme.error, CircleShape)
                             .align(Alignment.TopEnd)
                     )
                 }
@@ -252,7 +253,7 @@ private fun ProductGrid(
         if (hasMore) {
             item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
                 Box(modifier = Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(modifier = Modifier.size(28.dp), color = GreenTop, strokeWidth = 2.dp)
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
                 }
             }
         }
@@ -267,13 +268,13 @@ private fun ProductListCard(product: ProductDto, onClick: () -> Unit) {
 
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
             Box(
-                modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(Color(0xFFE8F5E9)),
+                modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
                 contentAlignment = Alignment.Center
             ) {
                 if (!product.imageUrl.isNullOrBlank()) {
@@ -284,7 +285,7 @@ private fun ProductListCard(product: ProductDto, onClick: () -> Unit) {
                         contentScale = ContentScale.Fit
                     )
                 } else {
-                    Icon(Icons.Outlined.MedicalServices, contentDescription = null, tint = GreenTop, modifier = Modifier.size(44.dp))
+                    Icon(Icons.Outlined.MedicalServices, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(44.dp))
                 }
                 if (hasDiscount) {
                     Surface(
@@ -306,13 +307,14 @@ private fun ProductListCard(product: ProductDto, onClick: () -> Unit) {
             Spacer(Modifier.height(8.dp))
 
             if (product.brand.isNotBlank()) {
-                Text(product.brand, fontSize = 10.sp, color = Color(0xFF757575), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(product.brand, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
 
             Text(
                 product.name,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = 18.sp,
@@ -325,7 +327,7 @@ private fun ProductListCard(product: ProductDto, onClick: () -> Unit) {
                 Text(
                     "${String.format("%,d", originalPrice.toLong()).replace(',', '.')}đ",
                     fontSize = 11.sp,
-                    color = Color(0xFF9E9E9E),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textDecoration = TextDecoration.LineThrough
                 )
             }
@@ -333,18 +335,18 @@ private fun ProductListCard(product: ProductDto, onClick: () -> Unit) {
                 "${String.format("%,d", product.price.toLong()).replace(',', '.')}đ",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = GreenTop
+                color = MaterialTheme.colorScheme.primary
             )
 
             Spacer(Modifier.height(6.dp))
 
             if (!canOrderOnline) {
-                Surface(shape = RoundedCornerShape(50), color = Color(0xFFFFF3E0)) {
+                Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.tertiaryContainer) {
                     Text(
                         "Cần tư vấn",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFFE65100),
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
@@ -353,13 +355,13 @@ private fun ProductListCard(product: ProductDto, onClick: () -> Unit) {
 
             Surface(
                 shape = RoundedCornerShape(50),
-                color = if (product.stock > 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                color = if (product.stock > 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
             ) {
                 Text(
                     if (product.stock > 0) "Còn ${product.stock} ${product.unit}" else "Hết hàng",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (product.stock > 0) GreenTop else Color(0xFFE53935),
+                    color = if (product.stock > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                 )
             }
@@ -391,9 +393,9 @@ private fun FilterSheetContent(
         Spacer(Modifier.height(16.dp))
 
         // Sort
-        Text("Sắp xếp theo", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF424242))
+        Text("Sắp xếp theo", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             sortOptions.forEach { opt ->
                 val selected = localSort == opt.value
                 FilterChip(
@@ -401,8 +403,8 @@ private fun FilterSheetContent(
                     onClick = { localSort = opt.value },
                     label = { Text(opt.label, fontSize = 12.sp) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = GreenTop,
-                        selectedLabelColor = Color.White
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                     )
                 )
             }
@@ -411,7 +413,7 @@ private fun FilterSheetContent(
         Spacer(Modifier.height(20.dp))
 
         // Price range
-        Text("Khoảng giá (đ)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF424242))
+        Text("Khoảng giá (đ)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedTextField(
@@ -459,7 +461,7 @@ private fun FilterSheetContent(
                 },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(containerColor = GreenTop)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("Áp dụng")
             }
@@ -474,10 +476,10 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Không thể tải sản phẩm", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A))
+        Text("Không thể tải sản phẩm", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(8.dp))
-        Text(message, textAlign = TextAlign.Center, color = Color.Gray, modifier = Modifier.padding(bottom = 16.dp))
-        Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = GreenTop), shape = RoundedCornerShape(50)) {
+        Text(message, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 16.dp))
+        Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary), shape = RoundedCornerShape(50)) {
             Text("Thử lại")
         }
     }
@@ -490,13 +492,13 @@ private fun EmptyState(hasFilters: Boolean, onReset: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(Icons.Outlined.MedicalServices, contentDescription = null, tint = Color(0xFFBDBDBD), modifier = Modifier.size(72.dp))
+        Icon(Icons.Outlined.MedicalServices, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(72.dp))
         Spacer(Modifier.height(16.dp))
-        Text("Không tìm thấy sản phẩm", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF555555))
+        Text("Không tìm thấy sản phẩm", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(8.dp))
         Text(
             if (hasFilters) "Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm" else "Chưa có sản phẩm nào",
-            fontSize = 13.sp, color = Color.Gray, textAlign = TextAlign.Center
+            fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center
         )
         if (hasFilters) {
             Spacer(Modifier.height(16.dp))

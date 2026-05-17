@@ -156,7 +156,7 @@ private fun HomeScreenContent(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF5F7FA)),
+                .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(top = HEADER_FULL + 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -177,9 +177,15 @@ private fun HomeScreenContent(
                         val link = item.linkUrl?.trim().orEmpty()
                         when {
                             link.equals("/chat", ignoreCase = true) -> navController?.navigate("ChatScreen")
+                            link.equals("/ai-chat", ignoreCase = true) -> navController?.navigate("AiChatScreen")
                             link.equals("/cart", ignoreCase = true) -> navController?.navigate("CartScreen")
                             link.equals("/rewards", ignoreCase = true) ||
                                 link.equals("/reward", ignoreCase = true) -> navController?.navigate("RewardScreen")
+                            link.equals("/orders", ignoreCase = true) -> navController?.navigate("MyOrdersScreen")
+                            link.equals("/complaints", ignoreCase = true) -> navController?.navigate("MyComplaintsScreen")
+                            link.equals("/notifications", ignoreCase = true) -> navController?.navigate("NotificationScreen")
+                            link.equals("/profile", ignoreCase = true) -> navController?.navigate("ProfileScreen")
+                            link.equals("/flash-sale", ignoreCase = true) -> navController?.navigate("ProductListScreen")
                             link.startsWith("/products/", ignoreCase = true) -> {
                                 navController?.navigate("ProductDetailScreen/${Uri.encode(link.substringAfterLast('/'))}")
                             }
@@ -221,14 +227,30 @@ private fun HomeScreenContent(
                     onSeeAll = { navController?.navigate("OrderHistoryScreen") },
                     onReorder = { order ->
                         scope.launch {
-                            order.items.forEach { item ->
-                                cartViewModel.addToCart(
-                                    productId = item.productId,
-                                    quantity = item.quantity,
-                                    unit = item.unit
-                                )
+                            val unavailable = order.items.filter { item ->
+                                val stock = item.product?.stock ?: return@filter false
+                                stock < item.quantity
                             }
-                            snackbarHostState.showSnackbar("Đã thêm ${order.items.size} sản phẩm vào giỏ hàng.")
+                            if (unavailable.isNotEmpty()) {
+                                val msg = if (unavailable.size == 1) {
+                                    val item = unavailable.first()
+                                    val stock = item.product?.stock ?: 0
+                                    if (stock == 0) "\"${item.name.take(30)}\" hiện hết hàng"
+                                    else "\"${item.name.take(30)}\" chỉ còn $stock ${item.unit}"
+                                } else {
+                                    "${unavailable.size} sản phẩm không đủ hàng để đặt lại"
+                                }
+                                snackbarHostState.showSnackbar(msg)
+                            } else {
+                                order.items.forEach { item ->
+                                    cartViewModel.addToCart(
+                                        productId = item.productId,
+                                        quantity = item.quantity,
+                                        unit = item.unit
+                                    )
+                                }
+                                navController?.navigate("CartScreen")
+                            }
                         }
                     }
                 )
@@ -373,7 +395,7 @@ private fun HomeNotificationButton(
 private fun HomeSearchBar(onClick: () -> Unit = {}) {
     Surface(
         shape = RoundedCornerShape(50),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth().height(44.dp).clickable(onClick = onClick)
     ) {
@@ -381,9 +403,9 @@ private fun HomeSearchBar(onClick: () -> Unit = {}) {
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Outlined.Search, null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+            Icon(Icons.Outlined.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Tìm thiết bị, vật tư, dụng cụ y tế...", color = Color.Gray, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            Text("Tìm thiết bị, vật tư y tế...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, modifier = Modifier.weight(1f))
         }
     }
 }

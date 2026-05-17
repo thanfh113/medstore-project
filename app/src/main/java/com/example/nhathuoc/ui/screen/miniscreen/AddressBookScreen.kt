@@ -28,13 +28,6 @@ import androidx.compose.ui.unit.sp
 import com.example.nhathuoc.data.model.UserAddress
 import com.example.nhathuoc.ui.theme.GreenTop
 
-private val GreenLight = Color(0xFFE8F5E9)
-private val GreenDark = Color(0xFF2E7D32)
-private val TextPrimary = Color(0xFF1B2B1F)
-private val TextSecondary = Color(0xFF5A7A62)
-private val BgGray = Color(0xFFF3F7F4)
-private val DividerColor = Color(0xFFE0EDE3)
-private val DeleteRed = Color(0xFFE53935)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,49 +45,14 @@ fun AddressBookScreen(
 
     Scaffold(
         topBar = {
-            Surface(shadowElevation = 2.dp, color = Color.White) {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "Địa chỉ giao hàng",
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            if (addresses.isNotEmpty()) {
-                                Text(
-                                    "${addresses.size} địa chỉ đã lưu",
-                                    fontSize = 12.sp,
-                                    color = TextSecondary
-                                )
-                            }
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(BgGray),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Quay lại",
-                                    tint = GreenTop,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
-                )
-            }
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = "Địa chỉ giao hàng",
+                subtitle = if (addresses.isNotEmpty()) "${addresses.size} địa chỉ đã lưu" else null,
+                onBack = onBack
+            )
         },
         bottomBar = {
-            Surface(color = Color.White, shadowElevation = 12.dp) {
+            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
                 Button(
                     onClick = onAddNewAddress,
                     modifier = Modifier
@@ -120,7 +78,7 @@ fun AddressBookScreen(
                 }
             }
         },
-        containerColor = BgGray
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         if (addresses.isEmpty()) {
             EmptyAddressState(
@@ -160,19 +118,19 @@ fun AddressBookScreen(
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
             shape = RoundedCornerShape(24.dp),
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
             icon = {
                 Box(
                     modifier = Modifier
                         .size(52.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFFFEBEE)),
+                        .background(MaterialTheme.colorScheme.errorContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Filled.Delete,
                         contentDescription = null,
-                        tint = DeleteRed,
+                        tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -182,20 +140,20 @@ fun AddressBookScreen(
                     "Xóa địa chỉ?",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             },
             text = {
                 Text(
                     "Địa chỉ của ${address.recipientName} sẽ bị xóa vĩnh viễn.",
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
             },
             confirmButton = {
                 Button(
                     onClick = { onDeleteAddress(address.id); pendingDelete = null },
-                    colors = ButtonDefaults.buttonColors(containerColor = DeleteRed),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("Xóa", fontWeight = FontWeight.Bold)
@@ -205,8 +163,8 @@ fun AddressBookScreen(
                 OutlinedButton(
                     onClick = { pendingDelete = null },
                     shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, DividerColor),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
                 ) {
                     Text("Hủy")
                 }
@@ -226,7 +184,7 @@ private fun EmptyAddressState(modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .size(100.dp)
                     .clip(CircleShape)
-                    .background(GreenLight),
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -240,11 +198,11 @@ private fun EmptyAddressState(modifier: Modifier = Modifier) {
                 "Chưa có địa chỉ nào",
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 "Thêm địa chỉ để tiếp tục đặt hàng dễ dàng hơn.",
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp
             )
         }
@@ -259,8 +217,8 @@ private fun AddressCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val cardBg = if (selected) GreenLight else Color.White
-    val borderColor = if (selected) GreenTop else DividerColor
+    val cardBg = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+    val borderColor = if (selected) GreenTop else MaterialTheme.colorScheme.outlineVariant
     val borderWidth = if (selected) 2.dp else 1.dp
 
     Surface(
@@ -288,29 +246,29 @@ private fun AddressCard(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (selected) GreenTop else Color(0xFFF0F4F1)),
+                            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Filled.LocationOn,
                             contentDescription = null,
-                            tint = if (selected) Color.White else GreenTop,
+                            tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
                     Column {
                         Text(
-                            address.recipientName,
+                            address.recipientName.orEmpty(),
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = if (selected) GreenDark else TextPrimary,
+                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            address.recipientPhone,
+                            address.recipientPhone.orEmpty(),
                             fontSize = 13.sp,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -321,13 +279,13 @@ private fun AddressCard(
                     if (address.isDefault) {
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = if (selected) GreenTop else Color(0xFFE8F5E9)
+                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer
                         ) {
                             Text(
                                 "Mặc định",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (selected) Color.White else GreenTop,
+                                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
@@ -353,14 +311,14 @@ private fun AddressCard(
                 Icon(
                     Icons.Filled.Home,
                     contentDescription = null,
-                    tint = Color(0xFFB0BEC5),
+                    tint = MaterialTheme.colorScheme.outline,
                     modifier = Modifier
                         .size(16.dp)
                         .padding(top = 2.dp)
                 )
                 Text(
                     text = buildAddressLine(address),
-                    color = Color(0xFF374151),
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
                     maxLines = 3,
@@ -370,7 +328,7 @@ private fun AddressCard(
             }
 
             Spacer(Modifier.height(14.dp))
-            HorizontalDivider(color = if (selected) Color(0xFFB2DFDB) else DividerColor)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(12.dp))
 
             // Action buttons
@@ -384,8 +342,8 @@ private fun AddressCard(
                     modifier = Modifier.weight(1.4f).height(38.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (selected) GreenTop else Color(0xFFF0F4F1),
-                        contentColor = if (selected) Color.White else GreenTop
+                        containerColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
                     ),
                     contentPadding = PaddingValues(horizontal = 8.dp),
                     elevation = ButtonDefaults.buttonElevation(0.dp)
@@ -401,7 +359,7 @@ private fun AddressCard(
                     onClick = onEdit,
                     modifier = Modifier.weight(1f).height(38.dp),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, if (selected) GreenTop else DividerColor),
+                    border = BorderStroke(1.dp, if (selected) GreenTop else MaterialTheme.colorScheme.outlineVariant),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop),
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
@@ -418,8 +376,8 @@ private fun AddressCard(
                     onClick = onDelete,
                     modifier = Modifier.weight(1f).height(38.dp),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFFFFCDD2)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = DeleteRed),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.errorContainer),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
                     Icon(
@@ -436,9 +394,9 @@ private fun AddressCard(
 }
 
 private fun buildAddressLine(address: UserAddress): String {
-    return listOf(address.fullAddress, address.ward, address.district, address.province)
-        .map { it.trim() }
-        .filter { it.isNotBlank() }
+    val streetPart = address.fullAddress?.takeIf(String::isNotBlank) ?: address.address
+    return listOf(streetPart, address.ward, address.district, address.province)
+        .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
         .distinct()
         .joinToString(", ")
 }

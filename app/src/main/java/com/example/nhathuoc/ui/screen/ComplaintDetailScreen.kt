@@ -1,6 +1,8 @@
 package com.example.nhathuoc.ui.screen
 
-import androidx.compose.foundation.background
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,23 +21,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.SupportAgent
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -75,9 +78,20 @@ fun ComplaintDetailScreen(
 ) {
     val complaintState by viewModel.complaintDetailState.collectAsState()
     val messageState by viewModel.complaintMessageState.collectAsState()
+    val addAttachmentsState by viewModel.addAttachmentsState.collectAsState()
+    val requestRefundState by viewModel.requestRefundState.collectAsState()
     var message by rememberSaveable { mutableStateOf("") }
+    var pendingUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris -> if (uris.isNotEmpty()) pendingUris = pendingUris + uris }
+
+    val closedStatuses = setOf("RESOLVED", "REJECTED", "CANCELLED")
+    val isClosed = (complaintState as? UiState.Success)?.data?.status?.uppercase() in closedStatuses
+    val isSending = messageState is UiState.Loading || addAttachmentsState is UiState.Loading
 
     LaunchedEffect(complaintId) {
         viewModel.getComplaintById(complaintId)
@@ -90,32 +104,55 @@ fun ComplaintDetailScreen(
             viewModel.clearComplaintMessageState()
         }
     }
+    LaunchedEffect(addAttachmentsState) {
+        when (addAttachmentsState) {
+            is UiState.Success -> {
+                pendingUris = emptyList()
+                scope.launch { snackbarHostState.showSnackbar("Đã thêm file đính kèm") }
+                viewModel.clearAddAttachmentsState()
+            }
+            is UiState.Error -> {
+                scope.launch { snackbarHostState.showSnackbar((addAttachmentsState as UiState.Error).message) }
+                viewModel.clearAddAttachmentsState()
+            }
+            else -> Unit
+        }
+    }
+    LaunchedEffect(requestRefundState) {
+        when (requestRefundState) {
+            is UiState.Success -> {
+                scope.launch { snackbarHostState.showSnackbar("Đã gửi yêu cầu hoàn tiền") }
+                viewModel.clearRequestRefundState()
+            }
+            is UiState.Error -> {
+                scope.launch { snackbarHostState.showSnackbar((requestRefundState as UiState.Error).message) }
+                viewModel.clearRequestRefundState()
+            }
+            else -> Unit
+        }
+    }
 
     Scaffold(
         containerColor = BgColor,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Chi tiết khiếu nại", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color(0xFF1A1A1A)
-                )
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = "Chi tiết khiếu nại",
+                onBack = onBack
             )
         },
         bottomBar = {
-            if (complaintState is UiState.Success) {
+            if (complaintState is UiState.Success && !isClosed) {
                 ComplaintReplyBar(
                     message = message,
-                    isSending = messageState is UiState.Loading,
+                    pendingFileCount = pendingUris.size,
+                    isSending = isSending,
                     onMessageChange = { message = it },
+                    onAttachClick = { filePicker.launch("*/*") },
+                    onClearFile = { idx -> pendingUris = pendingUris.toMutableList().also { it.removeAt(idx) } },
                     onSend = {
-                        viewModel.sendComplaintMessage(complaintId, message.trim())
+                        if (pendingUris.isNotEmpty()) viewModel.addComplaintAttachments(complaintId, pendingUris)
+                        if (message.isNotBlank()) viewModel.sendComplaintMessage(complaintId, message.trim())
                     }
                 )
             }
@@ -137,6 +174,8 @@ fun ComplaintDetailScreen(
             is UiState.Success -> ComplaintDetailContent(
                 complaint = state.data,
                 messageError = (messageState as? UiState.Error)?.message,
+                isRequestingRefund = requestRefundState is UiState.Loading,
+                onRequestRefund = { viewModel.requestRefundForComplaint(complaintId) },
                 modifier = Modifier.padding(paddingValues)
             )
             else -> Unit
@@ -148,6 +187,8 @@ fun ComplaintDetailScreen(
 private fun ComplaintDetailContent(
     complaint: ComplaintDto,
     messageError: String?,
+    isRequestingRefund: Boolean = false,
+    onRequestRefund: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -155,7 +196,7 @@ private fun ComplaintDetailContent(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { ComplaintInfoCard(complaint) }
+        item { ComplaintInfoCard(complaint, isRequestingRefund, onRequestRefund) }
         if (complaint.attachments.isNotEmpty()) {
             item { ComplaintAttachmentsCard(complaint) }
         }
@@ -191,7 +232,15 @@ private fun ComplaintDetailContent(
 }
 
 @Composable
-private fun ComplaintInfoCard(complaint: ComplaintDto) {
+private fun ComplaintInfoCard(
+    complaint: ComplaintDto,
+    isRequestingRefund: Boolean = false,
+    onRequestRefund: () -> Unit = {}
+) {
+    val closedStatuses = setOf("RESOLVED", "REJECTED", "CANCELLED")
+    val canRequestRefund = complaint.refundStatus == "NONE" &&
+        complaint.status.uppercase() !in closedStatuses
+
     Surface(color = Color.White, shape = RoundedCornerShape(18.dp), shadowElevation = 2.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -229,6 +278,23 @@ private fun ComplaintInfoCard(complaint: ComplaintDto) {
                             Text("Đã hoàn lúc: ${it.take(16)}", color = Color(0xFF92400E), fontSize = 13.sp)
                         }
                     }
+                }
+            }
+            if (canRequestRefund) {
+                OutlinedButton(
+                    onClick = onRequestRefund,
+                    enabled = !isRequestingRefund,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFB45309))
+                ) {
+                    if (isRequestingRefund) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color(0xFFB45309))
+                    } else {
+                        Icon(Icons.Default.MoneyOff, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                    Spacer(Modifier.size(6.dp))
+                    Text("Yêu cầu hoàn tiền", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -299,6 +365,7 @@ private fun complaintEventColor(type: String): Color {
         "INTERNAL_NOTE" -> Color(0xFF7C3AED)
         "MESSAGE_ADDED" -> Color(0xFF0891B2)
         "REFUND_UPDATED" -> Color(0xFFB45309)
+        "ATTACHMENT_ADDED" -> Color(0xFF059669)
         else -> Color(0xFF6B7280)
     }
 }
@@ -377,30 +444,69 @@ private fun ComplaintMessageBubble(message: ComplaintMessageDto) {
 @Composable
 private fun ComplaintReplyBar(
     message: String,
+    pendingFileCount: Int,
     isSending: Boolean,
     onMessageChange: (String) -> Unit,
+    onAttachClick: () -> Unit,
+    onClearFile: (Int) -> Unit,
     onSend: () -> Unit
 ) {
+    val canSend = !isSending && (message.isNotBlank() || pendingFileCount > 0)
     Surface(color = Color.White, shadowElevation = 8.dp) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            OutlinedTextField(
-                value = message,
-                onValueChange = onMessageChange,
-                label = { Text("Bổ sung thông tin") },
-                modifier = Modifier.weight(1f),
-                minLines = 1,
-                maxLines = 4
-            )
-            Button(
-                onClick = onSend,
-                enabled = !isSending && message.isNotBlank(),
-                shape = RoundedCornerShape(14.dp)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+            if (pendingFileCount > 0) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(bottom = 6.dp)
+                ) {
+                    Surface(
+                        color = Color(0xFFECFDF5),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Outlined.AttachFile, contentDescription = null, tint = GreenTop, modifier = Modifier.size(14.dp))
+                            Text("$pendingFileCount file đính kèm", fontSize = 12.sp, color = GreenTop)
+                            IconButton(
+                                onClick = { repeat(pendingFileCount) { onClearFile(0) } },
+                                modifier = Modifier.size(18.dp)
+                            ) {
+                                Icon(Icons.Default.Close, contentDescription = "Xóa file", tint = Color.Gray, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+                IconButton(onClick = onAttachClick, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Outlined.AttachFile, contentDescription = "Đính kèm", tint = GreenTop)
+                }
+                OutlinedTextField(
+                    value = message,
+                    onValueChange = onMessageChange,
+                    label = { Text("Bổ sung thông tin") },
+                    modifier = Modifier.weight(1f),
+                    minLines = 1,
+                    maxLines = 4
+                )
+                Button(
+                    onClick = onSend,
+                    enabled = canSend,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    if (isSending) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                    } else {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+                    }
+                }
             }
         }
     }

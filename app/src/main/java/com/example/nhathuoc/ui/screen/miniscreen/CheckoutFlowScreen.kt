@@ -32,7 +32,6 @@ import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,7 +47,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -72,7 +70,7 @@ import coil.compose.AsyncImage
 import com.example.nhathuoc.data.model.CartItemDto
 import com.example.nhathuoc.data.model.RewardVoucherDto
 import com.example.nhathuoc.data.model.UserAddress
-import com.example.nhathuoc.ui.theme.GreenTop
+import androidx.compose.material3.MaterialTheme
 import com.example.nhathuoc.viewmodel.CheckoutViewModel
 import java.text.NumberFormat
 import java.util.Locale
@@ -234,8 +232,8 @@ fun CheckoutFlowScreen(
                 activeGatewayUrl = null
                 checkoutNotice = "Đã quay lại checkout. Bạn có thể tiếp tục hoặc đổi phương thức thanh toán."
             },
-            onCheckStatus = { viewModel.refreshPaymentStatus(activeOrderId!!, showErrorOnFailure = true) },
-            onReturnUrlDetected = { viewModel.refreshPaymentStatus(activeOrderId!!, showErrorOnFailure = true) }
+            onCheckStatus = { activeOrderId?.let { viewModel.refreshPaymentStatus(it, showErrorOnFailure = true) } },
+            onReturnUrlDetected = { activeOrderId?.let { viewModel.refreshPaymentStatus(it, showErrorOnFailure = true) } }
         )
         return
     }
@@ -256,23 +254,14 @@ fun CheckoutFlowScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Thanh toán") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = GreenTop,
-                    navigationIconContentColor = GreenTop
-                )
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = "Thanh toán",
+                onBack = { navController.popBackStack() }
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbars) },
         bottomBar = {
-            Surface(color = Color.White, shadowElevation = 8.dp) {
+            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -282,7 +271,7 @@ fun CheckoutFlowScreen(
                 ) {
                     Text(
                         text = "Tổng thanh toán: ${formatCurrency(state.total)}",
-                        color = GreenTop,
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -301,7 +290,7 @@ fun CheckoutFlowScreen(
                             .fillMaxWidth()
                             .height(52.dp),
                         enabled = !state.isLoading && selectedAddress != null && state.cartItems.isNotEmpty(),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         if (state.isLoading) {
@@ -317,7 +306,7 @@ fun CheckoutFlowScreen(
                 }
             }
         },
-        containerColor = Color(0xFFF5F7FA)
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -335,7 +324,7 @@ fun CheckoutFlowScreen(
                                 .padding(24.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(color = GreenTop)
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -353,7 +342,7 @@ fun CheckoutFlowScreen(
                             ) {
                                 Text(
                                     if (selectedAddress == null) "Chọn" else "Đổi",
-                                    color = GreenTop,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -364,7 +353,7 @@ fun CheckoutFlowScreen(
                             ) {
                                 Text(
                                     "+ Thêm",
-                                    color = GreenTop,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -373,7 +362,7 @@ fun CheckoutFlowScreen(
                     }
                 ) {
                     if (selectedAddress == null) {
-                        Text("Bạn chưa chọn địa chỉ giao hàng.", color = Color(0xFF8A8F98))
+                        Text("Bạn chưa chọn địa chỉ giao hàng.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
                         SelectedAddressCard(selectedAddress)
                     }
@@ -452,7 +441,7 @@ fun CheckoutFlowScreen(
                             label = { Text("${state.totalItems} sản phẩm") },
                             colors = AssistChipDefaults.assistChipColors(
                                 disabledContainerColor = Color(0xFFE8F5E9),
-                                disabledLabelColor = GreenTop
+                                disabledLabelColor = MaterialTheme.colorScheme.primary
                             )
                         )
                     }
@@ -503,7 +492,7 @@ private fun CheckoutSectionCard(
 ) {
     ElevatedCard(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = Color.White)
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Row(
@@ -516,12 +505,12 @@ private fun CheckoutSectionCard(
                     modifier = Modifier.weight(1f, fill = false),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(icon, contentDescription = null, tint = GreenTop, modifier = Modifier.size(20.dp))
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         title,
                         fontWeight = FontWeight.Bold,
-                        color = GreenTop,
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -543,9 +532,9 @@ private fun CheckoutSectionCard(
 private fun SelectedAddressCard(address: UserAddress) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFFF7FBF7),
+        color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -553,27 +542,28 @@ private fun SelectedAddressCard(address: UserAddress) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(address.recipientName, fontWeight = FontWeight.Bold, color = GreenTop)
+                Text(address.recipientName.orEmpty(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 if (address.isDefault) {
                     AssistChip(
                         onClick = {},
                         enabled = false,
                         label = { Text("Mặc định") },
                         colors = AssistChipDefaults.assistChipColors(
-                            disabledContainerColor = Color(0xFFE8F5E9),
-                            disabledLabelColor = GreenTop
+                            disabledContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            disabledLabelColor = MaterialTheme.colorScheme.primary
                         )
                     )
                 }
             }
             Spacer(modifier = Modifier.height(6.dp))
-            Text(address.recipientPhone)
+            Text(address.recipientPhone.orEmpty(), color = MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(4.dp))
+            val streetPart = address.fullAddress?.takeIf(String::isNotBlank) ?: address.address
             Text(
-                text = listOf(address.fullAddress, address.ward, address.district, address.province)
-                    .filter { it.isNotBlank() }
+                text = listOf(streetPart, address.ward, address.district, address.province)
+                    .mapNotNull { it?.takeIf(String::isNotBlank) }
                     .joinToString(", "),
-                color = Color(0xFF4B5563)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -615,11 +605,11 @@ private fun PaymentMethodItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        color = if (selected) Color(0xFFF0F9F1) else Color(0xFFF8FAFC),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(
             1.dp,
-            if (selected) GreenTop else Color(0xFFE2E8F0)
+            if (selected) MaterialTheme.colorScheme.primary else Color(0xFFE2E8F0)
         )
     ) {
         Row(
@@ -630,14 +620,14 @@ private fun PaymentMethodItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                color = if (selected) GreenTop else Color.White,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, if (selected) GreenTop else Color(0xFFE2E8F0))
+                border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else Color(0xFFE2E8F0))
             ) {
                 Icon(
                     imageVector = Icons.Filled.Payments,
                     contentDescription = null,
-                    tint = if (selected) Color.White else GreenTop,
+                    tint = if (selected) Color.White else MaterialTheme.colorScheme.primary,
                     modifier = Modifier
                         .padding(10.dp)
                         .size(22.dp)
@@ -646,7 +636,7 @@ private fun PaymentMethodItem(
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = title,
-                    color = GreenTop,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
@@ -670,7 +660,7 @@ private fun VoucherPickerSection(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFFF8FAFC),
+        color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
@@ -687,10 +677,10 @@ private fun VoucherPickerSection(
                     modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Filled.Redeem, contentDescription = null, tint = GreenTop)
+                    Icon(Icons.Filled.Redeem, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.size(8.dp))
                     Column {
-                        Text("Voucher của tôi", color = GreenTop, fontWeight = FontWeight.Bold)
+                        Text("Voucher của tôi", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         Text(
                             text = "${vouchers.size} voucher khả dụng",
                             color = Color(0xFF6B7280),
@@ -705,9 +695,9 @@ private fun VoucherPickerSection(
 
             if (selectedVoucher != null) {
                 Surface(
-                    color = Color(0xFFF0F9F1),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, GreenTop)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
                     Column(
                         modifier = Modifier.padding(12.dp),
@@ -719,7 +709,7 @@ private fun VoucherPickerSection(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(selectedVoucher.name, color = GreenTop, fontWeight = FontWeight.SemiBold)
+                                Text(selectedVoucher.name, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                                 Text(selectedVoucher.code, color = Color(0xFF6B7280), fontSize = 12.sp)
                             }
                             TextButton(onClick = onClearVoucher) {
@@ -763,7 +753,7 @@ private fun VoucherBottomSheet(
         ) {
             Text(
                 text = "Voucher của tôi",
-                color = GreenTop,
+                color = MaterialTheme.colorScheme.primary,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -782,7 +772,7 @@ private fun VoucherBottomSheet(
             if (vouchers.isEmpty()) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFFF8FAFC),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(16.dp),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
@@ -823,15 +813,15 @@ private fun VoucherBottomSheetItem(
             .fillMaxWidth()
             .clickable(enabled = qualified, onClick = onClick),
         color = when {
-            selected -> Color(0xFFF0F9F1)
-            qualified -> Color.White
-            else -> Color(0xFFF8FAFC)
+            selected -> MaterialTheme.colorScheme.primaryContainer
+            qualified -> MaterialTheme.colorScheme.surface
+            else -> MaterialTheme.colorScheme.surfaceVariant
         },
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
             1.dp,
             when {
-                selected -> GreenTop
+                selected -> MaterialTheme.colorScheme.primary
                 qualified -> Color(0xFFE2E8F0)
                 else -> Color(0xFFF1F5F9)
             }
@@ -847,7 +837,7 @@ private fun VoucherBottomSheetItem(
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(voucher.name, color = GreenTop, fontWeight = FontWeight.Bold)
+                    Text(voucher.name, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     Text(voucher.code, color = Color(0xFF6B7280), fontSize = 12.sp)
                 }
                 Text(
@@ -857,7 +847,7 @@ private fun VoucherBottomSheetItem(
                         else -> "Chưa đủ điều kiện"
                     },
                     color = when {
-                        selected -> GreenTop
+                        selected -> MaterialTheme.colorScheme.primary
                         qualified -> Color(0xFF374151)
                         else -> Color(0xFFD97706)
                     },
@@ -875,7 +865,7 @@ private fun VoucherBottomSheetItem(
                 } else {
                     "Đơn hiện tại chưa đạt điều kiện áp dụng voucher này."
                 },
-                color = if (qualified) GreenTop else Color(0xFFD97706),
+                color = if (qualified) MaterialTheme.colorScheme.primary else Color(0xFFD97706),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -902,7 +892,7 @@ private fun RewardInfoCard(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text("Điểm thưởng", fontWeight = FontWeight.Bold, color = GreenTop)
+            Text("Điểm thưởng", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Text(
                 "Sẽ nhận từ đơn này: +$estimatedPoints điểm",
                 color = Color(0xFFFF8F00),
@@ -919,7 +909,7 @@ private fun RewardInfoCard(
                         Text(
                             text = "Dùng tối đa $maxUsablePoints điểm",
                             fontWeight = FontWeight.SemiBold,
-                            color = GreenTop
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Text(
                             text = "Giảm ${formatCurrency(maxUsablePoints.toDouble())} cho tiền hàng.",
@@ -961,7 +951,7 @@ private fun RewardInfoCard(
 private fun CartItemRow(item: CartItemDto) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFFF8FAFC),
+        color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
@@ -972,7 +962,7 @@ private fun CartItemRow(item: CartItemDto) {
         ) {
             Surface(
                 modifier = Modifier.size(52.dp),
-                color = Color(0xFFE8F5E9),
+                color = MaterialTheme.colorScheme.primaryContainer,
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -989,7 +979,7 @@ private fun CartItemRow(item: CartItemDto) {
                         Icon(
                             imageVector = Icons.Outlined.Storefront,
                             contentDescription = null,
-                            tint = GreenTop,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -1000,7 +990,7 @@ private fun CartItemRow(item: CartItemDto) {
                 Text(
                     text = item.displayName,
                     fontWeight = FontWeight.Bold,
-                    color = GreenTop,
+                    color = MaterialTheme.colorScheme.primary,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1015,7 +1005,7 @@ private fun CartItemRow(item: CartItemDto) {
             Text(
                 text = formatCurrency(item.totalPrice),
                 fontWeight = FontWeight.Bold,
-                color = GreenTop
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }
@@ -1032,13 +1022,13 @@ private fun SummaryRow(label: String, value: Double, emphasize: Boolean = false)
             text = label,
             fontSize = if (emphasize) 17.sp else 15.sp,
             fontWeight = if (emphasize) FontWeight.Bold else FontWeight.Medium,
-            color = if (emphasize) GreenTop else Color(0xFF374151)
+            color = if (emphasize) MaterialTheme.colorScheme.primary else Color(0xFF374151)
         )
         Text(
             text = formatCurrency(value),
             fontSize = if (emphasize) 18.sp else 15.sp,
             fontWeight = if (emphasize) FontWeight.Bold else FontWeight.SemiBold,
-            color = if (emphasize) GreenTop else Color(0xFF111827)
+            color = if (emphasize) MaterialTheme.colorScheme.primary else Color(0xFF111827)
         )
     }
 }

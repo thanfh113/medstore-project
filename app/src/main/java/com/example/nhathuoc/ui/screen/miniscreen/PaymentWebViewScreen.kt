@@ -95,32 +95,14 @@ fun PaymentWebViewScreen(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        title,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = GreenTop
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onClose) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Đóng",
-                            tint = GreenTop
-                        )
-                    }
-                },
-                actions = {
+            com.example.nhathuoc.ui.component.GreenAppTopBar(
+                title = title,
+                onBack = onClose,
+                trailingContent = {
                     TextButton(onClick = onCheckStatus) {
-                        Text("Kiểm tra", color = GreenTop, fontWeight = FontWeight.SemiBold)
+                        Text("Kiểm tra", color = Color.White, fontWeight = FontWeight.SemiBold)
                     }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.White
-                )
+                }
             )
         },
         containerColor = Color.White

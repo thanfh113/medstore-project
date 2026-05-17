@@ -115,15 +115,31 @@ class OrderRepository @Inject constructor(
         }
     }
 
-    private fun parseErrorMessage(errorBody: String?): String {
+    suspend fun addComplaintAttachments(complaintId: String, attachments: List<ComplaintAttachmentInput>): NetworkResult<ComplaintDto> {
         return try {
-            if (errorBody != null) {
-                kotlinx.serialization.json.Json.decodeFromString<ApiError>(errorBody).message
-            } else {
-                "Có lỗi xảy ra, vui lòng thử lại"
-            }
+            val response = apiService.addComplaintAttachments(complaintId, AddComplaintAttachmentsRequest(attachments))
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!.data) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
         } catch (e: Exception) {
-            errorBody ?: "Có lỗi xảy ra, vui lòng thử lại"
+            NetworkResult.Exception(e)
         }
     }
+
+    suspend fun requestRefundForComplaint(complaintId: String): NetworkResult<ComplaintDto> {
+        return try {
+            val response = apiService.requestRefundForComplaint(complaintId)
+            if (response.isSuccessful) NetworkResult.Success(response.body()!!.data) else NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
+    private fun parseErrorMessage(errorBody: String?): String = parseErrorBody(errorBody)
 }
