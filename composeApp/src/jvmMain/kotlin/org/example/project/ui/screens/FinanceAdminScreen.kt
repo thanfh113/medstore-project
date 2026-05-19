@@ -158,13 +158,13 @@ fun FinanceAdminScreen(viewModel: FinanceDashboardViewModel) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         FinanceCard("Chiết khấu", formatVND(d.totalDiscount), Color(0xFFE65100), Modifier.weight(1f))
                         FinanceCard("Chi phí vốn", formatVND(d.totalExpenses), Color(0xFFB71C1C), Modifier.weight(1f))
+                        FinanceCard("Hoàn tiền", formatVND(d.totalRefunds), Color(0xFF6A1B9A), Modifier.weight(1f))
                         FinanceCard(
                             "Lợi nhuận thuần",
                             formatVND(d.netProfit),
                             if (d.netProfit >= 0) Color(0xFF1B5E20) else Color(0xFFB71C1C),
                             Modifier.weight(1f)
                         )
-                        Spacer(Modifier.weight(1f))
                     }
 
                     FinanceSectionLabel("Thống kê đơn hàng")
@@ -172,7 +172,13 @@ fun FinanceAdminScreen(viewModel: FinanceDashboardViewModel) {
                         FinanceStatCard("Tổng đơn hàng", d.totalOrderCount.toString(), Modifier.weight(1f))
                         FinanceStatCard("Đơn thành công", d.successfulOrderCount.toString(), Modifier.weight(1f))
                         FinanceStatCard("Đơn hủy", d.cancelledOrderCount.toString(), Modifier.weight(1f))
-                        Spacer(Modifier.weight(1f))
+                        FinanceStatCard("Đã hoàn tiền", d.refundedOrderCount.toString(), Modifier.weight(1f))
+                    }
+                    if (d.returnedOrderCount > 0) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            FinanceStatCard("Đơn trả hàng", d.returnedOrderCount.toString(), Modifier.weight(1f))
+                            Spacer(Modifier.weight(3f))
+                        }
                     }
 
                     if (d.topSellingProducts.isNotEmpty()) {

@@ -1,9 +1,11 @@
 package org.example.project.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,9 +14,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -40,6 +44,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -51,7 +56,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,6 +72,9 @@ import org.example.project.data.repositories.OperationsReviewReportDto
 import org.example.project.data.repositories.OperationsReviewDto
 import org.example.project.data.repositories.OperationsRewardRedemptionDto
 import org.example.project.presentation.viewmodels.OperationsViewModel
+import org.example.project.util.formatUtcToVnDateTime
+import org.example.project.util.formatVnDate
+import org.example.project.util.formatVnDateTime
 import java.awt.Desktop
 import java.net.URI
 
@@ -100,8 +111,10 @@ private val complaintStatusFilters = listOf(
     "OPEN" to "Mới",
     "IN_REVIEW" to "Đang xử lý",
     "NEED_MORE_INFO" to "Cần bổ sung",
+    "APPROVED" to "Đã duyệt",
     "RESOLVED" to "Đã xong",
-    "REJECTED" to "Từ chối"
+    "REJECTED" to "Từ chối",
+    "CANCELLED" to "Đã hủy"
 )
 
 private val complaintPriorityFilters = listOf(
@@ -130,6 +143,7 @@ fun OperationsModerationScreen(viewModel: OperationsViewModel) {
     val state by viewModel.uiState.collectAsState()
     val tabs = listOf("Đánh giá", "Khiếu nại", "Đổi điểm")
     var selectedReviewReport by remember { mutableStateOf<OperationsReviewReportDto?>(null) }
+    var selectedReview by remember { mutableStateOf<OperationsReviewDto?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadAll()
@@ -156,6 +170,18 @@ fun OperationsModerationScreen(viewModel: OperationsViewModel) {
             onHandleReport = { reportId, reportStatus, reviewStatus, reason ->
                 viewModel.updateReviewReport(reportId, reportStatus, reviewStatus, reason)
                 selectedReviewReport = null
+            }
+        )
+    }
+
+    selectedReview?.let { review ->
+        ReviewDetailDialog(
+            review = review,
+            processingId = state.processingId,
+            onDismiss = { selectedReview = null },
+            onModerate = { reviewId, status, reason ->
+                viewModel.moderateReview(reviewId, status, reason)
+                selectedReview = null
             }
         )
     }
@@ -214,6 +240,7 @@ fun OperationsModerationScreen(viewModel: OperationsViewModel) {
                     onStatusFilterChange = viewModel::setReviewStatusFilter,
                     onReportStatusFilterChange = viewModel::setReviewReportStatusFilter,
                     onOpenReport = { selectedReviewReport = it },
+                    onOpenReview = { selectedReview = it },
                     onHandleReport = viewModel::updateReviewReport,
                     onModerate = viewModel::moderateReview
                 )
@@ -295,11 +322,21 @@ private fun ComplaintStatusBadge(status: String) {
         "OPEN" -> "Mới" to MaterialTheme.colorScheme.error
         "IN_REVIEW" -> "Đang xử lý" to MaterialTheme.colorScheme.primary
         "NEED_MORE_INFO" -> "Cần bổ sung" to MaterialTheme.colorScheme.tertiary
+        "APPROVED" -> "Đã duyệt" to MaterialTheme.colorScheme.secondary
         "RESOLVED" -> "Hoàn tất" to MaterialTheme.colorScheme.secondary
-        "REJECTED" -> "Từ chối" to MaterialTheme.colorScheme.outline
+        "REJECTED" -> "Từ chối" to MaterialTheme.colorScheme.error
+        "CANCELLED" -> "Đã hủy" to MaterialTheme.colorScheme.outline
         else -> status to MaterialTheme.colorScheme.outline
     }
-    Text(label, color = color, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+    Surface(shape = RoundedCornerShape(20.dp), color = color.copy(alpha = 0.12f)) {
+        Text(
+            label,
+            color = color,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+        )
+    }
 }
 
 @Composable
@@ -324,6 +361,7 @@ private fun ReviewsTab(
     onStatusFilterChange: (String?) -> Unit,
     onReportStatusFilterChange: (String?) -> Unit,
     onOpenReport: (OperationsReviewReportDto) -> Unit,
+    onOpenReview: (OperationsReviewDto) -> Unit,
     onHandleReport: (String, String, String?, String?) -> Unit,
     onModerate: (String, String, String?) -> Unit
 ) {
@@ -389,12 +427,16 @@ private fun ReviewsTab(
                         Text(it, maxLines = 3, overflow = TextOverflow.Ellipsis)
                     }
                     Text(
-                        "Báo cáo: ${review.reportCount} · File: ${review.attachments.size} · Mua thật: ${if (review.isVerifiedPurchase) "Có" else "Không"} · ${review.createdAt.take(16)}",
+                        "Báo cáo: ${review.reportCount} · File: ${review.attachments.size} · Mua thật: ${if (review.isVerifiedPurchase) "Có" else "Không"} · ${formatVnDateTime(review.createdAt)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
+                            onClick = { onOpenReview(review) },
+                            enabled = processingId != review.id
+                        ) { Text("Xem chi tiết") }
+                        OutlinedButton(
                             onClick = { onModerate(review.id, "VISIBLE", null) },
                             enabled = processingId != review.id
                         ) { Text("Hiện") }
@@ -435,7 +477,7 @@ private fun ReviewReportCard(
             }
             report.note?.takeIf { it.isNotBlank() }?.let { Text("Ghi chú: $it") }
             Text(
-                "Báo cáo lúc: ${report.createdAt.take(16)} · Review: ${report.reviewId.takeLast(8)}",
+                "Báo cáo lúc: ${formatVnDateTime(report.createdAt)} · Review: ${report.reviewId.takeLast(8)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -489,7 +531,7 @@ private fun ReviewReportDetailDialog(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Báo cáo đánh giá", fontWeight = FontWeight.Bold)
                 Text(
-                    "${report.reason} | ${reportStatusLabel(report.status)} | ${report.createdAt.take(16)}",
+                    "${report.reason} | ${reportStatusLabel(report.status)} | ${formatVnDateTime(report.createdAt)}",
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -506,7 +548,7 @@ private fun ReviewReportDetailDialog(
                         Text("Lý do: ${report.reason}")
                         report.note?.takeIf { it.isNotBlank() }?.let { Text("Ghi chú: $it") }
                         report.handledAt?.let {
-                            Text("Đã xử lý lúc: ${it.take(16)} bởi ${report.handledBy?.takeLast(8) ?: "N/A"}")
+                            Text("Đã xử lý lúc: ${formatVnDateTime(it)} bởi ${report.handledBy?.takeLast(8) ?: "N/A"}")
                         }
                     }
                 }
@@ -521,7 +563,7 @@ private fun ReviewReportDetailDialog(
                             Text("Sản phẩm: ${review.productId} | Đơn: ${review.orderId?.takeLast(8) ?: "N/A"}")
                             review.title?.takeIf { it.isNotBlank() }?.let { Text(it, fontWeight = FontWeight.SemiBold) }
                             review.comment?.takeIf { it.isNotBlank() }?.let { Text(it) }
-                            Text("Mua thật: ${if (review.isVerifiedPurchase) "Có" else "Không"} | Báo cáo: ${review.reportCount} | ${review.createdAt.take(16)}")
+                            Text("Mua thật: ${if (review.isVerifiedPurchase) "Có" else "Không"} | Báo cáo: ${review.reportCount} | ${formatVnDateTime(review.createdAt)}")
                             review.hiddenReason?.takeIf { it.isNotBlank() }?.let {
                                 Text("Lý do ẩn hiện tại: $it", color = MaterialTheme.colorScheme.error)
                             }
@@ -583,6 +625,104 @@ private fun ReviewReportDetailDialog(
 }
 
 @Composable
+private fun ReviewDetailDialog(
+    review: OperationsReviewDto,
+    processingId: String?,
+    onDismiss: () -> Unit,
+    onModerate: (String, String, String?) -> Unit
+) {
+    var hiddenReason by remember(review.id) { mutableStateOf(review.hiddenReason.orEmpty()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.widthIn(min = 680.dp, max = 980.dp),
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Chi tiết đánh giá", fontWeight = FontWeight.Bold)
+                Text(
+                    "${review.rating}/5 sao — ${review.userName ?: review.userId.takeLast(8)} | ${reviewStatusLabel(review.status)}",
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        },
+        text = {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 620.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Thông tin đánh giá", fontWeight = FontWeight.SemiBold)
+                        Text("Người dùng: ${review.userName ?: review.userId}")
+                        Text("Sản phẩm: ${review.productId}")
+                        review.orderId?.let { Text("Đơn hàng: $it") }
+                        Text("Mua thật: ${if (review.isVerifiedPurchase) "Có" else "Không"} · Báo cáo: ${review.reportCount} · ${formatVnDateTime(review.createdAt)}")
+                        review.hiddenReason?.takeIf { it.isNotBlank() }?.let {
+                            Text("Lý do ẩn: $it", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Nội dung đánh giá", fontWeight = FontWeight.SemiBold)
+                        review.title?.takeIf { it.isNotBlank() }?.let {
+                            Text(it, fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                        }
+                        review.comment?.takeIf { it.isNotBlank() }?.let {
+                            Text(it)
+                        }
+                        if (review.title.isNullOrBlank() && review.comment.isNullOrBlank()) {
+                            Text("(Không có nội dung)", color = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+                }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("File đính kèm (${review.attachments.size})", fontWeight = FontWeight.SemiBold)
+                        if (review.attachments.isEmpty()) {
+                            Text("Không có file đính kèm", color = MaterialTheme.colorScheme.outline)
+                        } else {
+                            review.attachments.forEach { attachment ->
+                                ReviewAttachmentRow(attachment)
+                            }
+                        }
+                    }
+                }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Kiểm duyệt", fontWeight = FontWeight.SemiBold)
+                        OutlinedTextField(
+                            value = hiddenReason,
+                            onValueChange = { hiddenReason = it },
+                            label = { Text("Lý do ẩn/gỡ (nếu có)") },
+                            minLines = 2,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = { onModerate(review.id, "VISIBLE", null) },
+                                enabled = processingId != review.id
+                            ) { Text("Hiện") }
+                            OutlinedButton(
+                                onClick = { onModerate(review.id, "HIDDEN", hiddenReason.ifBlank { "Ẩn vì cần kiểm tra" }) },
+                                enabled = processingId != review.id
+                            ) { Text("Ẩn") }
+                            OutlinedButton(
+                                onClick = { onModerate(review.id, "REMOVED", hiddenReason.ifBlank { "Vi phạm nội dung" }) },
+                                enabled = processingId != review.id
+                            ) { Text("Gỡ") }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Đóng") }
+        }
+    )
+}
+
+@Composable
 private fun ReviewAttachmentRow(attachment: OperationsReviewAttachmentDto) {
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -599,7 +739,7 @@ private fun ReviewAttachmentRow(attachment: OperationsReviewAttachmentDto) {
                     attachment.fileUrl.substringAfterLast('/').substringBefore('?'),
                     fontWeight = FontWeight.SemiBold
                 )
-                Text("${attachment.fileType} | ${attachment.createdAt.take(16)}", style = MaterialTheme.typography.bodySmall)
+                Text("${attachment.fileType} | ${formatVnDateTime(attachment.createdAt)}", style = MaterialTheme.typography.bodySmall)
             }
             OutlinedButton(onClick = { openExternalUrl(attachment.fileUrl) }) { Text("Mở") }
         }
@@ -617,7 +757,7 @@ private fun ComplaintsTab(
     onPriorityFilterChange: (String?) -> Unit,
     onTypeFilterChange: (String?) -> Unit,
     onOpenDetail: (String) -> Unit,
-    onUpdate: (String, String, String, String?, Double?, String?, String?, String?) -> Unit
+    onUpdate: (String, String, String, String?, Double?, String?, String?, String?, Boolean) -> Unit
 ) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
         item {
@@ -660,7 +800,7 @@ private fun ComplaintListCard(
     complaint: OperationsComplaintDto,
     processingId: String?,
     onOpenDetail: (String) -> Unit,
-    onUpdate: (String, String, String, String?, Double?, String?, String?, String?) -> Unit
+    onUpdate: (String, String, String, String?, Double?, String?, String?, String?, Boolean) -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -668,6 +808,7 @@ private fun ComplaintListCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Header row: code + badges
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -680,29 +821,34 @@ private fun ComplaintListCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     ComplaintStatusBadge(complaint.status)
                     ComplaintPriorityBadge(complaint.priority)
+                    if (complaint.refundStatus != "NONE") {
+                        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
+                            Text(
+                                refundStatusLabel(complaint.refundStatus),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Meta row
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     complaint.userName ?: "Khách ${complaint.userId.takeLast(8)}",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium
                 )
                 Text("·", color = MaterialTheme.colorScheme.outline)
-                Text(
-                    "Đơn ${complaint.orderId.takeLast(8)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.outline
-                )
+                Text(complaintTypeLabel(complaint.type), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                 Text("·", color = MaterialTheme.colorScheme.outline)
-                Text(
-                    complaintTypeLabel(complaint.type),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.outline
-                )
+                Text(formatVnDate(complaint.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
             }
+            // Description
             complaint.description.takeIf { it.isNotBlank() }?.let {
                 Text(
                     it,
@@ -712,8 +858,17 @@ private fun ComplaintListCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            // Refund amount if set
+            complaint.refundAmount?.let { amt ->
+                Text(
+                    "Hoàn tiền: ${formatCurrency(amt)}${complaint.refundMethod?.let { " · ${refundMethodLabel(it)}" } ?: ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
+            }
             Text(
-                "${complaint.attachments.size} file · ${complaint.messages.size} tin nhắn · ${complaint.createdAt.take(16)}",
+                "${complaint.attachments.size} file · ${complaint.messages.size} tin nhắn",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -723,18 +878,339 @@ private fun ComplaintListCard(
                     enabled = processingId != complaint.id
                 ) { Text("Xem chi tiết") }
 
-                if (complaint.status == "OPEN" || complaint.status == "NEED_MORE_INFO") {
+                if (complaint.status == "OPEN") {
                     OutlinedButton(
-                        onClick = {
-                            onUpdate(
-                                complaint.id, "IN_REVIEW", complaint.priority,
-                                complaint.resolution, complaint.refundAmount,
-                                complaint.refundStatus, complaint.refundMethod,
-                                complaint.refundTransactionId
-                            )
-                        },
+                        onClick = { onUpdate(complaint.id, "IN_REVIEW", complaint.priority, complaint.resolution, null, null, null, null, false) },
                         enabled = processingId != complaint.id
-                    ) { Text("Nhận xử lý") }
+                    ) { Text("Tiếp nhận") }
+                }
+                if (complaint.status == "NEED_MORE_INFO") {
+                    OutlinedButton(
+                        onClick = { onUpdate(complaint.id, "IN_REVIEW", complaint.priority, complaint.resolution, null, null, null, null, false) },
+                        enabled = processingId != complaint.id
+                    ) { Text("Tiếp tục xử lý") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComplaintStatusStepper(status: String) {
+    val isClosed = status in setOf("REJECTED", "CANCELLED")
+    if (isClosed) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.errorContainer
+        ) {
+            Text(
+                if (status == "REJECTED") "✕ Từ chối" else "✕ Đã hủy",
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                color = MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp
+            )
+        }
+    } else {
+        val stepIndex = when (status) {
+            "OPEN" -> 0
+            "IN_REVIEW", "NEED_MORE_INFO" -> 1
+            "APPROVED" -> 2
+            "RESOLVED" -> 3
+            else -> 0
+        }
+        val steps = listOf("Tiếp nhận", "Đang xử lý", "Duyệt", "Hoàn tất")
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                steps.forEachIndexed { index, label ->
+                    val isDone = index < stepIndex
+                    val isCurrent = index == stepIndex
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = when {
+                            isCurrent -> MaterialTheme.colorScheme.primary
+                            isDone -> MaterialTheme.colorScheme.primaryContainer
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            if (isDone) {
+                                Icon(
+                                    Icons.Default.Check, null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Spacer(Modifier.width(3.dp))
+                            }
+                            Text(
+                                label,
+                                fontSize = 10.sp,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                color = when {
+                                    isCurrent -> Color.White
+                                    isDone -> MaterialTheme.colorScheme.primary
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    if (index < steps.lastIndex) {
+                        Text(
+                            "›",
+                            color = if (index < stepIndex) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            if (status == "NEED_MORE_INFO") {
+                Text(
+                    "⚠ Đang chờ khách hàng bổ sung thông tin",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComplaintActionZone(
+    complaint: OperationsComplaintDto,
+    priority: String,
+    resolution: String,
+    refundAmountText: String,
+    refundMethod: String,
+    refundTransactionId: String,
+    restoreStock: Boolean,
+    isProcessing: Boolean,
+    onPriorityChange: (String) -> Unit,
+    onResolutionChange: (String) -> Unit,
+    onRefundAmountChange: (String) -> Unit,
+    onRefundMethodChange: (String) -> Unit,
+    onRefundTransactionIdChange: (String) -> Unit,
+    onRestoreStockChange: (Boolean) -> Unit,
+    onUpdate: (String, String, String, String?, Double?, String?, String?, String?, Boolean) -> Unit
+) {
+    val id = complaint.id
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            when (complaint.status) {
+                "OPEN" -> {
+                    Text("Hành động", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Khiếu nại mới — tiếp nhận để bắt đầu xử lý và thông báo cho khách.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(
+                        onClick = { onUpdate(id, "IN_REVIEW", priority, null, null, null, null, null, false) },
+                        enabled = !isProcessing,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Tiếp nhận xử lý") }
+                }
+
+                "IN_REVIEW", "NEED_MORE_INFO" -> {
+                    Text("Đang xử lý", fontWeight = FontWeight.SemiBold)
+
+                    Text("Mức ưu tiên", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("LOW" to "Thấp", "NORMAL" to "Thường", "HIGH" to "Cao", "URGENT" to "Gấp").forEach { (v, l) ->
+                            FilterPill(label = l, selected = priority == v, onClick = { onPriorityChange(v) })
+                        }
+                    }
+                    OutlinedTextField(
+                        value = resolution,
+                        onValueChange = onResolutionChange,
+                        label = { Text("Hướng xử lý / ghi chú nội bộ") },
+                        minLines = 2,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (complaint.status == "IN_REVIEW") {
+                            OutlinedButton(
+                                onClick = { onUpdate(id, "NEED_MORE_INFO", priority, resolution.ifBlank { null }, null, null, null, null, false) },
+                                enabled = !isProcessing
+                            ) { Text("Cần bổ sung thông tin") }
+                        }
+                        Button(
+                            onClick = { onUpdate(id, "APPROVED", priority, resolution.ifBlank { null }, null, null, null, null, false) },
+                            enabled = !isProcessing
+                        ) { Text("Duyệt khiếu nại") }
+                        OutlinedButton(
+                            onClick = { onUpdate(id, "REJECTED", priority, resolution.ifBlank { null }, null, null, null, null, false) },
+                            enabled = !isProcessing
+                        ) { Text("Từ chối") }
+                    }
+                }
+
+                "APPROVED" -> {
+                    Text("Hoàn tiền & Hoàn tất", fontWeight = FontWeight.SemiBold)
+
+                    val alreadyRefunded = complaint.refundStatus in setOf("REFUNDED", "REFUND_PROCESSING")
+
+                    if (alreadyRefunded) {
+                        Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Hoàn tiền: ${refundStatusLabel(complaint.refundStatus)}", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                                complaint.refundAmount?.let { Text("Số tiền: ${formatCurrency(it)}", style = MaterialTheme.typography.bodySmall) }
+                                complaint.refundTransactionId?.let { Text("Mã GD: $it", style = MaterialTheme.typography.bodySmall) }
+                                complaint.refundMethod?.let { Text("Phương thức: ${refundMethodLabel(it)}", style = MaterialTheme.typography.bodySmall) }
+                            }
+                        }
+                    } else {
+                        Text("Số tiền hoàn (VND)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        OutlinedTextField(
+                            value = refundAmountText,
+                            onValueChange = { onRefundAmountChange(it.filter { ch -> ch.isDigit() || ch == '.' }) },
+                            label = { Text("Nhập số tiền") },
+                            modifier = Modifier.fillMaxWidth(),
+                            trailingIcon = {
+                                complaint.orderTotal?.let { total ->
+                                    if (refundAmountText.isBlank()) {
+                                        TextButton(
+                                            onClick = { onRefundAmountChange(total.toLong().toString()) },
+                                            contentPadding = PaddingValues(horizontal = 6.dp)
+                                        ) { Text("Điền đủ", style = MaterialTheme.typography.labelSmall) }
+                                    }
+                                }
+                            }
+                        )
+
+                        Text("Phương thức hoàn", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(
+                                "ORIGINAL_PAYMENT" to "Ví/cổng cũ",
+                                "BANK_TRANSFER" to "Chuyển khoản",
+                                "CASH" to "Tiền mặt",
+                                "POINTS" to "Điểm thưởng",
+                                "OTHER" to "Khác"
+                            ).forEach { (v, l) ->
+                                FilterPill(label = l, selected = refundMethod == v, onClick = { onRefundMethodChange(v) })
+                            }
+                        }
+
+                        if (refundMethod == "ORIGINAL_PAYMENT") {
+                            Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                                Text(
+                                    "Hệ thống sẽ tự động gọi API hoàn tiền qua ví/cổng ban đầu (MoMo/ZaloPay).",
+                                    modifier = Modifier.padding(10.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        } else {
+                            OutlinedTextField(
+                                value = refundTransactionId,
+                                onValueChange = onRefundTransactionIdChange,
+                                label = { Text("Mã giao dịch hoàn (tùy chọn)") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Checkbox(
+                                checked = restoreStock,
+                                onCheckedChange = onRestoreStockChange
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Column {
+                                Text("Khách đã trả lại hàng vật lý", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "Tích nếu hàng được hoàn về kho (nhầm hàng, lỗi giao). Sẽ cộng lại tồn kho và đánh dấu đơn là Hoàn trả.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        val hasAmount = refundAmountText.toDoubleOrNull()?.let { it > 0 } == true
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            if (hasAmount) {
+                                if (refundMethod == "ORIGINAL_PAYMENT") {
+                                    Button(
+                                        onClick = {
+                                            onUpdate(id, "APPROVED", priority, resolution.ifBlank { null },
+                                                refundAmountText.toDoubleOrNull(), "REFUNDED", "ORIGINAL_PAYMENT", null, restoreStock)
+                                        },
+                                        enabled = !isProcessing,
+                                        modifier = Modifier.weight(1f)
+                                    ) { Text("Hoàn tiền qua cổng") }
+                                } else {
+                                    OutlinedButton(
+                                        onClick = {
+                                            onUpdate(id, "APPROVED", priority, resolution.ifBlank { null },
+                                                refundAmountText.toDoubleOrNull(), "REFUNDED",
+                                                refundMethod, refundTransactionId.ifBlank { null }, restoreStock)
+                                        },
+                                        enabled = !isProcessing,
+                                        modifier = Modifier.weight(1f)
+                                    ) { Text("Xác nhận đã hoàn tiền") }
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { onUpdate(id, "RESOLVED", priority, resolution.ifBlank { null }, null, null, null, null, restoreStock) },
+                                enabled = !isProcessing,
+                                modifier = if (hasAmount) Modifier else Modifier.fillMaxWidth()
+                            ) { Text(if (hasAmount) "Hoàn tất" else "Hoàn tất (không hoàn tiền)") }
+                        }
+                    }
+
+                    if (alreadyRefunded) {
+                        Button(
+                            onClick = { onUpdate(id, "RESOLVED", priority, resolution.ifBlank { null }, null, null, null, null, false) },
+                            enabled = !isProcessing,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Hoàn tất khiếu nại") }
+                    }
+                }
+
+                "RESOLVED" -> {
+                    Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Khiếu nại đã hoàn tất", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                            complaint.resolvedAt?.let { Text("Đóng lúc: ${formatUtcToVnDateTime(it)}", style = MaterialTheme.typography.bodySmall) }
+                            complaint.resolution?.takeIf { it.isNotBlank() }?.let { Text("Hướng xử lý: $it", style = MaterialTheme.typography.bodySmall) }
+                        }
+                    }
+                }
+
+                else -> {
+                    Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.errorContainer) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                if (complaint.status == "REJECTED") "Khiếu nại đã bị từ chối" else "Khiếu nại đã bị hủy",
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            complaint.resolution?.takeIf { it.isNotBlank() }?.let {
+                                Text("Lý do: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -749,7 +1225,7 @@ private fun ComplaintDetailDialog(
     processingId: String?,
     onDismiss: () -> Unit,
     onRefresh: () -> Unit,
-    onUpdate: (String, String, String, String?, Double?, String?, String?, String?) -> Unit,
+    onUpdate: (String, String, String, String?, Double?, String?, String?, String?, Boolean) -> Unit,
     onSendMessage: (String, String, Boolean) -> Unit
 ) {
     var resolution by remember(complaint.id, complaint.updatedAt) { mutableStateOf(complaint.resolution.orEmpty()) }
@@ -757,66 +1233,154 @@ private fun ComplaintDetailDialog(
     var refundAmountText by remember(complaint.id, complaint.updatedAt) {
         mutableStateOf(complaint.refundAmount?.let { editableAmount(it) }.orEmpty())
     }
-    var refundStatus by remember(complaint.id, complaint.updatedAt) { mutableStateOf(complaint.refundStatus) }
     var refundMethod by remember(complaint.id, complaint.updatedAt) {
         mutableStateOf(complaint.refundMethod ?: "ORIGINAL_PAYMENT")
     }
     var refundTransactionId by remember(complaint.id, complaint.updatedAt) {
         mutableStateOf(complaint.refundTransactionId.orEmpty())
     }
+    var restoreStock by remember(complaint.id) { mutableStateOf(false) }
     var reply by remember(complaint.id, complaint.messages.size) { mutableStateOf("") }
     var internalOnly by remember(complaint.id) { mutableStateOf(false) }
 
+    val isClosed = complaint.status in setOf("RESOLVED", "REJECTED", "CANCELLED")
+    val isProcessing = processingId == complaint.id
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.widthIn(min = 720.dp, max = 1040.dp),
+        modifier = Modifier.widthIn(min = 720.dp, max = 1080.dp),
         title = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("${complaint.complaintCode} — ${complaint.title}", fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    ComplaintStatusBadge(complaint.status)
-                    Text("·", color = MaterialTheme.colorScheme.outline)
-                    ComplaintPriorityBadge(complaint.priority)
-                    Text("·", color = MaterialTheme.colorScheme.outline)
-                    Text(
-                        complaint.userName ?: "Khách ${complaint.userId.takeLast(8)}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            "${complaint.complaintCode} — ${complaint.title}",
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            "${complaint.userName ?: "Khách ${complaint.userId.takeLast(8)}"} · ${complaintTypeLabel(complaint.type)} · ${formatVnDate(complaint.createdAt)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (isLoading) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        ComplaintStatusBadge(complaint.status)
+                        ComplaintPriorityBadge(complaint.priority)
+                    }
                 }
+                ComplaintStatusStepper(status = complaint.status)
             }
         },
         text = {
             LazyColumn(
-                modifier = Modifier.heightIn(max = 640.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.heightIn(max = 680.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Info card
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Thông tin ticket", fontWeight = FontWeight.SemiBold)
-                        Text("Đơn: ${complaint.orderId} | SP: ${complaint.productName ?: "Toàn đơn"}")
-                        Text("Loại: ${complaintTypeLabel(complaint.type)} | Tạo: ${complaint.createdAt.take(16)} | Cập nhật: ${complaint.updatedAt.take(16)}")
-                        if (complaint.refundStatus != "NONE" || complaint.refundAmount != null) {
-                            Text(
-                                "Hoàn tiền: ${refundStatusLabel(complaint.refundStatus)}" +
-                                    (complaint.refundMethod?.let { " · ${refundMethodLabel(it)}" } ?: "") +
-                                    (complaint.refundedAt?.let { " · Đã hoàn: ${it.take(16)}" } ?: ""),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            complaint.refundTransactionId?.let {
-                                Text("Mã giao dịch hoàn: $it", style = MaterialTheme.typography.bodySmall)
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Đơn hàng", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                    Text(complaint.orderId, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                complaint.productName?.takeIf { it.isNotBlank() }?.let { pName ->
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Sản phẩm", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                        Text(pName, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                                Column(modifier = Modifier.weight(0.8f)) {
+                                    Text("Cập nhật", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                    Text(formatUtcToVnDateTime(complaint.updatedAt), style = MaterialTheme.typography.bodySmall)
+                                }
                             }
-                        }
-                        complaint.refundAmount?.let { Text("Số tiền hoàn: ${formatCurrency(it)}") }
-                        Text(complaint.description)
-                        complaint.resolution?.takeIf { it.isNotBlank() }?.let {
-                            Text("Hướng xử lý: $it", color = MaterialTheme.colorScheme.primary)
-                        }
-                        if (isLoading) {
-                            Text("Đang tải chi tiết...", color = MaterialTheme.colorScheme.primary)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            Text(complaint.description, style = MaterialTheme.typography.bodyMedium)
+                            complaint.resolution?.takeIf { it.isNotBlank() }?.let { res ->
+                                Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text("Hướng xử lý:", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                        Text(res, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    }
+                                }
+                            }
+                            // Refund summary (read-only if set)
+                            if (complaint.refundStatus != "NONE") {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Hoàn tiền", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                        Text(
+                                            refundStatusLabel(complaint.refundStatus),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = when (complaint.refundStatus) {
+                                                "REFUNDED" -> MaterialTheme.colorScheme.secondary
+                                                "REFUND_PROCESSING" -> MaterialTheme.colorScheme.tertiary
+                                                "APPROVED" -> MaterialTheme.colorScheme.primary
+                                                "REJECTED", "REFUND_FAILED" -> MaterialTheme.colorScheme.error
+                                                else -> MaterialTheme.colorScheme.onSurface
+                                            }
+                                        )
+                                    }
+                                    complaint.refundAmount?.let { amt ->
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Số tiền", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                            Text(formatCurrency(amt), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                    complaint.refundMethod?.let { method ->
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Phương thức", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                            Text(refundMethodLabel(method), style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                                complaint.refundTransactionId?.let { txnId ->
+                                    Text("Mã GD hoàn: $txnId", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                }
+                            }
                         }
                     }
                 }
 
+                // Context-aware action zone
+                item {
+                    ComplaintActionZone(
+                        complaint = complaint,
+                        priority = priority,
+                        resolution = resolution,
+                        refundAmountText = refundAmountText,
+                        refundMethod = refundMethod,
+                        refundTransactionId = refundTransactionId,
+                        restoreStock = restoreStock,
+                        isProcessing = isProcessing,
+                        onPriorityChange = { priority = it },
+                        onResolutionChange = { resolution = it },
+                        onRefundAmountChange = { refundAmountText = it },
+                        onRefundMethodChange = { refundMethod = it },
+                        onRefundTransactionIdChange = { refundTransactionId = it },
+                        onRestoreStockChange = { restoreStock = it },
+                        onUpdate = onUpdate
+                    )
+                }
+
+                // Attachments
                 if (complaint.attachments.isNotEmpty()) {
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -826,133 +1390,43 @@ private fun ComplaintDetailDialog(
                     }
                 }
 
+                // Timeline
+                item { ComplaintTimelineSection(complaint.events) }
+
+                // Messages
                 item {
-                    ComplaintTimelineSection(complaint.events)
+                    Text("Trao đổi (${complaint.messages.size})", fontWeight = FontWeight.SemiBold)
                 }
-
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Xử lý nội bộ", fontWeight = FontWeight.SemiBold)
-
-                        Text("Mức ưu tiên", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("LOW" to "Thấp", "NORMAL" to "Thường", "HIGH" to "Cao", "URGENT" to "Gấp").forEach { (value, label) ->
-                                FilterPill(label = label, selected = priority == value, onClick = { priority = value })
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = resolution,
-                            onValueChange = { resolution = it },
-                            label = { Text("Hướng xử lý / ghi chú nội bộ") },
-                            minLines = 2,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        HorizontalDivider()
-                        Text("Hoàn tiền / đổi trả", fontWeight = FontWeight.SemiBold)
-
-                        Text("Trạng thái hoàn", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(
-                                "NONE" to "Không hoàn",
-                                "REQUESTED" to "Chờ hoàn",
-                                "APPROVED" to "Duyệt hoàn",
-                                "REFUNDED" to "Đã hoàn",
-                                "REJECTED" to "Từ chối hoàn"
-                            ).forEach { (value, label) ->
-                                FilterPill(label = label, selected = refundStatus == value, onClick = { refundStatus = value })
-                            }
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            OutlinedTextField(
-                                value = refundAmountText,
-                                onValueChange = { refundAmountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                                label = { Text("Số tiền hoàn (VND)") },
-                                modifier = Modifier.weight(1f)
-                            )
-                            OutlinedTextField(
-                                value = refundTransactionId,
-                                onValueChange = { refundTransactionId = it },
-                                label = { Text("Mã giao dịch hoàn") },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
-                        Text("Phương thức hoàn", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(
-                                "ORIGINAL_PAYMENT" to "Ví/cổng cũ",
-                                "BANK_TRANSFER" to "Chuyển khoản",
-                                "CASH" to "Tiền mặt",
-                                "POINTS" to "Điểm thưởng",
-                                "OTHER" to "Khác"
-                            ).forEach { (value, label) ->
-                                FilterPill(label = label, selected = refundMethod == value, onClick = { refundMethod = value })
-                            }
-                        }
-
-                        HorizontalDivider()
-                        Text("Cập nhật trạng thái", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(
-                                "IN_REVIEW" to "Đang xử lý",
-                                "NEED_MORE_INFO" to "Cần bổ sung",
-                                "APPROVED" to "Duyệt",
-                                "RESOLVED" to "Hoàn tất",
-                                "REJECTED" to "Từ chối"
-                            ).forEach { (status, label) ->
-                                OutlinedButton(
-                                    onClick = {
-                                        val hasRefund = refundStatus != "NONE" || refundAmountText.isNotBlank()
-                                        onUpdate(
-                                            complaint.id, status, priority, resolution,
-                                            if (hasRefund) refundAmountText.toDoubleOrNull() else null,
-                                            if (hasRefund) refundStatus else null,
-                                            if (hasRefund && refundStatus != "NONE") refundMethod else null,
-                                            if (hasRefund && refundStatus != "NONE") refundTransactionId.ifBlank { null } else null
-                                        )
-                                    },
-                                    enabled = processingId != complaint.id
-                                ) { Text(label) }
-                            }
-                        }
+                if (complaint.messages.isEmpty()) {
+                    item {
+                        Text("Chưa có trao đổi nào.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                     }
+                } else {
+                    items(complaint.messages, key = { it.id }) { ComplaintMessageRow(it) }
                 }
 
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Trao đổi (${complaint.messages.size})", fontWeight = FontWeight.SemiBold)
-                        if (complaint.messages.isEmpty()) {
-                            Text("Chưa có trao đổi nào.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                        }
-                    }
-                }
-
-                items(complaint.messages, key = { it.id }) { message ->
-                    ComplaintMessageRow(message)
-                }
-
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = reply,
-                            onValueChange = { reply = it },
-                            label = { Text("Phản hồi cho khách hàng") },
-                            minLines = 3,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Checkbox(checked = internalOnly, onCheckedChange = { internalOnly = it })
-                            Text("Ghi chú nội bộ, không gửi cho khách")
-                        }
-                        Button(
-                            onClick = { onSendMessage(complaint.id, reply, internalOnly); reply = "" },
-                            enabled = reply.isNotBlank() && !isSendingMessage,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(if (isSendingMessage) "Đang gửi..." else "Gửi phản hồi")
+                // Reply section (hide for closed complaints)
+                if (!isClosed) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = reply,
+                                onValueChange = { reply = it },
+                                label = { Text("Phản hồi cho khách hàng") },
+                                minLines = 3,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Checkbox(checked = internalOnly, onCheckedChange = { internalOnly = it })
+                                Text("Ghi chú nội bộ, không gửi cho khách")
+                            }
+                            Button(
+                                onClick = { onSendMessage(complaint.id, reply, internalOnly); reply = "" },
+                                enabled = reply.isNotBlank() && !isSendingMessage,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (isSendingMessage) "Đang gửi..." else "Gửi phản hồi")
+                            }
                         }
                     }
                 }
@@ -989,7 +1463,7 @@ private fun ComplaintEventRow(event: OperationsComplaintEventDto) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(event.title, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                Text(event.createdAt.take(16), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                Text(formatUtcToVnDateTime(event.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
             }
             Text(
                 "${event.actorName ?: event.actorRole ?: "Hệ thống"} · ${event.eventType}",
@@ -1005,7 +1479,7 @@ private fun ComplaintEventRow(event: OperationsComplaintEventDto) {
             }
             event.dueAt?.takeIf { it.isNotBlank() }?.let {
                 Text(
-                    "SLA trước: ${it.take(16)}",
+                    "SLA trước: ${formatUtcToVnDateTime(it)}",
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold
@@ -1032,7 +1506,7 @@ private fun ComplaintAttachmentRow(attachment: OperationsComplaintAttachmentDto)
                     attachment.fileUrl.substringAfterLast('/').substringBefore('?'),
                     fontWeight = FontWeight.SemiBold
                 )
-                Text("${attachment.fileType} | ${attachment.createdAt.take(16)}", style = MaterialTheme.typography.bodySmall)
+                Text("${attachment.fileType} | ${formatUtcToVnDateTime(attachment.createdAt)}", style = MaterialTheme.typography.bodySmall)
             }
             OutlinedButton(onClick = { openExternalUrl(attachment.fileUrl) }) { Text("Mở") }
         }
@@ -1055,7 +1529,7 @@ private fun ComplaintMessageRow(message: OperationsComplaintMessageDto) {
                     "${message.senderName ?: message.senderUserId.takeLast(8)} (${message.senderRole})",
                     fontWeight = FontWeight.SemiBold
                 )
-                Text(message.createdAt.take(16), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                Text(formatUtcToVnDateTime(message.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
             }
             if (message.isInternal) {
                 Text("Ghi chú nội bộ", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -1218,10 +1692,10 @@ private fun RedemptionCard(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     redemption.voucherIssuedAt?.let {
-                        Text("Phát: ${it.take(16)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        Text("Phát: ${formatVnDateTime(it)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                     }
                     redemption.voucherUsedAt?.let {
-                        Text("Dùng: ${it.take(16)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        Text("Dùng: ${formatVnDateTime(it)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                     }
                     redemption.redeemedOrderId?.let {
                         Text("Đơn: ${it.takeLast(8)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
@@ -1275,8 +1749,10 @@ private fun editableAmount(value: Double): String =
 private fun refundStatusLabel(status: String): String = when (status.uppercase()) {
     "REQUESTED" -> "Chờ hoàn"
     "APPROVED" -> "Đã duyệt hoàn"
-    "REFUNDED" -> "Đã hoàn"
+    "REFUND_PROCESSING" -> "Đang xử lý hoàn"
+    "REFUNDED" -> "Đã hoàn tiền"
     "REJECTED" -> "Từ chối hoàn"
+    "REFUND_FAILED" -> "Hoàn tiền thất bại"
     else -> "Không hoàn"
 }
 

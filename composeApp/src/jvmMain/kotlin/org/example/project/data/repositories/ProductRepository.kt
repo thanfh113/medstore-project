@@ -75,8 +75,6 @@ private data class BackendProductCertificateDto(
     val publicId: String? = null,
     val resourceType: String = "image",
     val thumbnailUrl: String? = null,
-    val issueDate: String? = null,
-    val expireDate: String? = null,
     val issuer: String? = null,
     val isActive: Boolean = true
 )
@@ -107,7 +105,6 @@ private data class BackendProductDto(
     val riskClassification: String = "A",
     val requiresCertification: Boolean = false,
     val requiresConsultation: Boolean = false,
-    val targetAudience: String = "ALL",
     val isActive: Boolean = true,
     val isFlashSale: Boolean = false,
     val flashSaleEnd: String? = null,
@@ -147,8 +144,6 @@ private data class ProductCertificateRequestPayload(
     val publicId: String? = null,
     val resourceType: String = "image",
     val thumbnailUrl: String? = null,
-    val issueDate: String? = null,
-    val expireDate: String? = null,
     val issuer: String? = null,
     val isActive: Boolean = true
 )
@@ -176,8 +171,6 @@ data class CompleteProductCertificateDraft(
     val publicId: String? = null,
     val resourceType: String = "image",
     val thumbnailUrl: String? = null,
-    val issueDate: String? = null,
-    val expireDate: String? = null,
     val issuer: String? = null
 )
 
@@ -211,7 +204,6 @@ data class CompleteProductDraft(
     val riskClassification: String = "A",
     val requiresCertification: Boolean = false,
     val requiresConsultation: Boolean = false,
-    val targetAudience: String = "ALL",
     val images: List<CompleteProductImageDraft> = emptyList(),
     val certificates: List<CompleteProductCertificateDraft> = emptyList()
 )
@@ -240,7 +232,6 @@ private data class CreateDesktopProductRequest(
     val riskClassification: String = "A",
     val requiresCertification: Boolean = false,
     val requiresConsultation: Boolean = false,
-    val targetAudience: String = "ALL",
     val isActive: Boolean = true,
     val attributes: Map<String, String> = emptyMap(),
     val images: List<ProductImageRequestPayload> = emptyList(),
@@ -743,7 +734,6 @@ class ProductRepository(
             registrationNumber = registrationNumber,
             riskClassification = mappedRiskClassification,
             requiresTechnicalConsultation = requiresConsultation,
-            targetAudience = targetAudience,
             isFlashSale = isFlashSale,
             flashSaleEnd = flashSaleEnd,
             images = images
@@ -768,8 +758,6 @@ class ProductRepository(
                         publicId = it.publicId,
                         resourceType = it.resourceType.ifBlank { "image" },
                         thumbnailUrl = it.thumbnailUrl,
-                        issueDate = it.issueDate,
-                        expireDate = it.expireDate,
                         issuer = it.issuer,
                         isActive = it.isActive
                     )
@@ -813,7 +801,6 @@ class ProductRepository(
             riskClassification = riskClassification.value,
             requiresCertification = ceIsoRequired,
             requiresConsultation = requiresTechnicalConsultation,
-            targetAudience = targetAudience.ifBlank { "ALL" },
             isActive = isActive,
             attributes = emptyMap(),
             images = images.toRequestPayload(),
@@ -845,7 +832,6 @@ class ProductRepository(
             riskClassification = riskClassification.value,
             requiresCertification = ceIsoRequired,
             requiresConsultation = requiresTechnicalConsultation,
-            targetAudience = targetAudience.ifBlank { "ALL" },
             isActive = isActive,
             attributes = emptyMap(),
             images = images.toUpdateImagePayload(),
@@ -883,8 +869,6 @@ class ProductRepository(
                     publicId = it.publicId,
                     resourceType = it.resourceType.ifBlank { "image" },
                     thumbnailUrl = it.thumbnailUrl?.ifBlank { null },
-                    issueDate = it.issueDate?.ifBlank { null },
-                    expireDate = it.expireDate?.ifBlank { null },
                     issuer = it.issuer?.ifBlank { null },
                     isActive = it.isActive
                 )
@@ -915,7 +899,6 @@ class ProductRepository(
             riskClassification = riskClassification,
             requiresCertification = requiresCertification,
             requiresConsultation = requiresConsultation,
-            targetAudience = targetAudience.ifBlank { "ALL" },
             isActive = true,
             attributes = emptyMap(),
             images = images
@@ -940,8 +923,6 @@ class ProductRepository(
                         publicId = it.publicId,
                         resourceType = it.resourceType.ifBlank { "image" },
                         thumbnailUrl = it.thumbnailUrl?.ifBlank { null },
-                        issueDate = it.issueDate?.ifBlank { null },
-                        expireDate = it.expireDate?.ifBlank { null },
                         issuer = it.issuer?.ifBlank { null }
                     )
                 }
@@ -969,8 +950,6 @@ class ProductRepository(
                     publicId = it.publicId,
                     resourceType = it.resourceType.ifBlank { "image" },
                     thumbnailUrl = it.thumbnailUrl?.ifBlank { null },
-                    issueDate = it.issueDate?.ifBlank { null },
-                    expireDate = it.expireDate?.ifBlank { null },
                     issuer = it.issuer?.ifBlank { null },
                     isActive = it.isActive
                 )

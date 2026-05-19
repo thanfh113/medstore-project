@@ -3,6 +3,8 @@ package org.example.project.data.repositories
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
@@ -12,6 +14,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -20,6 +23,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.File
 
 @Serializable
 private data class CouponEnvelope<T>(
@@ -84,6 +88,7 @@ data class AdminRewardProductDto(
     val terms: String? = null,
     val priceText: String? = null,
     val sortOrder: Int = 0,
+    val usagePerUserLimit: Int? = null,
     val updatedAt: String? = null
 )
 
@@ -100,7 +105,8 @@ data class AdminRewardProductUpsertRequest(
     val terms: String? = null,
     val priceText: String? = null,
     val isActive: Boolean = true,
-    val sortOrder: Int = 0
+    val sortOrder: Int = 0,
+    val usagePerUserLimit: Int? = null
 )
 
 @Serializable
@@ -115,9 +121,13 @@ private data class IdPayload(
     val id: String
 )
 
+@Serializable
+private data class UploadResult(val url: String, val publicId: String? = null)
+
 class CouponAdminRepository(private val client: HttpClient) {
     private val baseUrl = "http://localhost:8080/api/v1/internal/coupons"
     private val rewardProductsUrl = "http://localhost:8080/api/v1/internal/rewards/products"
+    private val uploadUrl = "http://localhost:8080/api/v1/upload"
     private val json = Json { ignoreUnknownKeys = true }
     private var authToken: String? = null
     private var authRetryHandler: AuthRetryHandler? = null
@@ -279,6 +289,33 @@ class CouponAdminRepository(private val client: HttpClient) {
             authRetryHandler?.onAuthFailed()
         }
         return retry
+    }
+
+    suspend fun uploadImage(file: File): Result<String> = try {
+        val mimeType = when (file.extension.lowercase()) {
+            "png" -> "image/png"
+            else -> "image/jpeg"
+        }
+        val response = executeAuthorized { token ->
+            client.submitFormWithBinaryData(
+                url = "$uploadUrl?type=REWARD_PRODUCT",
+                formData = formData {
+                    append("file", file.readBytes(), Headers.build {
+                        append(HttpHeaders.ContentType, mimeType)
+                        append(HttpHeaders.ContentDisposition, "filename=\"${file.name}\"")
+                    })
+                }
+            ) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }
+        }
+        if (!response.status.isSuccess()) {
+            return Result.failure(IllegalStateException(extractErrorMessage(response.bodyAsText())))
+        }
+        val result = response.body<UploadResult>()
+        Result.success(result.url)
+    } catch (e: Exception) {
+        Result.failure(IllegalStateException(e.message ?: "Khong the upload anh"))
     }
 
     private fun extractErrorMessage(raw: String): String {

@@ -53,6 +53,7 @@ import org.example.project.presentation.viewmodels.DashboardPeriodStatsDto
 import org.example.project.presentation.viewmodels.DashboardUiState
 import org.example.project.presentation.viewmodels.DashboardViewModel
 import org.example.project.presentation.viewmodels.RecentOrderDto
+import org.example.project.util.formatVnDateTime
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -489,7 +490,7 @@ private fun RecentOrdersOverviewTable(orders: List<RecentOrderDto>) {
                                 fontSize = 13.sp
                             )
                             Text(
-                                order.createdAt.replace('T', ' ').take(16),
+                                formatVnDateTime(order.createdAt),
                                 modifier = Modifier.weight(1.2f),
                                 color = Color.Gray,
                                 fontSize = 13.sp
@@ -526,11 +527,14 @@ private fun DashboardOrderStatusBadge(status: String, paymentStatus: String) {
     val normalizedStatus = status.uppercase()
     val normalizedPayment = paymentStatus.uppercase()
     val (bgColor, textColor, text) = when {
+        normalizedStatus == "RETURNED" ||
+            (normalizedStatus == "DELIVERED" && normalizedPayment in setOf("REFUNDED", "PARTIALLY_REFUNDED")) ->
+            Triple(Color(0xFFF3E5F5), Color(0xFF7B1FA2), "Hoàn trả")
         normalizedStatus == "DELIVERED" || normalizedPayment == "COMPLETED" ->
             Triple(Color(0xFFE8F5E9), Color(0xFF2E7D32), "Hoàn thành")
         normalizedStatus == "PENDING" || normalizedStatus == "PROCESSING" || normalizedStatus == "SHIPPING" ->
             Triple(Color(0xFFFFF3E0), Color(0xFFEF6C00), "Đang xử lý")
-        normalizedStatus == "CANCELLED" || normalizedStatus == "RETURNED" ->
+        normalizedStatus == "CANCELLED" ->
             Triple(Color(0xFFFFEBEE), Color(0xFFD32F2F), "Đã hủy")
         else -> Triple(Color(0xFFF5F5F5), Color.Gray, status)
     }

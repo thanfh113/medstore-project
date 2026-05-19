@@ -103,6 +103,16 @@ class BannerViewModel(
                 _uiState.update { it.copy(error = "Cần chọn ảnh hoặc nhập URL ảnh banner") }
                 return@launch
             }
+            val startParsed = state.startDt.ifBlank { null }?.let {
+                runCatching { java.time.LocalDateTime.parse(it.substringBefore('.')) }.getOrNull()
+            }
+            val endParsed = state.endDt.ifBlank { null }?.let {
+                runCatching { java.time.LocalDateTime.parse(it.substringBefore('.')) }.getOrNull()
+            }
+            if (startParsed != null && endParsed != null && !startParsed.isBefore(endParsed)) {
+                _uiState.update { it.copy(error = "Thời gian bắt đầu phải trước thời gian kết thúc") }
+                return@launch
+            }
 
             _uiState.update { it.copy(isSubmitting = true, error = null, successMessage = null) }
             val request = state.toRequest()

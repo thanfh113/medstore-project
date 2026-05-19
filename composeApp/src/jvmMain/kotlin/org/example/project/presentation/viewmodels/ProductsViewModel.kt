@@ -414,7 +414,6 @@ class ProductsViewModel(
                     riskClassification = normalizedRisk,
                     requiresCertification = formData.requiresCertification || restrictedOnlineRisk,
                     requiresConsultation = formData.requiresConsultation || restrictedOnlineRisk,
-                    targetAudience = formData.targetAudience.ifBlank { "ALL" },
                     images = formData.productImages.mapIndexed { index, image ->
                         CompleteProductImageDraft(
                             url = image.url,
@@ -435,8 +434,6 @@ class ProductsViewModel(
                                     publicId = it.publicId,
                                     resourceType = it.resourceType.ifBlank { "image" },
                                     thumbnailUrl = it.thumbnailUrl?.ifBlank { null },
-                                    issueDate = it.issueDate.ifBlank { null },
-                                    expireDate = it.expireDate.ifBlank { null },
                                     issuer = it.issuer.ifBlank { null }
                                 )
                             )

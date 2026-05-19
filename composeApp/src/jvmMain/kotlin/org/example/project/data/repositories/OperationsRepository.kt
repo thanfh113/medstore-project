@@ -110,6 +110,7 @@ data class OperationsComplaintDto(
     val updatedAt: String,
     val resolvedAt: String? = null,
     val closedAt: String? = null,
+    val orderTotal: Double? = null,
     val attachments: List<OperationsComplaintAttachmentDto> = emptyList(),
     val messages: List<OperationsComplaintMessageDto> = emptyList(),
     val events: List<OperationsComplaintEventDto> = emptyList()
@@ -161,7 +162,8 @@ data class UpdateComplaintRequest(
     val refundStatus: String? = null,
     val refundMethod: String? = null,
     val refundTransactionId: String? = null,
-    val handledBy: String? = null
+    val handledBy: String? = null,
+    val restoreStock: Boolean = false
 )
 
 @Serializable
@@ -321,6 +323,19 @@ class OperationsRepository(private val client: HttpClient) {
         Result.success(response.body<OperationsEnvelope<OperationsComplaintDto>>().data)
     } catch (e: Exception) {
         Result.failure(IllegalStateException(e.message ?: "Khong the cap nhat khieu nai"))
+    }
+
+    suspend fun syncComplaintRefund(id: String): Result<Boolean> = try {
+        val response = executeAuthorized { token ->
+            client.post("$baseUrl/complaints/$id/sync-refund") {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }
+        }
+        if (!response.status.isSuccess()) return Result.failure(IllegalStateException(extractError(response.bodyAsText())))
+        val body = response.bodyAsText()
+        Result.success(body.contains("\"synced\":true"))
+    } catch (e: Exception) {
+        Result.failure(IllegalStateException(e.message ?: "Khong the dong bo trang thai"))
     }
 
     suspend fun getComplaint(id: String): Result<OperationsComplaintDto> = try {

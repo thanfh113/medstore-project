@@ -13,11 +13,13 @@ import org.example.project.data.repositories.AdminRewardProductUpsertRequest
 import org.example.project.data.repositories.CouponAdminRepository
 import org.example.project.data.repositories.CouponCreateRequest
 import org.example.project.data.repositories.CouponDto
+import java.io.File
 
 data class CouponAdminUiState(
     val isLoading: Boolean = false,
     val isSubmittingCoupon: Boolean = false,
     val isSubmittingRewardProduct: Boolean = false,
+    val isUploadingRewardImage: Boolean = false,
     val coupons: List<CouponDto> = emptyList(),
     val rewardProducts: List<AdminRewardProductDto> = emptyList(),
     val editingCouponId: String? = null,
@@ -44,6 +46,7 @@ data class CouponAdminUiState(
     val rewardTerms: String = "",
     val rewardPriceText: String = "",
     val rewardSortOrder: String = "0",
+    val rewardUsagePerUserLimit: String = "",
     val rewardIsActive: Boolean = true,
     val successMessage: String? = null,
     val error: String? = null
@@ -116,6 +119,20 @@ class CouponAdminViewModel(
     fun updateRewardName(value: String) = _uiState.update { it.copy(rewardName = value, error = null, successMessage = null) }
     fun updateRewardDescription(value: String) = _uiState.update { it.copy(rewardDescription = value, error = null, successMessage = null) }
     fun updateRewardImageUrl(value: String) = _uiState.update { it.copy(rewardImageUrl = value, error = null, successMessage = null) }
+
+    fun uploadRewardImage(file: File) {
+        scope.launch {
+            _uiState.update { it.copy(isUploadingRewardImage = true, error = null) }
+            repository.uploadImage(file).fold(
+                onSuccess = { url ->
+                    _uiState.update { it.copy(isUploadingRewardImage = false, rewardImageUrl = url) }
+                },
+                onFailure = { error ->
+                    _uiState.update { it.copy(isUploadingRewardImage = false, error = error.message ?: "Khong the upload anh") }
+                }
+            )
+        }
+    }
     fun updateRewardPointCost(value: String) = _uiState.update { it.copy(rewardPointCost = value.filter(Char::isDigit), error = null, successMessage = null) }
     fun updateRewardStock(value: String) = _uiState.update { it.copy(rewardStock = value.filter(Char::isDigit), error = null, successMessage = null) }
     fun updateRewardType(value: String) = _uiState.update {
@@ -143,6 +160,7 @@ class CouponAdminViewModel(
             successMessage = null
         )
     }
+    fun updateRewardUsagePerUserLimit(value: String) = _uiState.update { it.copy(rewardUsagePerUserLimit = value.filter(Char::isDigit), error = null, successMessage = null) }
     fun toggleRewardIsActive(enabled: Boolean) = _uiState.update { it.copy(rewardIsActive = enabled, error = null, successMessage = null) }
 
     fun createCoupon() {
@@ -335,7 +353,8 @@ class CouponAdminViewModel(
                 terms = state.rewardTerms.trim().ifBlank { null },
                 priceText = state.rewardPriceText.trim().ifBlank { null },
                 isActive = state.rewardIsActive,
-                sortOrder = state.rewardSortOrder.toIntOrNull() ?: 0
+                sortOrder = state.rewardSortOrder.toIntOrNull() ?: 0,
+                usagePerUserLimit = if (state.rewardType == "ITEM") state.rewardUsagePerUserLimit.toIntOrNull()?.takeIf { it > 0 } else null
             )
 
             val result = state.editingRewardProductId?.let { repository.updateRewardProduct(it, request) }
@@ -356,6 +375,7 @@ class CouponAdminViewModel(
                             rewardTerms = "",
                             rewardPriceText = "",
                             rewardSortOrder = "0",
+                            rewardUsagePerUserLimit = "",
                             rewardIsActive = true,
                             successMessage = if (state.editingRewardProductId == null) {
                                 "Da tao reward product"
@@ -388,6 +408,7 @@ class CouponAdminViewModel(
                 rewardTerms = product.terms.orEmpty(),
                 rewardPriceText = product.priceText.orEmpty(),
                 rewardSortOrder = product.sortOrder.toString(),
+                rewardUsagePerUserLimit = product.usagePerUserLimit?.toString().orEmpty(),
                 rewardIsActive = product.isActive,
                 error = null,
                 successMessage = null
@@ -410,6 +431,7 @@ class CouponAdminViewModel(
                 rewardTerms = "",
                 rewardPriceText = "",
                 rewardSortOrder = "0",
+                rewardUsagePerUserLimit = "",
                 rewardIsActive = true,
                 error = null,
                 successMessage = null

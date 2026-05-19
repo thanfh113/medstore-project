@@ -28,7 +28,6 @@ import java.io.File
 data class PersonnelEmployeeProfileDto(
     val id: String,
     val qualificationTitle: String,
-    val qualificationSpecialty: String? = null,
     val qualificationInstitution: String? = null,
     val qualificationDocumentUrl: String? = null,
     val qualificationDocumentPublicId: String? = null,
@@ -46,7 +45,6 @@ data class PersonnelEmployeeProfileDto(
 @Serializable
 data class PersonnelEmployeeProfileRequest(
     val qualificationTitle: String? = null,
-    val qualificationSpecialty: String? = null,
     val qualificationInstitution: String? = null,
     val qualificationDocumentUrl: String? = null,
     val qualificationDocumentPublicId: String? = null,

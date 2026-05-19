@@ -54,6 +54,8 @@ import org.example.project.data.repositories.AdminRewardProductDto
 import org.example.project.data.repositories.CouponDto
 import org.example.project.presentation.viewmodels.CouponAdminUiState
 import org.example.project.presentation.viewmodels.CouponAdminViewModel
+import org.example.project.util.formatVnDateTime
+import org.example.project.utils.openFileChooser
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -213,6 +215,7 @@ private fun RewardProductTab(
                 onRewardNameChange = viewModel::updateRewardName,
                 onRewardDescriptionChange = viewModel::updateRewardDescription,
                 onRewardImageUrlChange = viewModel::updateRewardImageUrl,
+                onUploadRewardImage = viewModel::uploadRewardImage,
                 onRewardPointCostChange = viewModel::updateRewardPointCost,
                 onRewardStockChange = viewModel::updateRewardStock,
                 onRewardTypeChange = viewModel::updateRewardType,
@@ -221,6 +224,7 @@ private fun RewardProductTab(
                 onRewardTermsChange = viewModel::updateRewardTerms,
                 onRewardPriceTextChange = viewModel::updateRewardPriceText,
                 onRewardSortOrderChange = viewModel::updateRewardSortOrder,
+                onRewardUsagePerUserLimitChange = viewModel::updateRewardUsagePerUserLimit,
                 onToggleRewardActive = viewModel::toggleRewardIsActive
             )
         }
@@ -426,7 +430,7 @@ private fun RewardProductItemCard(
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    reward.updatedAt?.takeIf { it.isNotBlank() }?.let { "Cập nhật: ${it.take(16)}" } ?: "",
+                    reward.updatedAt?.takeIf { it.isNotBlank() }?.let { "Cập nhật: ${formatVnDateTime(it)}" } ?: "",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -594,6 +598,7 @@ private fun RewardProductFormCard(
     onRewardNameChange: (String) -> Unit,
     onRewardDescriptionChange: (String) -> Unit,
     onRewardImageUrlChange: (String) -> Unit,
+    onUploadRewardImage: (java.io.File) -> Unit,
     onRewardPointCostChange: (String) -> Unit,
     onRewardStockChange: (String) -> Unit,
     onRewardTypeChange: (String) -> Unit,
@@ -602,6 +607,7 @@ private fun RewardProductFormCard(
     onRewardTermsChange: (String) -> Unit,
     onRewardPriceTextChange: (String) -> Unit,
     onRewardSortOrderChange: (String) -> Unit,
+    onRewardUsagePerUserLimitChange: (String) -> Unit,
     onToggleRewardActive: (Boolean) -> Unit
 ) {
     var rewardTypeExpanded by remember { mutableStateOf(false) }
@@ -723,12 +729,35 @@ private fun RewardProductFormCard(
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth()
             )
-            OutlinedTextField(
-                value = state.rewardImageUrl,
-                onValueChange = onRewardImageUrlChange,
-                label = { Text("URL ảnh đại diện") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Ảnh đại diện", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = state.rewardImageUrl,
+                        onValueChange = onRewardImageUrlChange,
+                        placeholder = { Text("URL ảnh hoặc chọn file...") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        enabled = !state.isUploadingRewardImage
+                    )
+                    Button(
+                        onClick = {
+                            openFileChooser(
+                                title = "Chọn ảnh quà đổi điểm",
+                                allowedExtensions = listOf(".jpg", ".jpeg", ".png", ".webp"),
+                                allowMultiple = false
+                            ).firstOrNull()?.let(onUploadRewardImage)
+                        },
+                        enabled = !state.isUploadingRewardImage
+                    ) {
+                        if (state.isUploadingRewardImage) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        } else {
+                            Text("Chọn ảnh")
+                        }
+                    }
+                }
+            }
             OutlinedTextField(
                 value = state.rewardSortOrder,
                 onValueChange = onRewardSortOrderChange,
@@ -736,6 +765,16 @@ private fun RewardProductFormCard(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
+
+            if (state.rewardType == "ITEM") {
+                OutlinedTextField(
+                    value = state.rewardUsagePerUserLimit,
+                    onValueChange = onRewardUsagePerUserLimitChange,
+                    label = { Text("Giới hạn đổi mỗi user (bỏ trống = không giới hạn)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             SwitchRow("Đang hoạt động", state.rewardIsActive, onToggleRewardActive)
 

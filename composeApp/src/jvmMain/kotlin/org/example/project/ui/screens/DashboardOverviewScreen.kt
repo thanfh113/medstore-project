@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import org.example.project.presentation.viewmodels.DashboardUiState
 import org.example.project.presentation.viewmodels.DashboardViewModel
 import org.example.project.presentation.viewmodels.RecentOrderDto
+import org.example.project.util.formatVnDateTime
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -260,7 +261,7 @@ private fun RecentOrdersOverviewTable(orders: List<RecentOrderDto>) {
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                order.createdAt.replace('T', ' ').take(16),
+                                formatVnDateTime(order.createdAt),
                                 modifier = Modifier.weight(1.2f),
                                 color = Color.Gray,
                                 fontSize = 14.sp

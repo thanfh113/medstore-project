@@ -48,8 +48,7 @@ data class CompleteProductFormData(
     val origin: String = "",
     val shortDescription: String = "",
     val fullDescription: String = "",
-    val targetAudience: String = "ALL",
-    
+
     // Group 2: Healthcare Specific
     val registrationNumber: String = "",
     val riskClassification: String = "A",
@@ -92,9 +91,7 @@ data class CertificateData(
     val fileType: String = "IMAGE",
     val resourceType: String = "image",
     val thumbnailUrl: String? = null,
-    val issuer: String = "",
-    val issueDate: String = "",
-    val expireDate: String = ""
+    val issuer: String = ""
 )
 
 @Composable

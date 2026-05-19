@@ -173,7 +173,8 @@ class OperationsViewModel(
         refundAmount: Double? = null,
         refundStatus: String? = null,
         refundMethod: String? = null,
-        refundTransactionId: String? = null
+        refundTransactionId: String? = null,
+        restoreStock: Boolean = false
     ) {
         scope.launch {
             _uiState.update { it.copy(processingId = complaintId, error = null) }
@@ -186,7 +187,8 @@ class OperationsViewModel(
                     refundAmount = refundAmount,
                     refundStatus = refundStatus,
                     refundMethod = refundMethod,
-                    refundTransactionId = refundTransactionId
+                    refundTransactionId = refundTransactionId,
+                    restoreStock = restoreStock
                 )
             ).fold(
                 onSuccess = {
@@ -213,6 +215,11 @@ class OperationsViewModel(
                     isComplaintDetailLoading = true,
                     error = null
                 )
+            }
+            // Nếu đang REFUND_PROCESSING → thử sync ZaloPay trước khi load lại
+            val currentRefundStatus = cached?.refundStatus ?: _uiState.value.selectedComplaint?.refundStatus
+            if (currentRefundStatus == "REFUND_PROCESSING") {
+                repository.syncComplaintRefund(complaintId)
             }
             repository.getComplaint(complaintId).fold(
                 onSuccess = { complaint ->

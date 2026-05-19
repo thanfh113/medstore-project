@@ -20,8 +20,6 @@ data class ProductCertificate(
     val publicId: String? = null,
     val resourceType: String = "image",
     val thumbnailUrl: String? = null,
-    val issueDate: String? = null,
-    val expireDate: String? = null,
     val issuer: String? = null,
     val isActive: Boolean = true
 )
@@ -54,7 +52,6 @@ data class Product(
     val registrationNumber: String? = null,
     val riskClassification: RiskClassification = RiskClassification.A,
     val requiresTechnicalConsultation: Boolean = false,
-    val targetAudience: String = "ALL",
     val isFlashSale: Boolean = false,
     val flashSaleEnd: String? = null,
     val images: List<ProductImage> = emptyList(),

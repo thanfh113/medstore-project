@@ -20,8 +20,6 @@ data class ProductCertificatePayload(
     val publicId: String? = null,
     val resourceType: String = "image",
     val thumbnailUrl: String? = null,
-    val issueDate: String? = null,
-    val expireDate: String? = null,
     val issuer: String? = null,
     val isActive: Boolean = true
 )
@@ -50,7 +48,6 @@ data class UpdateProductRequest(
     val riskClassification: String = "A",
     val requiresCertification: Boolean = false,
     val requiresConsultation: Boolean = false,
-    val targetAudience: String = "ALL",
     val isActive: Boolean = true,
     val attributes: Map<String, String> = emptyMap(),
     val images: List<ProductImagePayload> = emptyList(),

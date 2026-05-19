@@ -35,11 +35,14 @@ data class FinanceSummaryDto(
     val posRevenue: Double,
     val totalDiscount: Double,
     val totalExpenses: Double,
+    val totalRefunds: Double = 0.0,
     val netProfit: Double,
     val successfulOrderCount: Int,
     val expenseCount: Int,
     val averageOrderValue: Double = 0.0,
     val cancelledOrderCount: Int = 0,
+    val refundedOrderCount: Int = 0,
+    val returnedOrderCount: Int = 0,
     val totalOrderCount: Int = 0,
     val topSellingProducts: List<TopProductDto> = emptyList()
 )

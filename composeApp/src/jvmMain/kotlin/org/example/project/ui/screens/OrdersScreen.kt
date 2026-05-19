@@ -28,7 +28,9 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -64,6 +66,9 @@ import org.example.project.presentation.viewmodels.OrderChannel
 import org.example.project.presentation.viewmodels.OrderStatus
 import org.example.project.presentation.viewmodels.OrdersViewModel
 import org.example.project.ui.components.OrderItemDetailDialog
+import org.example.project.util.formatUtcToVnDateTime
+import org.example.project.util.formatVnDate
+import org.example.project.util.formatVnDateTime
 
 @Composable
 private fun OrderStatusChip(status: OrderStatus) {
@@ -73,7 +78,8 @@ private fun OrderStatusChip(status: OrderStatus) {
         OrderStatus.SHIPPING -> Color(0xFF2196F3) to Color.White
         OrderStatus.DELIVERED -> Color(0xFF4CAF50) to Color.White
         OrderStatus.CANCELLED -> Color(0xFFF44336) to Color.White
-        OrderStatus.RETURNED -> Color.Gray to Color.White
+        OrderStatus.RETURNED -> Color(0xFF7B1FA2) to Color.White
+        OrderStatus.REFUNDED -> Color(0xFF0288D1) to Color.White
     }
 
     Surface(shape = RoundedCornerShape(20.dp), color = backgroundColor) {
@@ -299,7 +305,7 @@ fun OrdersScreen(viewModel: OrdersViewModel) {
                                         Spacer(modifier = Modifier.height(4.dp))
                                         OrderChannelChip(order.channel)
                                     }
-                                    Text(order.createdAt.take(10), modifier = Modifier.weight(1f), color = Color.DarkGray)
+                                    Text(formatVnDate(order.createdAt), modifier = Modifier.weight(1f), color = Color.DarkGray)
                                     Box(modifier = Modifier.weight(1f)) { OrderStatusChip(order.status) }
                                     Text(formatVND(order.total), modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                 }
@@ -312,6 +318,7 @@ fun OrdersScreen(viewModel: OrdersViewModel) {
 
             uiState.selectedOrder?.let { order ->
                 val detailItems = uiState.selectedOrderDetail?.items ?: emptyList()
+                var showReturnConfirm by remember(order.id) { mutableStateOf(false) }
                 Card(
                     modifier = Modifier
                         .weight(1f)
@@ -335,7 +342,7 @@ fun OrdersScreen(viewModel: OrdersViewModel) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 OrderChannelChip(order.channel)
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("Ngày tạo: ${order.createdAt}", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                                Text("Ngày tạo: ${formatVnDateTime(order.createdAt)}", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
                             }
                         }
 
@@ -464,7 +471,7 @@ fun OrdersScreen(viewModel: OrdersViewModel) {
                                         Text("Đã thanh toán lúc", color = Color.Gray, fontSize = 12.sp)
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Text(
-                                            it.replace('T', ' ').take(19),
+                                            formatUtcToVnDateTime(it),
                                             modifier = Modifier.weight(1f),
                                             fontWeight = FontWeight.Medium,
                                             fontSize = 11.sp,
@@ -610,10 +617,40 @@ fun OrdersScreen(viewModel: OrdersViewModel) {
                                             Text("Đánh dấu đã giao", maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                     }
+                                    order.channel == OrderChannel.ONLINE && order.status == OrderStatus.DELIVERED -> {
+                                        OutlinedButton(
+                                            onClick = { showReturnConfirm = true },
+                                            enabled = !uiState.isUpdatingStatus,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(48.dp)
+                                        ) {
+                                            Text("Trả hàng / Hoàn tiền", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
+                }
+
+                if (showReturnConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showReturnConfirm = false },
+                        title = { Text("Xác nhận trả hàng") },
+                        text = { Text("Đánh dấu đơn ${order.orderCode} là hoàn trả? Kho hàng sẽ được khôi phục và trạng thái thanh toán sẽ chuyển sang chờ hoàn tiền.") },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    showReturnConfirm = false
+                                    viewModel.updateOrderStatus(order.id, OrderStatus.RETURNED)
+                                }
+                            ) { Text("Xác nhận") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showReturnConfirm = false }) { Text("Hủy") }
+                        }
+                    )
                 }
             }
         }

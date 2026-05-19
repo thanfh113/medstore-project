@@ -47,6 +47,7 @@ import org.example.project.data.repositories.PersonnelEmployeeProfileDto
 import org.example.project.data.repositories.PersonnelEmployeeProfileRequest
 import org.example.project.data.repositories.PersonnelUserDto
 import org.example.project.presentation.viewmodels.PersonnelViewModel
+import org.example.project.util.formatVnDateTime
 import org.example.project.utils.openFileChooser
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -263,7 +264,7 @@ private fun PersonnelUserCard(
             Text(user.fullName ?: user.phone, fontWeight = FontWeight.SemiBold)
             Text("SĐT: ${user.phone}")
             user.email?.let { Text("Email: $it") }
-            Text("Tạo lúc: ${user.createdAt.replace('T', ' ').take(19)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Tạo lúc: ${formatVnDateTime(user.createdAt)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             if (user.role.uppercase() == "EMPLOYEE") {
                 EmployeeProfileSummary(user.employeeProfile)
@@ -312,7 +313,6 @@ private fun EmployeeProfileSummary(profile: PersonnelEmployeeProfileDto?) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Hồ sơ chuyên môn", fontWeight = FontWeight.SemiBold)
             Text(profile?.qualificationTitle ?: "Chưa cập nhật bằng cấp/chứng chỉ")
-            profile?.qualificationSpecialty?.let { Text("Chuyên môn: $it") }
             profile?.qualificationInstitution?.let { Text("Đơn vị cấp: $it") }
             profile?.qualificationDocumentUrl?.let { url ->
                 Text("Minh chứng: Đã có file", color = MaterialTheme.colorScheme.primary)
@@ -405,7 +405,6 @@ private fun CreatePersonnelDialog(
     var password by remember { mutableStateOf("") }
     var role by remember(initialRole) { mutableStateOf(initialRole) }
     var qualificationTitle by remember { mutableStateOf("") }
-    var qualificationSpecialty by remember { mutableStateOf("") }
     var qualificationInstitution by remember { mutableStateOf("") }
     var qualificationDocumentFile by remember { mutableStateOf<File?>(null) }
     var qualificationNote by remember { mutableStateOf("") }
@@ -506,7 +505,6 @@ private fun CreatePersonnelDialog(
                     val profile = if (normalizedRole == "EMPLOYEE") {
                         PersonnelEmployeeProfileRequest(
                             qualificationTitle = qualificationTitle.ifBlank { null },
-                            qualificationSpecialty = qualificationSpecialty.ifBlank { null },
                             qualificationInstitution = qualificationInstitution.ifBlank { null },
                             qualificationDocumentUrl = null,
                             qualificationDocumentPublicId = null,
@@ -548,7 +546,6 @@ private fun EmployeeProfileDialog(
 ) {
     val profile = user.employeeProfile
     var qualificationTitle by remember(profile) { mutableStateOf(profile?.qualificationTitle.orEmpty()) }
-    var qualificationSpecialty by remember(profile) { mutableStateOf(profile?.qualificationSpecialty.orEmpty()) }
     var qualificationInstitution by remember(profile) { mutableStateOf(profile?.qualificationInstitution.orEmpty()) }
     var qualificationDocumentUrl by remember(profile) { mutableStateOf(profile?.qualificationDocumentUrl.orEmpty()) }
     var qualificationDocumentPublicId by remember(profile) { mutableStateOf(profile?.qualificationDocumentPublicId.orEmpty()) }
@@ -620,7 +617,6 @@ private fun EmployeeProfileDialog(
                     onSave(
                         PersonnelEmployeeProfileRequest(
                             qualificationTitle = qualificationTitle.ifBlank { null },
-                            qualificationSpecialty = qualificationSpecialty.ifBlank { null },
                             qualificationInstitution = qualificationInstitution.ifBlank { null },
                             qualificationDocumentUrl = qualificationDocumentUrl.ifBlank { null },
                             qualificationDocumentPublicId = qualificationDocumentPublicId.ifBlank { null },

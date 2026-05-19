@@ -22,11 +22,12 @@ enum class OrderStatus(val displayName: String, val backendValue: String) {
     SHIPPING("Đang giao", "SHIPPING"),
     DELIVERED("Hoàn thành", "DELIVERED"),
     CANCELLED("Đã hủy", "CANCELLED"),
-    RETURNED("Hoàn trả", "RETURNED");
+    RETURNED("Trả hàng", "RETURNED"),
+    REFUNDED("Hoàn tiền", "");  // display-only: DELIVERED + paymentStatus=REFUNDED, không có backend status riêng
 
     companion object {
         fun fromBackend(value: String?): OrderStatus {
-            return entries.firstOrNull { it.backendValue == value?.uppercase() } ?: PENDING
+            return entries.firstOrNull { it.backendValue.isNotBlank() && it.backendValue == value?.uppercase() } ?: PENDING
         }
     }
 }
@@ -102,7 +103,7 @@ class OrdersViewModel(
     fun loadOrders() {
         scope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            val status = _uiState.value.selectedStatus?.backendValue
+            val status = _uiState.value.selectedStatus?.backendValue?.ifBlank { null }
             val channel = _uiState.value.selectedChannel?.backendValue
             val result = orderRepository.getOrders(status, channel)
             result.onSuccess { orders ->
@@ -249,9 +250,18 @@ class OrdersViewModel(
             OrderChannel.POS -> listOf(
                 OrderStatus.PENDING,
                 OrderStatus.DELIVERED,
-                OrderStatus.CANCELLED
+                OrderStatus.CANCELLED,
+                OrderStatus.RETURNED
             )
-            OrderChannel.ONLINE, null -> OrderStatus.entries
+            OrderChannel.ONLINE, null -> listOf(
+                OrderStatus.PENDING,
+                OrderStatus.PROCESSING,
+                OrderStatus.SHIPPING,
+                OrderStatus.DELIVERED,
+                OrderStatus.CANCELLED,
+                OrderStatus.RETURNED,
+                OrderStatus.REFUNDED
+            )
         }
     }
 
@@ -274,15 +284,16 @@ class OrdersViewModel(
 
     private fun InternalOrderSummaryDto.toOrderSummary(): OrderDto {
         val walkIn = customerId == "WALK_IN"
+        val channel = OrderChannel.fromBackend(orderChannel)
         return OrderDto(
             id = id,
             orderCode = orderCode,
-            channel = OrderChannel.fromBackend(orderChannel),
+            channel = channel,
             customerName = customerName ?: if (walkIn) "Khách tại quầy" else customerId,
             customerPhone = customerPhone ?: if (walkIn) "Khách mua trực tiếp" else "",
             address = note ?: "",
             total = total ?: 0.0,
-            status = normalizeStatus(OrderChannel.fromBackend(orderChannel), status),
+            status = normalizeStatus(channel, status, paymentStatus),
             paymentMethod = paymentMethod ?: "UNKNOWN",
             paymentStatus = paymentStatus,
             cashierName = null,
@@ -297,18 +308,19 @@ class OrdersViewModel(
 
     private fun InternalOrderDetailDto.toOrderDetail(): OrderDto {
         val walkIn = customerId == "WALK_IN"
+        val channel = OrderChannel.fromBackend(orderChannel)
         val fullAddress = listOfNotNull(address, ward, district, province)
             .filter { it.isNotBlank() }
             .joinToString(", ")
         return OrderDto(
             id = id,
             orderCode = orderCode,
-            channel = OrderChannel.fromBackend(orderChannel),
+            channel = channel,
             customerName = customerName ?: if (walkIn) "Khách tại quầy" else customerId,
             customerPhone = customerPhone ?: if (walkIn) "Khách mua trực tiếp" else "",
             address = fullAddress,
             total = total ?: 0.0,
-            status = normalizeStatus(OrderChannel.fromBackend(orderChannel), status),
+            status = normalizeStatus(channel, status, paymentStatus),
             paymentMethod = paymentMethod ?: "UNKNOWN",
             paymentStatus = paymentStatus,
             cashierName = cashierName,
@@ -331,16 +343,22 @@ class OrdersViewModel(
         )
     }
 
-    private fun normalizeStatus(channel: OrderChannel, rawStatus: String?): OrderStatus {
+    private fun normalizeStatus(channel: OrderChannel, rawStatus: String?, paymentStatus: String? = null): OrderStatus {
         val mapped = OrderStatus.fromBackend(rawStatus)
         return if (channel == OrderChannel.POS) {
             when (mapped) {
                 OrderStatus.DELIVERED -> OrderStatus.DELIVERED
                 OrderStatus.CANCELLED -> OrderStatus.CANCELLED
+                OrderStatus.RETURNED -> OrderStatus.RETURNED
                 else -> OrderStatus.PENDING
             }
         } else {
-            mapped
+            // Phân biệt hoàn tiền (không trả hàng) vs trả hàng vật lý (status=RETURNED trong DB)
+            if (mapped == OrderStatus.DELIVERED && paymentStatus in setOf("REFUNDED", "PARTIALLY_REFUNDED", "REFUND_PROCESSING")) {
+                OrderStatus.REFUNDED
+            } else {
+                mapped
+            }
         }
     }
 }
