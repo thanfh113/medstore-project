@@ -31,6 +31,7 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -46,7 +47,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.nhathuoc.data.model.PaymentStatusDto
-import com.example.nhathuoc.ui.theme.GreenTop
 
 // ── Deep-link schemes that should be forwarded to native apps ───────────────
 private val NATIVE_APP_SCHEMES = listOf(
@@ -105,7 +105,7 @@ fun PaymentWebViewScreen(
                 }
             )
         },
-        containerColor = Color.White
+        containerColor = MaterialTheme.colorScheme.surface
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -164,12 +164,12 @@ private fun PaymentStatusBanner(orderId: String, paymentStatus: PaymentStatusDto
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 "Đơn hàng: $orderId",
-                color = GreenTop,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp,
                 maxLines = 1
             )
-            Text(label, color = Color(0xFF555555), fontSize = 12.sp)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         }
     }
 }

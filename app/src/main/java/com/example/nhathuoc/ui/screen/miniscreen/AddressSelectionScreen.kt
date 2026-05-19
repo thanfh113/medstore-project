@@ -20,13 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.nhathuoc.data.model.UserAddressDto
-import com.example.nhathuoc.ui.theme.GreenTop
-
-private val GreenLight = Color(0xFFE8F5E9)
-private val TextPrimary = Color(0xFF1B2B1F)
-private val TextSecondary = Color(0xFF5A7A62)
-private val BgGray = Color(0xFFF3F7F4)
-private val DividerColor = Color(0xFFE0EDE3)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +39,7 @@ fun AddressSelectionScreen(
             )
         },
         bottomBar = {
-            Surface(color = Color.White, shadowElevation = 12.dp) {
+            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
                 Button(
                     onClick = onAddNewAddress,
                     modifier = Modifier
@@ -55,7 +48,7 @@ fun AddressSelectionScreen(
                         .padding(horizontal = 20.dp, vertical = 16.dp)
                         .height(52.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     elevation = ButtonDefaults.buttonElevation(0.dp)
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -64,7 +57,7 @@ fun AddressSelectionScreen(
                 }
             }
         },
-        containerColor = BgGray
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         if (addresses.isEmpty()) {
             Box(
@@ -81,13 +74,13 @@ fun AddressSelectionScreen(
                         modifier = Modifier
                             .size(80.dp)
                             .clip(CircleShape)
-                            .background(GreenLight),
+                            .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Filled.LocationOn,
                             contentDescription = null,
-                            tint = GreenTop,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(42.dp)
                         )
                     }
@@ -95,11 +88,11 @@ fun AddressSelectionScreen(
                         "Chưa có địa chỉ nào",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         "Thêm địa chỉ để tiếp tục đặt hàng.",
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
                 }
@@ -119,10 +112,10 @@ fun AddressSelectionScreen(
                             .fillMaxWidth()
                             .clickable { onAddressSelected(address.id) },
                         shape = RoundedCornerShape(20.dp),
-                        color = if (isSelected) GreenLight else Color.White,
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
                         border = BorderStroke(
                             if (isSelected) 2.dp else 1.dp,
-                            if (isSelected) GreenTop else DividerColor
+                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                         ),
                         shadowElevation = if (isSelected) 0.dp else 1.dp
                     ) {
@@ -135,13 +128,13 @@ fun AddressSelectionScreen(
                                 modifier = Modifier
                                     .size(44.dp)
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(if (isSelected) GreenTop else Color(0xFFF0F4F1)),
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFF0F4F1)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     Icons.Filled.LocationOn,
                                     contentDescription = null,
-                                    tint = if (isSelected) Color.White else GreenTop,
+                                    tint = if (isSelected) Color.White else MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
@@ -155,18 +148,18 @@ fun AddressSelectionScreen(
                                         address.recipientName ?: "Chưa có tên",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp,
-                                        color = if (isSelected) Color(0xFF2E7D32) else TextPrimary
+                                        color = if (isSelected) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurface
                                     )
                                     if (address.isDefault) {
                                         Surface(
                                             shape = RoundedCornerShape(20.dp),
-                                            color = if (isSelected) GreenTop else Color(0xFFE8F5E9)
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFE8F5E9)
                                         ) {
                                             Text(
                                                 "Mặc định",
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = if (isSelected) Color.White else GreenTop,
+                                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                             )
                                         }
@@ -176,7 +169,7 @@ fun AddressSelectionScreen(
                                 Text(
                                     address.recipientPhone ?: "Chưa có SĐT",
                                     fontSize = 13.sp,
-                                    color = TextSecondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 val fullAddr = listOf(address.address, address.ward, address.district, address.province)
@@ -194,7 +187,7 @@ fun AddressSelectionScreen(
                             RadioButton(
                                 selected = isSelected,
                                 onClick = { onAddressSelected(address.id) },
-                                colors = RadioButtonDefaults.colors(selectedColor = GreenTop)
+                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
                             )
                         }
                     }

@@ -440,7 +440,7 @@ fun CheckoutFlowScreen(
                             enabled = false,
                             label = { Text("${state.totalItems} sản phẩm") },
                             colors = AssistChipDefaults.assistChipColors(
-                                disabledContainerColor = Color(0xFFE8F5E9),
+                                disabledContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                 disabledLabelColor = MaterialTheme.colorScheme.primary
                             )
                         )
@@ -474,7 +474,7 @@ fun CheckoutFlowScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = deliveryDescriptionFor(state.paymentMethod),
-                        color = Color(0xFF6B7280),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp
                     )
                 }
@@ -609,7 +609,7 @@ private fun PaymentMethodItem(
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(
             1.dp,
-            if (selected) MaterialTheme.colorScheme.primary else Color(0xFFE2E8F0)
+            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
         )
     ) {
         Row(
@@ -622,7 +622,7 @@ private fun PaymentMethodItem(
             Surface(
                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else Color(0xFFE2E8F0))
+                border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Payments,
@@ -641,7 +641,7 @@ private fun PaymentMethodItem(
                 )
                 Text(
                     text = description,
-                    color = Color(0xFF6B7280),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
@@ -662,7 +662,7 @@ private fun VoucherPickerSection(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -683,7 +683,7 @@ private fun VoucherPickerSection(
                         Text("Voucher của tôi", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         Text(
                             text = "${vouchers.size} voucher khả dụng",
-                            color = Color(0xFF6B7280),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp
                         )
                     }
@@ -710,13 +710,13 @@ private fun VoucherPickerSection(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(selectedVoucher.name, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                                Text(selectedVoucher.code, color = Color(0xFF6B7280), fontSize = 12.sp)
+                                Text(selectedVoucher.code, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             }
                             TextButton(onClick = onClearVoucher) {
                                 Text("Bỏ chọn")
                             }
                         }
-                        Text(buildVoucherRuleText(selectedVoucher), color = Color(0xFF374151), fontSize = 13.sp)
+                        Text(buildVoucherRuleText(selectedVoucher), color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                     }
                 }
             } else {
@@ -726,7 +726,7 @@ private fun VoucherPickerSection(
                     } else {
                         "Chọn voucher đã đổi để app tự áp mã vào đơn hàng."
                     },
-                    color = Color(0xFF6B7280),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
@@ -759,7 +759,7 @@ private fun VoucherBottomSheet(
             )
             Text(
                 text = "Chọn voucher đã đổi bằng điểm. App sẽ tự dùng mã voucher này khi tạo đơn.",
-                color = Color(0xFF6B7280),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp
             )
 
@@ -774,12 +774,12 @@ private fun VoucherBottomSheet(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Text(
                         text = "Chưa có voucher nào khả dụng. Sau khi đổi điểm và được duyệt, voucher sẽ xuất hiện ở đây.",
                         modifier = Modifier.padding(16.dp),
-                        color = Color(0xFF6B7280)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
@@ -822,8 +822,8 @@ private fun VoucherBottomSheetItem(
             1.dp,
             when {
                 selected -> MaterialTheme.colorScheme.primary
-                qualified -> Color(0xFFE2E8F0)
-                else -> Color(0xFFF1F5F9)
+                qualified -> MaterialTheme.colorScheme.outlineVariant
+                else -> MaterialTheme.colorScheme.surfaceVariant
             }
         )
     ) {
@@ -838,7 +838,7 @@ private fun VoucherBottomSheetItem(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(voucher.name, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                    Text(voucher.code, color = Color(0xFF6B7280), fontSize = 12.sp)
+                    Text(voucher.code, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
                 Text(
                     text = when {
@@ -848,16 +848,16 @@ private fun VoucherBottomSheetItem(
                     },
                     color = when {
                         selected -> MaterialTheme.colorScheme.primary
-                        qualified -> Color(0xFF374151)
+                        qualified -> MaterialTheme.colorScheme.onSurface
                         else -> Color(0xFFD97706)
                     },
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
-            Text(buildVoucherRuleText(voucher), color = Color(0xFF374151), fontSize = 13.sp)
+            Text(buildVoucherRuleText(voucher), color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
             voucher.minOrderTotal?.let {
-                Text("Đơn tối thiểu: ${formatCurrency(it)}", color = Color(0xFF6B7280), fontSize = 12.sp)
+                Text("Đơn tối thiểu: ${formatCurrency(it)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
             Text(
                 text = if (qualified) {
@@ -898,7 +898,7 @@ private fun RewardInfoCard(
                 color = Color(0xFFFF8F00),
                 fontWeight = FontWeight.SemiBold
             )
-            Text("Điểm hiện có: $availablePoints", color = Color(0xFF6B7280))
+            Text("Điểm hiện có: $availablePoints", color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (maxUsablePoints > 0) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -914,7 +914,7 @@ private fun RewardInfoCard(
                         Text(
                             text = "Giảm ${formatCurrency(maxUsablePoints.toDouble())} cho tiền hàng.",
                             fontSize = 12.sp,
-                            color = Color(0xFF6B7280)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Switch(
@@ -935,13 +935,13 @@ private fun RewardInfoCard(
                 Text(
                     "Đơn hiện tại chưa đủ điều kiện áp dụng điểm hoặc bạn chưa có điểm khả dụng.",
                     fontSize = 12.sp,
-                    color = Color(0xFF6B7280)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Text(
                 "Điểm nhận được tính theo từng sản phẩm. Khi cần dùng điểm, app sẽ tự áp mức tối đa hợp lệ thay vì nhập tay.",
                 fontSize = 12.sp,
-                color = Color(0xFF6B7280)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -953,7 +953,7 @@ private fun CartItemRow(item: CartItemDto) {
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -995,10 +995,10 @@ private fun CartItemRow(item: CartItemDto) {
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("SKU: ${item.product?.sku ?: "Đang cập nhật"}", color = Color(0xFF6B7280))
+                Text("SKU: ${item.product?.sku ?: "Đang cập nhật"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     text = "${item.quantity} x ${formatCurrency(item.unitPrice)} • ${item.unit}",
-                    color = Color(0xFF6B7280)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Spacer(modifier = Modifier.size(12.dp))
@@ -1022,13 +1022,13 @@ private fun SummaryRow(label: String, value: Double, emphasize: Boolean = false)
             text = label,
             fontSize = if (emphasize) 17.sp else 15.sp,
             fontWeight = if (emphasize) FontWeight.Bold else FontWeight.Medium,
-            color = if (emphasize) MaterialTheme.colorScheme.primary else Color(0xFF374151)
+            color = if (emphasize) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = formatCurrency(value),
             fontSize = if (emphasize) 18.sp else 15.sp,
             fontWeight = if (emphasize) FontWeight.Bold else FontWeight.SemiBold,
-            color = if (emphasize) MaterialTheme.colorScheme.primary else Color(0xFF111827)
+            color = if (emphasize) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -1040,7 +1040,7 @@ private fun RewardSummaryRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Color(0xFF374151))
+        Text(label, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
         Text(value, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFFF8F00))
     }
 }

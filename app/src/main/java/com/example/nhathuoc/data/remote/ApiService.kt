@@ -136,6 +136,12 @@ interface ApiService {
         @Query("limit") limit: Int = 10
     ): Response<OrderListResponse>
 
+    @GET(ApiConstants.ORDERS_POS)
+    suspend fun getPosOrders(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 50
+    ): Response<OrderListResponse>
+
     @GET(ApiConstants.ORDER_BY_ID)
     suspend fun getOrderById(@Path("orderId") orderId: String): Response<OrderDto>
 
@@ -183,6 +189,9 @@ interface ApiService {
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 20
     ): Response<DataMessageResponse<List<RewardProductDto>>>
+
+    @GET(ApiConstants.REWARD_PRODUCTS_ME)
+    suspend fun getMyRewardProducts(): Response<DataMessageResponse<List<RewardProductDto>>>
 
     @GET(ApiConstants.REWARD_TRANSACTIONS)
     suspend fun getRewardTransactions(

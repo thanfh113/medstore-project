@@ -26,7 +26,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.nhathuoc.data.model.UserAddress
-import com.example.nhathuoc.ui.theme.GreenTop
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,7 +60,7 @@ fun AddressBookScreen(
                         .padding(horizontal = 20.dp, vertical = 16.dp)
                         .height(52.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
                     Icon(
@@ -190,7 +189,7 @@ private fun EmptyAddressState(modifier: Modifier = Modifier) {
                 Icon(
                     Icons.Outlined.LocationOn,
                     contentDescription = null,
-                    tint = GreenTop,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(52.dp)
                 )
             }
@@ -218,7 +217,7 @@ private fun AddressCard(
     onDelete: () -> Unit
 ) {
     val cardBg = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-    val borderColor = if (selected) GreenTop else MaterialTheme.colorScheme.outlineVariant
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
     val borderWidth = if (selected) 2.dp else 1.dp
 
     Surface(
@@ -294,7 +293,7 @@ private fun AddressCard(
                         Icon(
                             Icons.Filled.CheckCircle,
                             contentDescription = null,
-                            tint = GreenTop,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -359,8 +358,8 @@ private fun AddressCard(
                     onClick = onEdit,
                     modifier = Modifier.weight(1f).height(38.dp),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, if (selected) GreenTop else MaterialTheme.colorScheme.outlineVariant),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop),
+                    border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
                     Icon(

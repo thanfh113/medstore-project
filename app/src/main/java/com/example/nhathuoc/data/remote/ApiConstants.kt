@@ -14,7 +14,7 @@ object ApiConstants {
     const val AUTH_CHANGE_PASSWORD = "/api/v1/auth/change-password"
 
     const val USER_ME = "/api/v1/users/me"
-    const val USER_UPDATE = "/api/v1/users/me"
+    const val USER_UPDATE = "/api/v1/user/update"
     const val USER_ADDRESSES = "/api/v1/users/me/addresses"
     const val USER_ADDRESS_ADD = "/api/v1/users/me/addresses"
     const val USER_ADDRESS_BY_ID = "/api/v1/users/me/addresses/{id}"
@@ -36,6 +36,7 @@ object ApiConstants {
     const val CART_ITEM = "/api/v1/cart/items/{itemId}"
 
     const val ORDERS = "/api/v1/orders"
+    const val ORDERS_POS = "/api/v1/orders/pos"
     const val ORDER_BY_ID = "/api/v1/orders/{orderId}"
     const val ORDER_CANCEL = "/api/v1/orders/{orderId}/cancel"
     const val ORDER_CONFIRM_RECEIVED = "/api/v1/orders/{orderId}/confirm-received"
@@ -55,6 +56,7 @@ object ApiConstants {
 
     const val REWARD_ACCOUNT = "/api/v1/rewards/account"
     const val REWARD_PRODUCTS = "/api/v1/rewards/products"
+    const val REWARD_PRODUCTS_ME = "/api/v1/rewards/products/me"
     const val REWARD_TRANSACTIONS = "/api/v1/rewards/transactions"
     const val REWARD_REDEMPTIONS = "/api/v1/rewards/redemptions"
     const val REWARD_VOUCHERS = "/api/v1/rewards/vouchers"

@@ -29,9 +29,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import android.content.Context
+import com.example.nhathuoc.NhathuocFirebaseMessagingService
 import com.example.nhathuoc.data.local.SessionManager
 import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.ui.theme.GoldColor
+import java.io.File
 import com.example.nhathuoc.ui.theme.GreenLight
 import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.ui.theme.NhathuocTheme
@@ -88,10 +93,11 @@ fun AccountScreen(
 ) {
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
-    val isLoggedIn = sessionManager.isLoggedIn.collectAsState(initial = false)
-    val userName   = sessionManager.userFullName.collectAsState(initial = null)
-    val userPhone  = sessionManager.userPhone.collectAsState(initial = null)
-    val userEmail  = sessionManager.userEmail.collectAsState(initial = null)
+    val isLoggedIn    = sessionManager.isLoggedIn.collectAsState(initial = false)
+    val userName      = sessionManager.userFullName.collectAsState(initial = null)
+    val userPhone     = sessionManager.userPhone.collectAsState(initial = null)
+    val userEmail     = sessionManager.userEmail.collectAsState(initial = null)
+    val userAvatarUri = sessionManager.userAvatarUri.collectAsState(initial = null)
 
     val activeNavController = mainNavController ?: navController
 
@@ -103,7 +109,8 @@ fun AccountScreen(
             navController    = activeNavController,
             userName         = userName.value ?: "Người dùng",
             userPhone        = userPhone.value ?: "",
-            userEmail        = userEmail.value ?: ""
+            userEmail        = userEmail.value ?: "",
+            userAvatarUri    = userAvatarUri.value
         )
     }
 }
@@ -195,7 +202,8 @@ private fun AuthenticatedAccountContent(
     navController: NavController,
     userName: String,
     userPhone: String,
-    userEmail: String
+    userEmail: String,
+    userAvatarUri: String? = null
 ) {
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
@@ -229,8 +237,24 @@ private fun AuthenticatedAccountContent(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // ── Avatar initials ──────────────────────────────
-                    AvatarInitials(name = userName, size = 52)
+                    // ── Avatar ───────────────────────────────────────
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(CircleShape)
+                    ) {
+                        if (!userAvatarUri.isNullOrBlank()) {
+                            val avatarModel = if (userAvatarUri.startsWith("http")) userAvatarUri else File(userAvatarUri)
+                            AsyncImage(
+                                model = avatarModel,
+                                contentDescription = "Avatar",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            AvatarInitials(name = userName, size = 52)
+                        }
+                    }
                     Spacer(Modifier.width(12.dp))
                     Column {
                         Text(userName, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -331,6 +355,12 @@ private fun AuthenticatedAccountContent(
                         .fillMaxWidth()
                         .clickable {
                             scope.launch {
+                                // Reset FCM sync flag so next login re-registers token for new account
+                                context.getSharedPreferences(
+                                    NhathuocFirebaseMessagingService.FCM_PREFS, Context.MODE_PRIVATE
+                                ).edit().putBoolean(
+                                    NhathuocFirebaseMessagingService.KEY_TOKEN_SYNCED, false
+                                ).apply()
                                 sessionManager.clearSession()
                             }
                         }

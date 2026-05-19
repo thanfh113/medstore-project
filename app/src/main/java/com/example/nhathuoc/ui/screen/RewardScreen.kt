@@ -22,7 +22,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import coil.compose.AsyncImage
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +43,7 @@ import com.example.nhathuoc.data.model.RewardRedemptionHistoryDto
 import com.example.nhathuoc.data.model.RewardVoucherDto
 import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.ui.theme.GreenLight
+import com.example.nhathuoc.util.formatVnDateTime
 import com.example.nhathuoc.viewmodel.RewardViewModel
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -77,6 +80,7 @@ private enum class RewardScreenTab {
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RewardScreen(
     modifier: Modifier = Modifier,
@@ -132,6 +136,7 @@ fun RewardScreen(
     // Snackbar for redeem feedback
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadRewardAccount()
@@ -140,6 +145,7 @@ fun RewardScreen(
         viewModel.loadRewardRedemptions()
         viewModel.loadRewardVouchers()
     }
+    LaunchedEffect(accountState) { if (accountState !is UiState.Loading) isRefreshing = false }
 
     LaunchedEffect(redeemState) {
         when (val s = redeemState) {
@@ -159,6 +165,18 @@ fun RewardScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
+        PullToRefreshBox(
+            modifier = Modifier.fillMaxSize(),
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                viewModel.loadRewardAccount()
+                viewModel.loadRewardProducts()
+                viewModel.loadRewardTransactions()
+                viewModel.loadRewardRedemptions()
+                viewModel.loadRewardVouchers()
+            }
+        ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = 24.dp)
@@ -518,6 +536,7 @@ fun RewardScreen(
                     }
                 }
             } // end LazyColumn
+        } // end PullToRefreshBox
 
             // ── Redeem bottom sheet ───────────────────────────────────
             UnifiedRedeemSheet(
@@ -546,7 +565,9 @@ private fun ApiRewardProductCard(
     onRedeem: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val canRedeem = userPoints >= product.pointCost
+    val limitReached = product.usagePerUserLimit != null &&
+        product.userRedemptionCount >= product.usagePerUserLimit
+    val canRedeem = userPoints >= product.pointCost && !limitReached
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -560,13 +581,30 @@ private fun ApiRewardProductCard(
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Outlined.CardGiftcard, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
+                if (!product.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = product.imageUrl,
+                        contentDescription = product.name,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(Icons.Outlined.CardGiftcard, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
+                }
             }
             Spacer(Modifier.height(8.dp))
             Text(product.name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium,
                 lineHeight = 16.sp, maxLines = 3, modifier = Modifier.heightIn(min = 48.dp))
             Spacer(Modifier.height(6.dp))
             Text("${product.pointCost.toLong().fmtPts()} điểm", fontSize = 12.sp, color = Color.Gray)
+            if (product.usagePerUserLimit != null && product.usagePerUserLimit > 0) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Giới hạn: ${product.usagePerUserLimit} lần/người",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.EmojiEvents, null, tint = GoldColorRw, modifier = Modifier.size(16.dp))
@@ -588,7 +626,14 @@ private fun ApiRewardProductCard(
                 contentPadding = PaddingValues(vertical = 8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (canRedeem) "Đổi ngay" else "Thiếu điểm", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    when {
+                        limitReached -> "Đã đạt giới hạn"
+                        canRedeem -> "Đổi ngay"
+                        else -> "Thiếu điểm"
+                    },
+                    color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
@@ -1150,13 +1195,7 @@ private fun shortRewardId(value: String): String {
     return if (value.length <= 8) value else value.takeLast(8)
 }
 
-private fun formatRewardDateTime(value: String): String {
-    return runCatching {
-        LocalDateTime.parse(value).format(rewardHistoryDateFormatter)
-    }.getOrElse {
-        value.replace('T', ' ').take(16)
-    }
-}
+private fun formatRewardDateTime(value: String): String = formatVnDateTime(value)
 
 // ── Redeem bottom sheet (unified for API and fallback) ────────────────────
 @Composable
@@ -1195,6 +1234,16 @@ fun UnifiedRedeemSheet(
 
     val productName = apiProduct?.name ?: localProduct?.name ?: ""
     val pointCost   = apiProduct?.pointCost ?: localProduct?.pointCost ?: 0
+
+    // Max quantity = min(remaining redemptions allowed, max affordable by points)
+    val remainingRedemptions: Int? = apiProduct?.usagePerUserLimit?.let { limit ->
+        (limit - (apiProduct.userRedemptionCount)).coerceAtLeast(0)
+    }
+    val maxByPoints = if (pointCost > 0) (userPoints / pointCost).coerceAtLeast(1) else 1
+    val maxQuantity = minOf(remainingRedemptions ?: Int.MAX_VALUE, maxByPoints).coerceAtLeast(1)
+
+    LaunchedEffect(maxQuantity) { if (quantity > maxQuantity) quantity = maxQuantity }
+
     val totalCost   = pointCost * quantity
     val hasEnough   = userPoints >= totalCost
 
@@ -1278,7 +1327,16 @@ fun UnifiedRedeemSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Số lượng:", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Column {
+                            Text("Số lượng:", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            if (remainingRedemptions != null) {
+                                Text(
+                                    "Còn ${remainingRedemptions} lần đổi",
+                                    fontSize = 12.sp,
+                                    color = if (remainingRedemptions > 0) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFFE53935)
+                                )
+                            }
+                        }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             Surface(onClick = { if (quantity > 1) quantity-- }, shape = RoundedCornerShape(8.dp),
                                 color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(34.dp)) {
@@ -1287,10 +1345,16 @@ fun UnifiedRedeemSheet(
                                 }
                             }
                             Text(quantity.toString(), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            Surface(onClick = { quantity++ }, shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(34.dp)) {
+                            Surface(
+                                onClick = { if (quantity < maxQuantity) quantity++ },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (quantity < maxQuantity) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                modifier = Modifier.size(34.dp)
+                            ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Filled.Add, null,
+                                        tint = if (quantity < maxQuantity) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                        modifier = Modifier.size(18.dp))
                                 }
                             }
                         }

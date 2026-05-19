@@ -46,7 +46,8 @@ data class OrderItemDto(
     val unit: String,
     val price: Double,
     val totalPrice: Double? = null,
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    val hasReviewed: Boolean = false
 )
 
 @Serializable

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.nhathuoc.data.model.*
 import com.example.nhathuoc.data.repository.FileUploadRepository
 import com.example.nhathuoc.data.repository.OrderRepository
+import com.example.nhathuoc.data.repository.ProductRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,13 +17,17 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class OrderViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
-    private val fileUploadRepository: FileUploadRepository
+    private val fileUploadRepository: FileUploadRepository,
+    private val productRepository: ProductRepository
 ) : ViewModel() {
     private val _orderState = MutableStateFlow<UiState<OrderDto>>(UiState.Idle)
     val orderState: StateFlow<UiState<OrderDto>> = _orderState.asStateFlow()
 
     private val _ordersListState = MutableStateFlow<UiState<OrderListResponse>>(UiState.Idle)
     val ordersListState: StateFlow<UiState<OrderListResponse>> = _ordersListState.asStateFlow()
+
+    private val _posOrdersListState = MutableStateFlow<UiState<OrderListResponse>>(UiState.Idle)
+    val posOrdersListState: StateFlow<UiState<OrderListResponse>> = _posOrdersListState.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -45,6 +50,9 @@ class OrderViewModel @Inject constructor(
     private val _requestRefundState = MutableStateFlow<UiState<ComplaintDto>>(UiState.Idle)
     val requestRefundState: StateFlow<UiState<ComplaintDto>> = _requestRefundState.asStateFlow()
 
+    private val _batchReviewState = MutableStateFlow<UiState<Unit>>(UiState.Idle)
+    val batchReviewState: StateFlow<UiState<Unit>> = _batchReviewState.asStateFlow()
+
     fun getOrderById(orderId: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -55,6 +63,17 @@ class OrderViewModel @Inject constructor(
                 is NetworkResult.Exception -> _orderState.value = UiState.Error("Lỗi kết nối")
             }
             _isLoading.value = false
+        }
+    }
+
+    fun getPosOrders() {
+        viewModelScope.launch {
+            _posOrdersListState.value = UiState.Loading
+            when (val result = orderRepository.getPosOrders()) {
+                is NetworkResult.Success -> _posOrdersListState.value = UiState.Success(result.data)
+                is NetworkResult.Error -> _posOrdersListState.value = UiState.Error("Lỗi: ${result.message}")
+                is NetworkResult.Exception -> _posOrdersListState.value = UiState.Error("Lỗi kết nối")
+            }
         }
     }
 
@@ -248,6 +267,68 @@ class OrderViewModel @Inject constructor(
         _requestRefundState.value = UiState.Idle
     }
 
+    fun submitBatchReviews(
+        items: List<OrderItemDto>,
+        ratings: Map<String, Int>,
+        titles: Map<String, String> = emptyMap(),
+        comments: Map<String, String>,
+        attachmentUris: Map<String, List<Uri>> = emptyMap()
+    ) {
+        val toReview = items.filter { (ratings[it.id] ?: 0) > 0 }
+        if (toReview.isEmpty()) return
+        viewModelScope.launch {
+            _batchReviewState.value = UiState.Loading
+            for (item in toReview) {
+                val rating = ratings[item.id] ?: continue
+                val uris = attachmentUris[item.id].orEmpty()
+                val attachments = if (uris.isNotEmpty()) {
+                    when (val uploadResult = fileUploadRepository.uploadReviewImages(uris)) {
+                        is NetworkResult.Success -> uploadResult.data.mapIndexed { index, file ->
+                            com.example.nhathuoc.data.model.ReviewAttachmentInput(
+                                fileUrl = file.fileUrl,
+                                fileType = file.fileType,
+                                publicId = file.publicId,
+                                sortOrder = index
+                            )
+                        }
+                        is NetworkResult.Error -> {
+                            _batchReviewState.value = UiState.Error("Lỗi upload ảnh: ${uploadResult.message}")
+                            return@launch
+                        }
+                        is NetworkResult.Exception -> {
+                            _batchReviewState.value = UiState.Error(uploadResult.e.message ?: "Không thể upload ảnh")
+                            return@launch
+                        }
+                    }
+                } else emptyList()
+                val request = CreateReviewRequest(
+                    orderId = item.orderId,
+                    orderItemId = item.id,
+                    rating = rating,
+                    title = titles[item.id]?.trim()?.ifBlank { null },
+                    comment = comments[item.id]?.trim()?.ifBlank { null },
+                    attachments = attachments
+                )
+                when (val result = productRepository.createProductReview(item.productId, request)) {
+                    is NetworkResult.Error -> {
+                        _batchReviewState.value = UiState.Error(result.message)
+                        return@launch
+                    }
+                    is NetworkResult.Exception -> {
+                        _batchReviewState.value = UiState.Error(result.e.message ?: "Lỗi không xác định")
+                        return@launch
+                    }
+                    else -> Unit
+                }
+            }
+            _batchReviewState.value = UiState.Success(Unit)
+        }
+    }
+
+    fun clearBatchReviewState() {
+        _batchReviewState.value = UiState.Idle
+    }
+
     fun clearState() {
         _orderState.value = UiState.Idle
         _ordersListState.value = UiState.Idle
@@ -257,5 +338,6 @@ class OrderViewModel @Inject constructor(
         _complaintMessageState.value = UiState.Idle
         _addAttachmentsState.value = UiState.Idle
         _requestRefundState.value = UiState.Idle
+        _batchReviewState.value = UiState.Idle
     }
 }

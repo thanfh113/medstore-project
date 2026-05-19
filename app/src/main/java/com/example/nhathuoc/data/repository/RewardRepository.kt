@@ -30,7 +30,10 @@ class RewardRepository @Inject constructor(
 
     suspend fun getRewardProducts(category: String? = null, page: Int = 1, limit: Int = 20): NetworkResult<RewardProductListResponse> {
         return try {
-            val response = apiService.getRewardProducts(category, page, limit)
+            // Try authenticated endpoint first to get userRedemptionCount; fall back to public on auth failure
+            val meResponse = try { apiService.getMyRewardProducts() } catch (_: Exception) { null }
+            val response = if (meResponse != null && meResponse.isSuccessful) meResponse
+                           else apiService.getRewardProducts(category, page, limit)
             if (response.isSuccessful) {
                 val products = response.body()!!.data
                     .let { items ->

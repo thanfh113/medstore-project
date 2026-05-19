@@ -54,7 +54,9 @@ data class RewardProductDto(
     val stock: Int = 0,
     val isActive: Boolean = true,
     val createdAt: String = "",
-    val updatedAt: String = ""
+    val updatedAt: String = "",
+    val usagePerUserLimit: Int? = null,
+    val userRedemptionCount: Int = 0
 )
 
 @Serializable

@@ -118,42 +118,37 @@ class MainActivity : ComponentActivity() {
             val prefs = getSharedPreferences(
                 NhathuocFirebaseMessagingService.FCM_PREFS, MODE_PRIVATE
             )
-            val stored   = prefs.getString(NhathuocFirebaseMessagingService.KEY_FCM_TOKEN, null)
-            val isSynced = prefs.getBoolean(NhathuocFirebaseMessagingService.KEY_TOKEN_SYNCED, false)
-
-            // Save locally if new
+            val stored = prefs.getString(NhathuocFirebaseMessagingService.KEY_FCM_TOKEN, null)
             if (stored != token) {
                 prefs.edit()
                     .putString(NhathuocFirebaseMessagingService.KEY_FCM_TOKEN, token)
-                    .putBoolean(NhathuocFirebaseMessagingService.KEY_TOKEN_SYNCED, false)
                     .apply()
             }
 
-            // Register with backend only when user is logged in
-            if (!isSynced || stored != token) {
-                lifecycleScope.launch {
-                    // Wait until user is logged in (handles reinstall before login scenario)
-                    sessionManager.isLoggedIn.filter { it }.first()
-                    try {
-                        val response = apiService.registerPushToken(
-                            PushTokenRequest(
-                                fcmToken = token,
-                                platform = "ANDROID",
-                                deviceId = android.provider.Settings.Secure.getString(
-                                    contentResolver,
-                                    android.provider.Settings.Secure.ANDROID_ID
+            // Re-register token on every login (handles account switching without app restart)
+            lifecycleScope.launch {
+                var wasLoggedIn = false
+                sessionManager.isLoggedIn.collect { isLoggedIn ->
+                    if (isLoggedIn && !wasLoggedIn) {
+                        try {
+                            val response = apiService.registerPushToken(
+                                PushTokenRequest(
+                                    fcmToken = token,
+                                    platform = "ANDROID",
+                                    deviceId = android.provider.Settings.Secure.getString(
+                                        contentResolver,
+                                        android.provider.Settings.Secure.ANDROID_ID
+                                    )
                                 )
                             )
-                        )
-                        if (response.isSuccessful) {
-                            prefs.edit()
-                                .putBoolean(NhathuocFirebaseMessagingService.KEY_TOKEN_SYNCED, true)
-                                .apply()
-                            Log.d("FCM", "Token registered with backend")
+                            if (response.isSuccessful) {
+                                Log.d("FCM", "Token registered for current account")
+                            }
+                        } catch (e: Exception) {
+                            Log.w("FCM", "Token registration failed: ${e.message}")
                         }
-                    } catch (e: Exception) {
-                        Log.w("FCM", "Token registration failed, will retry next launch", e)
                     }
+                    wasLoggedIn = isLoggedIn
                 }
             }
         }

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,6 +94,7 @@ fun HomeScreen(modifier: Modifier = Modifier, navController: NavController? = nu
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeScreenContent(
     modifier: Modifier = Modifier,
@@ -150,8 +152,20 @@ private fun HomeScreenContent(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var isRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(flashSaleLoading, bestSellerLoading) {
+        if (!flashSaleLoading && !bestSellerLoading) isRefreshing = false
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
+        PullToRefreshBox(
+            modifier = Modifier.fillMaxSize(),
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                homeViewModel.loadHomeData()
+            }
+        ) {
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -277,6 +291,7 @@ private fun HomeScreenContent(
             item { TrustBadgesGrid(modifier = Modifier.padding(horizontal = 16.dp)) }
             item { HomeFooter(modifier = Modifier.padding(horizontal = 16.dp)) }
         }
+        } // end PullToRefreshBox
 
         SnackbarHost(
             hostState = snackbarHostState,

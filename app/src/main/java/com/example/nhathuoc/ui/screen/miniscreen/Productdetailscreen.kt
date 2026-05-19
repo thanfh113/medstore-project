@@ -54,6 +54,7 @@ import kotlinx.coroutines.launch
 import com.example.nhathuoc.data.model.ProductReviewSummaryDto
 import com.example.nhathuoc.data.model.ReviewDto
 import com.example.nhathuoc.data.remote.BackendUrlResolver
+import com.example.nhathuoc.util.formatVnDateTime
 private val GreenTop = Color(0xFF2E7D32)
 
 private val GoldColor = Color(0xFFFFAB00)
@@ -67,9 +68,7 @@ data class ProductCertificate(
     val fileUrl: String = "",              // URL ?nh ho?c PDF
     val fileType: String? = null,
     val resourceType: String? = null,
-    val issuedBy: String? = null,          // Co quan c?p
-    val issuedAt: String? = null,          // Ng�y c?p
-    val expiresAt: String? = null          // Ng�y h?t h?n
+    val issuedBy: String? = null
 )
 
 private data class PickedAttachment(
@@ -126,8 +125,9 @@ fun ProductDetailScreen(
     reviewSubmitMessage: String? = null,
     openReviewOnStart: Boolean = false,
     reviewSubmitted: Boolean = false,
+    currentUserId: String? = null,
     onSubmitReview: ((Int, String, String, List<Uri>) -> Unit)? = null,
-    onReportReview: ((String) -> Unit)? = null
+    onReportReview: ((String, String, String?) -> Unit)? = null
 ) {
     val remoteImageUrls = remember(product.imageUrls, product.imageUrl) {
         product.imageUrls.ifEmpty {
@@ -648,6 +648,7 @@ fun ProductDetailScreen(
                 submitMessage = reviewSubmitMessage,
                 openReviewOnStart = openReviewOnStart,
                 reviewSubmitted = reviewSubmitted,
+                currentUserId = currentUserId,
                 onSubmitReview = onSubmitReview,
                 onReportReview = onReportReview
             )
@@ -667,8 +668,9 @@ private fun ReviewsSection(
     submitMessage: String?,
     openReviewOnStart: Boolean,
     reviewSubmitted: Boolean,
+    currentUserId: String?,
     onSubmitReview: ((Int, String, String, List<Uri>) -> Unit)?,
-    onReportReview: ((String) -> Unit)?
+    onReportReview: ((String, String, String?) -> Unit)?
 ) {
     var showDialog by remember { mutableStateOf(false) }
     val averageRating = summary?.averageRating ?: 0.0
@@ -729,7 +731,7 @@ private fun ReviewsSection(
                 Text("Khách đã mua có thể đánh giá sản phẩm tại đây.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 reviews.take(5).forEach { review ->
-                    ReviewRow(review, onReportReview)
+                    ReviewRow(review, currentUserId, onReportReview)
                 }
             }
         }
@@ -778,23 +780,35 @@ private fun ReviewInputDialog(
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 // ── Header ─────────────────────────────────────────────────
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 24.dp, start = 24.dp, end = 24.dp, bottom = 0.dp)
+                        .padding(top = 20.dp, start = 20.dp, end = 20.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        "Viết đánh giá",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        "Chia sẻ trải nghiệm của bạn về sản phẩm",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFFFE57F)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.Star, null, tint = Color(0xFFFF8F00), modifier = Modifier.size(22.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Viết đánh giá",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "Chia sẻ trải nghiệm của bạn về sản phẩm",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 // ── Scrollable body ────────────────────────────────────────
@@ -1059,8 +1073,21 @@ private fun starLabelFg(rating: Int) = when (rating) {
 @Composable
 private fun ReviewRow(
     review: ReviewDto,
-    onReportReview: ((String) -> Unit)?
+    currentUserId: String?,
+    onReportReview: ((String, String, String?) -> Unit)?
 ) {
+    var showReportDialog by remember { mutableStateOf(false) }
+
+    if (showReportDialog) {
+        ReportReviewDialog(
+            onDismiss = { showReportDialog = false },
+            onConfirm = { reason, note ->
+                onReportReview?.invoke(review.id, reason, note)
+                showReportDialog = false
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1129,18 +1156,72 @@ private fun ReviewRow(
             if (review.isVerifiedPurchase) {
                 Text("Đã mua hàng", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
             }
-            Text(review.createdAt.take(10), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (onReportReview != null) {
+            Text(formatVnDateTime(review.createdAt), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (onReportReview != null && review.userId != currentUserId) {
                 Text(
                     "Báo cáo",
                     fontSize = 11.sp,
                     color = Color(0xFFB45309),
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable { onReportReview(review.id) }
+                    modifier = Modifier.clickable { showReportDialog = true }
                 )
             }
         }
     }
+}
+
+@Composable
+private fun ReportReviewDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (reason: String, note: String?) -> Unit
+) {
+    val reasons = listOf(
+        "SPAM" to "Spam / quảng cáo",
+        "INAPPROPRIATE" to "Nội dung không phù hợp",
+        "FAKE" to "Đánh giá giả mạo",
+        "OTHER" to "Lý do khác"
+    )
+    var selectedReason by remember { mutableStateOf("SPAM") }
+    var note by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Báo cáo đánh giá", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Chọn lý do báo cáo:", fontSize = 14.sp)
+                reasons.forEach { (code, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { selectedReason = code }
+                            .padding(vertical = 8.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        RadioButton(selected = selectedReason == code, onClick = { selectedReason = code })
+                        Text(label, fontSize = 14.sp)
+                    }
+                }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("Ghi chú thêm (tùy chọn)") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(selectedReason, note.trim().ifBlank { null }) }) {
+                Text("Gửi báo cáo")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Hủy") }
+        }
+    )
 }
 
 @Composable
@@ -1332,8 +1413,6 @@ private fun CertificatePreviewRow(cert: ProductCertificate) {
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                 )
             }
-        } else if (!cert.expiresAt.isNullOrBlank()) {
-            Text("Hết hạn: ${cert.expiresAt}", fontSize = 10.sp, color = Color(0xFFE65100))
         }
     }
 }

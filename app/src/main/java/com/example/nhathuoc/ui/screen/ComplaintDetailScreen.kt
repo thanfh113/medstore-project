@@ -31,6 +31,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -63,8 +64,8 @@ import com.example.nhathuoc.data.model.ComplaintEventDto
 import com.example.nhathuoc.data.model.ComplaintMessageDto
 import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.data.remote.BackendUrlResolver
-import com.example.nhathuoc.ui.theme.BgColor
-import com.example.nhathuoc.ui.theme.GreenTop
+import com.example.nhathuoc.util.formatUtcToVnDateTime
+import com.example.nhathuoc.util.formatVnDateTime
 import com.example.nhathuoc.viewmodel.OrderViewModel
 import java.text.NumberFormat
 import java.util.Locale
@@ -133,7 +134,7 @@ fun ComplaintDetailScreen(
     }
 
     Scaffold(
-        containerColor = BgColor,
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             com.example.nhathuoc.ui.component.GreenAppTopBar(
@@ -163,13 +164,13 @@ fun ComplaintDetailScreen(
                 modifier = Modifier.fillMaxSize().padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = GreenTop)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
             is UiState.Error -> Box(
                 modifier = Modifier.fillMaxSize().padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Text(state.message, color = Color(0xFFE53935), modifier = Modifier.padding(24.dp))
+                Text(state.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(24.dp))
             }
             is UiState.Success -> ComplaintDetailContent(
                 complaint = state.data,
@@ -204,11 +205,11 @@ private fun ComplaintDetailContent(
             item { ComplaintTimelineCard(complaint) }
         }
         item {
-            Text("Trao đổi xử lý", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = GreenTop)
+            Text("Trao đổi xử lý", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         }
         if (complaint.messages.isEmpty()) {
             item {
-                Surface(color = Color.White, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                     Text(
                         "Chưa có trao đổi mới. Bạn có thể gửi thêm thông tin cho CSKH ở ô bên dưới.",
                         color = Color.Gray,
@@ -224,7 +225,7 @@ private fun ComplaintDetailContent(
         }
         messageError?.let {
             item {
-                Text(it, color = Color(0xFFE53935), fontSize = 12.sp)
+                Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
             }
         }
         item { Spacer(Modifier.height(88.dp)) }
@@ -238,13 +239,13 @@ private fun ComplaintInfoCard(
     onRequestRefund: () -> Unit = {}
 ) {
     val closedStatuses = setOf("RESOLVED", "REJECTED", "CANCELLED")
-    val canRequestRefund = complaint.refundStatus == "NONE" &&
+    val canRequestRefund = complaint.refundStatus in setOf("NONE", "REFUND_FAILED") &&
         complaint.status.uppercase() !in closedStatuses
 
-    Surface(color = Color.White, shape = RoundedCornerShape(18.dp), shadowElevation = 2.dp) {
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(18.dp), shadowElevation = 2.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(complaint.complaintCode, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = GreenTop)
+                Text(complaint.complaintCode, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Text(
                     complaintStatusLabel(complaint.status),
                     color = complaintStatusColor(complaint.status),
@@ -252,49 +253,78 @@ private fun ComplaintInfoCard(
                 )
             }
             Text(complaint.title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text("Đơn: ${complaint.orderId.takeLast(8)}", color = Color(0xFF4B5563), fontSize = 13.sp)
-            Text("Loại: ${complaintTypeLabel(complaint.type)} • Ưu tiên: ${complaint.priority}", color = Color(0xFF4B5563), fontSize = 13.sp)
-            Text(complaint.description, color = Color(0xFF374151), fontSize = 14.sp, lineHeight = 20.sp)
+            Text("Đơn: ${complaint.orderId.takeLast(8)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            Text("Loại: ${complaintTypeLabel(complaint.type)} • Ưu tiên: ${complaint.priority}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            Text(complaint.description, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, lineHeight = 20.sp)
             complaint.resolution?.takeIf { it.isNotBlank() }?.let {
                 Surface(color = Color(0xFFEFF6FF), shape = RoundedCornerShape(12.dp)) {
                     Text("Phản hồi xử lý: $it", color = Color(0xFF1D4ED8), modifier = Modifier.padding(12.dp))
                 }
             }
             if (complaint.refundStatus != "NONE" || complaint.refundAmount != null) {
-                Surface(color = Color(0xFFFFFBEB), shape = RoundedCornerShape(12.dp)) {
+                val isRefundFailed = complaint.refundStatus == "REFUND_FAILED"
+                Surface(
+                    color = if (isRefundFailed) Color(0xFFFFEDED) else Color(0xFFFFFBEB),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Thông tin hoàn tiền", fontWeight = FontWeight.Bold, color = Color(0xFFB45309))
-                        Text("Trạng thái: ${refundStatusLabel(complaint.refundStatus)}", color = Color(0xFF92400E), fontSize = 13.sp)
+                        Text(
+                            "Thông tin hoàn tiền",
+                            fontWeight = FontWeight.Bold,
+                            color = if (isRefundFailed) Color(0xFFB91C1C) else Color(0xFFB45309)
+                        )
+                        Text(
+                            "Trạng thái: ${refundStatusLabel(complaint.refundStatus)}",
+                            color = if (isRefundFailed) Color(0xFFB91C1C) else Color(0xFF92400E),
+                            fontSize = 13.sp,
+                            fontWeight = if (isRefundFailed) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                        if (isRefundFailed) {
+                            Text(
+                                "Hệ thống không thể tự động hoàn tiền. Nhấn \"Yêu cầu hoàn tiền\" bên dưới để được hỗ trợ hoàn theo cách khác.",
+                                color = Color(0xFFB91C1C),
+                                fontSize = 12.sp,
+                                lineHeight = 18.sp
+                            )
+                        }
                         complaint.refundAmount?.let {
                             Text("Số tiền: ${formatMoney(it)}", color = Color(0xFF92400E), fontSize = 13.sp)
                         }
                         complaint.refundMethod?.let {
                             Text("Phương thức: ${refundMethodLabel(it)}", color = Color(0xFF92400E), fontSize = 13.sp)
                         }
-                        complaint.refundTransactionId?.let {
+                        complaint.refundTransactionId?.takeIf { !isRefundFailed }?.let {
                             Text("Mã giao dịch hoàn: $it", color = Color(0xFF92400E), fontSize = 13.sp)
                         }
                         complaint.refundedAt?.let {
-                            Text("Đã hoàn lúc: ${it.take(16)}", color = Color(0xFF92400E), fontSize = 13.sp)
+                            Text("Đã hoàn lúc: ${formatUtcToVnDateTime(it)}", color = Color(0xFF92400E), fontSize = 13.sp)
                         }
                     }
                 }
             }
             if (canRequestRefund) {
+                val isRetryRefund = complaint.refundStatus == "REFUND_FAILED"
                 OutlinedButton(
                     onClick = onRequestRefund,
                     enabled = !isRequestingRefund,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFB45309))
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = if (isRetryRefund) Color(0xFFB91C1C) else Color(0xFFB45309)
+                    )
                 ) {
                     if (isRequestingRefund) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color(0xFFB45309))
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp,
+                            color = if (isRetryRefund) Color(0xFFB91C1C) else Color(0xFFB45309))
                     } else {
                         Icon(Icons.Default.MoneyOff, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
                     Spacer(Modifier.size(6.dp))
-                    Text("Yêu cầu hoàn tiền", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (isRetryRefund) "Yêu cầu hoàn tiền theo cách khác" else "Yêu cầu hoàn tiền",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
@@ -303,9 +333,9 @@ private fun ComplaintInfoCard(
 
 @Composable
 private fun ComplaintTimelineCard(complaint: ComplaintDto) {
-    Surface(color = Color.White, shape = RoundedCornerShape(18.dp), shadowElevation = 1.dp) {
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(18.dp), shadowElevation = 1.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Timeline xử lý & SLA", fontWeight = FontWeight.Bold, color = GreenTop)
+            Text("Timeline xử lý & SLA", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             complaint.events.forEach { event ->
                 ComplaintEventRow(event)
             }
@@ -322,33 +352,33 @@ private fun ComplaintEventRow(event: ComplaintEventDto) {
                 Text(
                     event.title,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF111827),
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
-                Text(event.createdAt.take(16), fontSize = 11.sp, color = Color.Gray)
+                Text(formatUtcToVnDateTime(event.createdAt), fontSize = 11.sp, color = Color.Gray)
             }
             val actor = event.actorName ?: event.actorRole ?: "Hệ thống"
-            Text(actor, fontSize = 12.sp, color = Color(0xFF6B7280))
+            Text(actor, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             event.description?.takeIf { it.isNotBlank() }?.let {
-                Text(it, fontSize = 13.sp, color = Color(0xFF374151), lineHeight = 18.sp)
+                Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, lineHeight = 18.sp)
             }
             if (!event.fromStatus.isNullOrBlank() || !event.toStatus.isNullOrBlank()) {
                 Text(
                     "Trạng thái: ${event.fromStatus ?: "-"} → ${event.toStatus ?: "-"}",
                     fontSize = 12.sp,
-                    color = Color(0xFF4B5563)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (!event.fromPriority.isNullOrBlank() || !event.toPriority.isNullOrBlank()) {
                 Text(
                     "Ưu tiên: ${event.fromPriority ?: "-"} → ${event.toPriority ?: "-"}",
                     fontSize = 12.sp,
-                    color = Color(0xFF4B5563)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             event.dueAt?.takeIf { it.isNotBlank() }?.let {
                 Text(
-                    "SLA phản hồi trước: ${it.take(16)}",
+                    "SLA phản hồi trước: ${formatUtcToVnDateTime(it)}",
                     fontSize = 12.sp,
                     color = Color(0xFFB45309),
                     fontWeight = FontWeight.SemiBold
@@ -361,7 +391,7 @@ private fun ComplaintEventRow(event: ComplaintEventDto) {
 private fun complaintEventColor(type: String): Color {
     return when (type.uppercase()) {
         "CREATED" -> Color(0xFF2563EB)
-        "STATUS_CHANGED" -> GreenTop
+        "STATUS_CHANGED" -> Color(0xFF2E7D32)
         "INTERNAL_NOTE" -> Color(0xFF7C3AED)
         "MESSAGE_ADDED" -> Color(0xFF0891B2)
         "REFUND_UPDATED" -> Color(0xFFB45309)
@@ -380,9 +410,9 @@ private fun ComplaintAttachmentsCard(complaint: ComplaintDto) {
         }
     }
 
-    Surface(color = Color.White, shape = RoundedCornerShape(18.dp), shadowElevation = 1.dp) {
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(18.dp), shadowElevation = 1.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("File minh chứng", fontWeight = FontWeight.Bold, color = GreenTop)
+            Text("File minh chứng", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             complaint.attachments.forEachIndexed { index, attachment ->
                 Row(
                     modifier = Modifier
@@ -391,17 +421,17 @@ private fun ComplaintAttachmentsCard(complaint: ComplaintDto) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Outlined.AttachFile, contentDescription = null, tint = GreenTop, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Outlined.AttachFile, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     Text(
                         "${index + 1}. ${attachment.fileType} • ${attachment.fileUrl.substringAfterLast('/').take(42)}",
-                        color = Color(0xFF374151),
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
                     TextButton(onClick = { openAttachment(attachment.fileUrl) }) {
-                        Text("Mở", color = GreenTop)
+                        Text("Mở", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -417,8 +447,8 @@ private fun ComplaintMessageBubble(message: ComplaintMessageDto) {
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
         Surface(
-            color = if (isUser) GreenTop else Color.White,
-            contentColor = if (isUser) Color.White else Color(0xFF1A1A1A),
+            color = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+            contentColor = if (isUser) Color.White else MaterialTheme.colorScheme.onSurface,
             shape = RoundedCornerShape(16.dp),
             shadowElevation = if (isUser) 0.dp else 1.dp,
             modifier = Modifier.fillMaxWidth(0.82f)
@@ -426,7 +456,7 @@ private fun ComplaintMessageBubble(message: ComplaintMessageDto) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (!isUser) {
-                        Icon(Icons.Outlined.SupportAgent, contentDescription = null, tint = GreenTop, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Outlined.SupportAgent, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     }
                     Text(
                         message.senderName ?: if (isUser) "Bạn" else "CSKH MedStore",
@@ -435,7 +465,7 @@ private fun ComplaintMessageBubble(message: ComplaintMessageDto) {
                     )
                 }
                 Text(message.message, fontSize = 14.sp, lineHeight = 20.sp)
-                Text(message.createdAt.take(16), fontSize = 11.sp, color = if (isUser) Color.White.copy(alpha = 0.8f) else Color.Gray)
+                Text(formatUtcToVnDateTime(message.createdAt), fontSize = 11.sp, color = if (isUser) Color.White.copy(alpha = 0.8f) else Color.Gray)
             }
         }
     }
@@ -452,7 +482,7 @@ private fun ComplaintReplyBar(
     onSend: () -> Unit
 ) {
     val canSend = !isSending && (message.isNotBlank() || pendingFileCount > 0)
-    Surface(color = Color.White, shadowElevation = 8.dp) {
+    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
             if (pendingFileCount > 0) {
                 Row(
@@ -461,7 +491,7 @@ private fun ComplaintReplyBar(
                     modifier = Modifier.padding(bottom = 6.dp)
                 ) {
                     Surface(
-                        color = Color(0xFFECFDF5),
+                        color = MaterialTheme.colorScheme.primaryContainer,
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Row(
@@ -469,8 +499,8 @@ private fun ComplaintReplyBar(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Icon(Icons.Outlined.AttachFile, contentDescription = null, tint = GreenTop, modifier = Modifier.size(14.dp))
-                            Text("$pendingFileCount file đính kèm", fontSize = 12.sp, color = GreenTop)
+                            Icon(Icons.Outlined.AttachFile, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                            Text("$pendingFileCount file đính kèm", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                             IconButton(
                                 onClick = { repeat(pendingFileCount) { onClearFile(0) } },
                                 modifier = Modifier.size(18.dp)
@@ -486,7 +516,7 @@ private fun ComplaintReplyBar(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 IconButton(onClick = onAttachClick, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Outlined.AttachFile, contentDescription = "Đính kèm", tint = GreenTop)
+                    Icon(Icons.Outlined.AttachFile, contentDescription = "Đính kèm", tint = MaterialTheme.colorScheme.primary)
                 }
                 OutlinedTextField(
                     value = message,
@@ -529,7 +559,7 @@ private fun complaintStatusColor(status: String): Color {
     return when (status.uppercase()) {
         "OPEN" -> Color(0xFF2563EB)
         "IN_REVIEW", "NEED_MORE_INFO" -> Color(0xFFB45309)
-        "APPROVED", "RESOLVED" -> GreenTop
+        "APPROVED", "RESOLVED" -> Color(0xFF2E7D32)
         "REJECTED", "CANCELLED" -> Color(0xFFE53935)
         else -> Color.Gray
     }
@@ -552,8 +582,10 @@ private fun refundStatusLabel(status: String): String {
     return when (status.uppercase()) {
         "REQUESTED" -> "Đang chờ duyệt hoàn tiền"
         "APPROVED" -> "Đã duyệt hoàn tiền"
+        "REFUND_PROCESSING" -> "Đang xử lý hoàn tiền"
         "REFUNDED" -> "Đã hoàn tiền"
         "REJECTED" -> "Từ chối hoàn tiền"
+        "REFUND_FAILED" -> "Hoàn tiền tự động thất bại"
         else -> "Không hoàn tiền"
     }
 }

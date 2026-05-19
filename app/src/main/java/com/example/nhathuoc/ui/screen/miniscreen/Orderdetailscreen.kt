@@ -6,8 +6,11 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,6 +21,8 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,8 +39,9 @@ import com.example.nhathuoc.data.model.OrderDto
 import com.example.nhathuoc.data.model.OrderItemDto
 import com.example.nhathuoc.data.model.UiState
 import com.example.nhathuoc.data.model.UserAddress
-import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.viewmodel.OrderViewModel
+import com.example.nhathuoc.util.formatUtcToVnDateTime
+import com.example.nhathuoc.util.formatVnDateTime
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.time.LocalDate
@@ -57,28 +63,38 @@ private data class PickedComplaintAttachment(
 fun OrderDetailScreen(
     orderId: String,
     onBack: () -> Unit,
-    onOpenProduct: (String, Boolean) -> Unit = { _, _ -> },
+    onOpenProduct: (productId: String, openReview: Boolean, orderId: String?, orderItemId: String?) -> Unit = { _, _, _, _ -> },
     onResumePayment: (String, String) -> Unit = { _, _ -> },
     viewModel: OrderViewModel = hiltViewModel()
 ) {
     val orderState by viewModel.orderState.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val complaintState by viewModel.complaintState.collectAsState()
+    val complaintsListState by viewModel.complaintsListState.collectAsState()
+    val batchReviewState by viewModel.batchReviewState.collectAsState()
     var showCancelDialog by rememberSaveable { mutableStateOf(false) }
     var showReceivedDialog by rememberSaveable { mutableStateOf(false) }
     var showComplaintDialog by rememberSaveable { mutableStateOf(false) }
-    var showReviewPromptDialog by rememberSaveable { mutableStateOf(false) }
-    var pendingReviewProductId by rememberSaveable { mutableStateOf<String?>(null) }
+    var showBatchReviewDialog by rememberSaveable { mutableStateOf(false) }
     var promptReviewAfterReceive by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(orderId) { viewModel.getOrderById(orderId) }
+    LaunchedEffect(orderId) {
+        viewModel.getOrderById(orderId)
+        viewModel.getComplaints()
+    }
     LaunchedEffect(complaintState) { if (complaintState is UiState.Success) showComplaintDialog = false }
     LaunchedEffect(orderState, promptReviewAfterReceive) {
         val state = orderState
         if (promptReviewAfterReceive && state is UiState.Success && state.data.status.equals("DELIVERED", ignoreCase = true)) {
-            pendingReviewProductId = state.data.items.firstOrNull()?.productId
-            showReviewPromptDialog = pendingReviewProductId != null
+            if (state.data.items.any { !it.hasReviewed }) showBatchReviewDialog = true
             promptReviewAfterReceive = false
+        }
+    }
+    LaunchedEffect(batchReviewState) {
+        if (batchReviewState is UiState.Success) {
+            showBatchReviewDialog = false
+            viewModel.clearBatchReviewState()
+            viewModel.getOrderById(orderId)
         }
     }
 
@@ -101,34 +117,32 @@ fun OrderDetailScreen(
         StyledAlertDialog(
             icon = Icons.Outlined.CheckCircle,
             iconBg = MaterialTheme.colorScheme.primaryContainer,
-            iconTint = GreenTop,
+            iconTint = MaterialTheme.colorScheme.primary,
             title = "Xác nhận đã nhận hàng?",
             body = "Đơn sẽ chuyển sang đã giao. Sau đó bạn có thể đánh giá từng sản phẩm trong đơn.",
             confirmLabel = "Đã nhận hàng",
-            confirmColor = GreenTop,
+            confirmColor = MaterialTheme.colorScheme.primary,
             onConfirm = { showReceivedDialog = false; promptReviewAfterReceive = true; viewModel.confirmOrderReceived(orderId) },
             onDismiss = { showReceivedDialog = false }
         )
     }
 
-    if (showReviewPromptDialog) {
-        StyledAlertDialog(
-            icon = Icons.Filled.Star,
-            iconBg = Color(0xFFFFF8E1),
-            iconTint = Color(0xFFFFAB00),
-            title = "Viết đánh giá sản phẩm?",
-            body = "Đánh giá 5 sao sẽ được cộng thêm 200 điểm thưởng.",
-            confirmLabel = "Viết đánh giá",
-            confirmColor = GreenTop,
-            onConfirm = {
-                val pid = pendingReviewProductId
-                showReviewPromptDialog = false
-                pendingReviewProductId = null
-                if (!pid.isNullOrBlank()) onOpenProduct(pid, true)
-            },
-            onDismiss = { showReviewPromptDialog = false; pendingReviewProductId = null },
-            dismissLabel = "Để sau"
-        )
+    if (showBatchReviewDialog && orderState is UiState.Success) {
+        val unreviewedItems = (orderState as UiState.Success<OrderDto>).data.items.filter { !it.hasReviewed }
+        if (unreviewedItems.isNotEmpty()) {
+            BatchReviewDialog(
+                items = unreviewedItems,
+                isSubmitting = batchReviewState is UiState.Loading,
+                errorMessage = (batchReviewState as? UiState.Error)?.message,
+                onSubmit = { ratings, titles, comments, attachmentUris ->
+                    viewModel.submitBatchReviews(unreviewedItems, ratings, titles, comments, attachmentUris)
+                },
+                onDismiss = {
+                    showBatchReviewDialog = false
+                    viewModel.clearBatchReviewState()
+                }
+            )
+        }
     }
 
     if (showComplaintDialog && orderState is UiState.Success) {
@@ -156,15 +170,24 @@ fun OrderDetailScreen(
             UiState.Idle, UiState.Loading -> Box(
                 Modifier.fillMaxSize().padding(innerPadding),
                 contentAlignment = Alignment.Center
-            ) { CircularProgressIndicator(color = GreenTop) }
+            ) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
 
             is UiState.Error -> ErrorState(state.message, { viewModel.getOrderById(orderId) }, Modifier.padding(innerPadding))
 
             is UiState.Success -> {
                 val order = state.data
+                val closedStatuses = setOf("RESOLVED", "REJECTED", "CANCELLED")
+                val existingActiveComplaint = (complaintsListState as? UiState.Success)?.data?.firstOrNull {
+                    it.orderId == orderId && it.status !in closedStatuses
+                }
+                val closedComplaint = (complaintsListState as? UiState.Success)?.data?.firstOrNull {
+                    it.orderId == orderId && it.status in closedStatuses
+                }
                 OrderDetailContent(
                     order = order,
                     isBusy = isLoading,
+                    existingActiveComplaint = existingActiveComplaint,
+                    closedComplaint = closedComplaint,
                     onRetry = { viewModel.getOrderById(orderId) },
                     onCancelOrder = { showCancelDialog = true },
                     onConfirmReceived = { showReceivedDialog = true },
@@ -182,18 +205,22 @@ fun OrderDetailScreen(
 private fun OrderDetailContent(
     order: OrderDto,
     isBusy: Boolean,
+    existingActiveComplaint: ComplaintDto?,
+    closedComplaint: ComplaintDto?,
     onRetry: () -> Unit,
     onCancelOrder: () -> Unit,
     onConfirmReceived: () -> Unit,
     onOpenComplaint: () -> Unit,
-    onOpenProduct: (String, Boolean) -> Unit,
+    onOpenProduct: (productId: String, openReview: Boolean, orderId: String?, orderItemId: String?) -> Unit,
     onResumePayment: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val status = order.status.uppercase()
     val canCancel = status in setOf("PENDING", "PROCESSING")
     val canConfirmReceived = status == "SHIPPING"
-    val canReviewProducts = status == "DELIVERED" && run {
+    // Không cho đánh giá nếu đơn có khiếu nại (dù đang mở hay đã đóng)
+    val hasAnyComplaint = existingActiveComplaint != null || closedComplaint != null
+    val canReviewProducts = status == "DELIVERED" && !hasAnyComplaint && run {
         val delivered = order.deliveredAt
         if (delivered.isNullOrBlank()) true
         else {
@@ -207,7 +234,9 @@ private fun OrderDetailContent(
             }.getOrDefault(true)
         }
     }
-    val canComplaint = status !in setOf("CANCELLED", "RETURNED")
+    // Complaint only after receiving goods AND no complaint (active or resolved) AND no reviews yet
+    val hasAnyReview = order.items.any { it.hasReviewed }
+    val canComplaint = status == "DELIVERED" && existingActiveComplaint == null && closedComplaint == null && !hasAnyReview
     val canResume = canResumeGatewayPayment(order)
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -220,8 +249,13 @@ private fun OrderDetailContent(
             item { ShippingCard(order) }
             if (order.shippingAddress != null) item { AddressCard(order.shippingAddress) }
             item { ItemsCard(order.items, canReviewProducts, onOpenProduct) }
-            if (canReviewProducts && order.items.isNotEmpty()) {
-                item { ReviewPromptCard { onOpenProduct(order.items.first().productId, true) } }
+            val firstUnreviewed = if (canReviewProducts) order.items.firstOrNull { !it.hasReviewed } else null
+            if (firstUnreviewed != null) {
+                item {
+                    ReviewPromptCard {
+                        onOpenProduct(firstUnreviewed.productId, true, firstUnreviewed.orderId, firstUnreviewed.id)
+                    }
+                }
             }
             item { PaymentCard(order) }
             item { SummaryCard(order) }
@@ -230,8 +264,16 @@ private fun OrderDetailContent(
             }
             item {
                 ActionCard(
-                    canCancel, canConfirmReceived, canComplaint, canResume,
-                    onRetry, onCancelOrder, onConfirmReceived, onOpenComplaint,
+                    canCancel = canCancel,
+                    canConfirmReceived = canConfirmReceived,
+                    canComplaint = canComplaint,
+                    canResumePayment = canResume,
+                    existingActiveComplaint = existingActiveComplaint,
+                    closedComplaint = closedComplaint,
+                    onRetry = onRetry,
+                    onCancelOrder = onCancelOrder,
+                    onConfirmReceived = onConfirmReceived,
+                    onOpenComplaint = onOpenComplaint,
                     onResumePayment = { onResumePayment(order.id, order.paymentMethod.uppercase()) }
                 )
             }
@@ -244,7 +286,7 @@ private fun OrderDetailContent(
                 modifier = Modifier.fillMaxSize()
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = GreenTop)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -274,7 +316,7 @@ private fun SectionCard(
                     modifier = Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(icon, contentDescription = null, tint = GreenTop, modifier = Modifier.size(18.dp))
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 }
                 Text(title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
             }
@@ -289,7 +331,7 @@ private fun SectionCard(
 // ─── Cards ────────────────────────────────────────────────────────────────────
 @Composable
 private fun HeaderCard(order: OrderDto) {
-    val (statusLabel, statusColor) = orderStatusPresentation(order.status)
+    val (statusLabel, statusColor) = orderStatusPresentation(order.status, order.paymentStatus)
     val (paymentLabel, paymentColor) = paymentStatusPresentation(order.paymentStatus)
 
     SectionCard(title = "Thông tin đơn hàng", icon = Icons.Outlined.Receipt) {
@@ -299,7 +341,7 @@ private fun HeaderCard(order: OrderDto) {
             verticalAlignment = Alignment.Top
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(order.orderCode, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = GreenTop)
+                Text(order.orderCode, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(3.dp))
                 Text("Đặt lúc ${formatDateTime(order.createdAt)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -334,8 +376,8 @@ private fun HeaderCard(order: OrderDto) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Outlined.Info, null, tint = GreenTop, modifier = Modifier.size(16.dp))
-                    Text(msg, color = GreenTop, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Icon(Icons.Outlined.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Text(msg, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 }
             }
         }
@@ -348,8 +390,8 @@ private fun ShippingCard(order: OrderDto) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             DetailRow("Hình thức", if (order.pickupType.uppercase() == "PICKUP") "Nhận tại cửa hàng" else "Giao tận nơi")
             order.estimatedDelivery?.takeIf { it.isNotBlank() }?.let { DetailRow("Dự kiến giao", formatDateTime(it)) }
-            order.deliveredAt?.takeIf { it.isNotBlank() }?.let { DetailRow("Đã giao lúc", formatDateTime(it)) }
-            order.cancelledAt?.takeIf { it.isNotBlank() }?.let { DetailRow("Đã hủy lúc", formatDateTime(it)) }
+            order.deliveredAt?.takeIf { it.isNotBlank() }?.let { DetailRow("Đã giao lúc", formatUtcToVnDateTime(it)) }
+            order.cancelledAt?.takeIf { it.isNotBlank() }?.let { DetailRow("Đã hủy lúc", formatUtcToVnDateTime(it)) }
         }
     }
 }
@@ -365,7 +407,7 @@ private fun AddressCard(address: UserAddress) {
                 modifier = Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.LocationOn, null, tint = GreenTop, modifier = Modifier.size(22.dp))
+                Icon(Icons.Filled.LocationOn, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(address.recipientName.orEmpty(), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
@@ -387,7 +429,7 @@ private fun AddressCard(address: UserAddress) {
 private fun ItemsCard(
     items: List<OrderItemDto>,
     canReviewProducts: Boolean,
-    onOpenProduct: (String, Boolean) -> Unit
+    onOpenProduct: (productId: String, openReview: Boolean, orderId: String?, orderItemId: String?) -> Unit
 ) {
     SectionCard(title = "Sản phẩm đã đặt (${items.size})", icon = Icons.Outlined.MedicalServices) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -423,16 +465,16 @@ private fun ItemsCard(
                             }
                         }
                         Spacer(Modifier.width(12.dp))
-                        Text(formatCurrency(lineTotal), fontWeight = FontWeight.Bold, color = GreenTop, fontSize = 14.sp)
+                        Text(formatCurrency(lineTotal), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
                     }
                     // Nút đánh giá — full width bên dưới, KHÔNG bị che bởi giá
-                    if (canReviewProducts) {
+                    if (canReviewProducts && !item.hasReviewed) {
                         Spacer(Modifier.height(10.dp))
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             color = Color(0xFFFFFBEC),
-                            onClick = { onOpenProduct(item.productId, true) }
+                            onClick = { onOpenProduct(item.productId, true, item.orderId, item.id) }
                         ) {
                             Row(
                                 modifier = Modifier
@@ -553,7 +595,7 @@ private fun SummaryCard(order: OrderDto) {
             Spacer(Modifier.height(2.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(2.dp))
-            DetailRow("Tổng cộng", formatCurrency(order.total), valueColor = GreenTop, emphasized = true)
+            DetailRow("Tổng cộng", formatCurrency(order.total), valueColor = MaterialTheme.colorScheme.primary, emphasized = true)
         }
     }
 }
@@ -587,6 +629,8 @@ private fun ActionCard(
     canConfirmReceived: Boolean,
     canComplaint: Boolean,
     canResumePayment: Boolean,
+    existingActiveComplaint: ComplaintDto?,
+    closedComplaint: ComplaintDto?,
     onRetry: () -> Unit,
     onCancelOrder: () -> Unit,
     onConfirmReceived: () -> Unit,
@@ -611,7 +655,7 @@ private fun ActionCard(
                 ActionButton(
                     label = "Tiếp tục thanh toán",
                     icon = Icons.Outlined.Payments,
-                    bg = GreenTop,
+                    bg = MaterialTheme.colorScheme.primary,
                     fg = Color.White,
                     onClick = onResumePayment
                 )
@@ -620,7 +664,7 @@ private fun ActionCard(
                 ActionButton(
                     label = "Đã nhận được hàng",
                     icon = Icons.Outlined.CheckCircle,
-                    bg = GreenTop,
+                    bg = MaterialTheme.colorScheme.primary,
                     fg = Color.White,
                     onClick = onConfirmReceived
                 )
@@ -634,6 +678,28 @@ private fun ActionCard(
                     outlined = true,
                     outlinedBorder = Color(0xFFBFDBFE),
                     onClick = onOpenComplaint
+                )
+            } else if (existingActiveComplaint != null) {
+                // Active complaint banner
+                val (statusLabel, statusColor) = complaintStatusPresentation(existingActiveComplaint.status)
+                ComplaintInfoBanner(
+                    title = "Đang có khiếu nại",
+                    code = existingActiveComplaint.complaintCode,
+                    statusLabel = statusLabel,
+                    statusColor = statusColor,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.primary
+                )
+            } else if (closedComplaint != null) {
+                // Resolved/rejected/cancelled complaint — no more complaints allowed
+                val (statusLabel, statusColor) = complaintStatusPresentation(closedComplaint.status)
+                ComplaintInfoBanner(
+                    title = "Khiếu nại đã kết thúc",
+                    code = closedComplaint.complaintCode,
+                    statusLabel = statusLabel,
+                    statusColor = statusColor,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    iconTint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (canCancel) {
@@ -656,6 +722,17 @@ private fun ActionCard(
             )
         }
     }
+}
+
+private fun complaintStatusPresentation(status: String): Pair<String, Color> = when (status.uppercase()) {
+    "OPEN" -> "Mới" to Color(0xFFDC2626)
+    "IN_REVIEW" -> "Đang xử lý" to Color(0xFF2563EB)
+    "NEED_MORE_INFO" -> "Cần bổ sung" to Color(0xFF7C3AED)
+    "APPROVED" -> "Đã duyệt" to Color(0xFF2E7D32)
+    "RESOLVED" -> "Đã giải quyết" to Color(0xFF2E7D32)
+    "REJECTED" -> "Từ chối" to Color(0xFFDC2626)
+    "CANCELLED" -> "Đã hủy" to Color(0xFF6B7280)
+    else -> status to Color(0xFF6B7280)
 }
 
 @Composable
@@ -695,6 +772,50 @@ private fun ActionButton(
     }
 }
 
+@Composable
+private fun ComplaintInfoBanner(
+    title: String,
+    code: String,
+    statusLabel: String,
+    statusColor: Color,
+    containerColor: Color,
+    iconTint: Color
+) {
+    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = containerColor) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                    .background(iconTint.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Outlined.Flag, null, tint = iconTint, modifier = Modifier.size(18.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = iconTint)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(code, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Surface(shape = RoundedCornerShape(20.dp), color = statusColor.copy(alpha = 0.15f)) {
+                        Text(
+                            statusLabel,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = statusColor,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ─── Reusable UI components ───────────────────────────────────────────────────
 @Composable
 private fun StatusBadge(label: String, color: Color) {
@@ -717,7 +838,7 @@ private fun InfoChip(label: String, icon: ImageVector) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            Icon(icon, null, tint = GreenTop, modifier = Modifier.size(14.dp))
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
             Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
     }
@@ -814,10 +935,331 @@ private fun ErrorState(message: String, onRetry: () -> Unit, modifier: Modifier 
             Text(message, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(
                 onClick = onRetry,
-                colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(12.dp),
                 elevation = ButtonDefaults.buttonElevation(0.dp)
             ) { Text("Thử lại") }
+        }
+    }
+}
+
+// ─── Batch review dialog ──────────────────────────────────────────────────────
+@Composable
+private fun BatchReviewDialog(
+    items: List<OrderItemDto>,
+    isSubmitting: Boolean,
+    errorMessage: String?,
+    onSubmit: (
+        ratings: Map<String, Int>,
+        titles: Map<String, String>,
+        comments: Map<String, String>,
+        attachmentUris: Map<String, List<Uri>>
+    ) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val ratings = remember { mutableStateMapOf<String, Int>() }
+    val titles = remember { mutableStateMapOf<String, String>() }
+    val comments = remember { mutableStateMapOf<String, String>() }
+    val attachments = remember { mutableStateMapOf<String, List<PickedComplaintAttachment>>() }
+    var currentPickingItemId by remember { mutableStateOf<String?>(null) }
+    val ratedCount = items.count { (ratings[it.id] ?: 0) > 0 }
+
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val itemId = currentPickingItemId ?: return@rememberLauncherForActivityResult
+        val existing = attachments[itemId].orEmpty()
+        val picked = uris.map { uri ->
+            val name = context.displayName(uri).ifBlank { "file_dinh_kem" }
+            PickedComplaintAttachment(uri, name, detectComplaintFileType(context.contentResolver.getType(uri), name))
+        }
+        attachments[itemId] = (existing + picked).distinctBy { it.uri }.take(5)
+        currentPickingItemId = null
+    }
+
+    Dialog(
+        onDismissRequest = { if (!isSubmitting) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = !isSubmitting)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column {
+                // Header
+                Row(
+                    modifier = Modifier.padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFFFE57F)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.Star, null, tint = Color(0xFFFF8F00), modifier = Modifier.size(22.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Đánh giá sản phẩm", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Đánh giá 5 ⭐ → +200 điểm mỗi sản phẩm", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                // Items list
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 500.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    for (index in items.indices) {
+                        val item = items[index]
+                        if (index > 0) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+                        BatchReviewItemRow(
+                            item = item,
+                            rating = ratings[item.id] ?: 0,
+                            title = titles[item.id] ?: "",
+                            comment = comments[item.id] ?: "",
+                            itemAttachments = attachments[item.id].orEmpty(),
+                            isSubmitting = isSubmitting,
+                            onRatingChange = { ratings[item.id] = it },
+                            onTitleChange = { titles[item.id] = it },
+                            onCommentChange = { comments[item.id] = it },
+                            onAddFiles = { currentPickingItemId = item.id; filePicker.launch(arrayOf("image/*", "application/pdf")) },
+                            onRemoveFile = { uri ->
+                                attachments[item.id] = attachments[item.id].orEmpty().filterNot { it.uri == uri }
+                            }
+                        )
+                    }
+                }
+
+                // Error
+                if (!errorMessage.isNullOrBlank()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Outlined.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                            Text(errorMessage, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 12.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                // Action buttons
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 20.dp, bottom = 20.dp, top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        enabled = !isSubmitting,
+                        modifier = Modifier.weight(1f).height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) { Text("Để sau") }
+
+                    Button(
+                        onClick = {
+                            onSubmit(
+                                ratings.toMap(),
+                                titles.toMap(),
+                                comments.toMap(),
+                                attachments.mapValues { (_, list) -> list.map { it.uri } }
+                            )
+                        },
+                        enabled = !isSubmitting && ratedCount > 0,
+                        modifier = Modifier.weight(2f).height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        elevation = ButtonDefaults.buttonElevation(0.dp)
+                    ) {
+                        if (isSubmitting) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Text(
+                                if (ratedCount > 0) "Gửi $ratedCount đánh giá" else "Chọn số sao để gửi",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatchReviewItemRow(
+    item: OrderItemDto,
+    rating: Int,
+    title: String,
+    comment: String,
+    itemAttachments: List<PickedComplaintAttachment>,
+    isSubmitting: Boolean,
+    onRatingChange: (Int) -> Unit,
+    onTitleChange: (String) -> Unit,
+    onCommentChange: (String) -> Unit,
+    onAddFiles: () -> Unit,
+    onRemoveFile: (Uri) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Product name
+        Text(
+            item.name,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        // Stars
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            (1..5).forEach { star ->
+                Icon(
+                    imageVector = if (star <= rating) Icons.Filled.Star else Icons.Outlined.Star,
+                    contentDescription = null,
+                    tint = if (star <= rating) Color(0xFFFFAB00) else MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clickable(enabled = !isSubmitting) { onRatingChange(star) }
+                )
+            }
+            if (rating > 0) {
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = when (rating) {
+                        1 -> "Tệ"; 2 -> "Không tốt"; 3 -> "Bình thường"; 4 -> "Tốt"; else -> "Tuyệt vời ⭐"
+                    },
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+        // Bonus hint
+        if (rating == 5) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFFFFFBEB)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("⭐", fontSize = 12.sp)
+                    Text(
+                        "+200 điểm thưởng khi đánh giá 5 sao",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF92400E)
+                    )
+                }
+            }
+        }
+        // Title
+        OutlinedTextField(
+            value = title,
+            onValueChange = { if (!isSubmitting) onTitleChange(it) },
+            placeholder = { Text("Tiêu đề (tùy chọn)", fontSize = 12.sp) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp),
+            enabled = !isSubmitting,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+            )
+        )
+        // Comment
+        OutlinedTextField(
+            value = comment,
+            onValueChange = { if (!isSubmitting) onCommentChange(it) },
+            placeholder = { Text("Nhận xét của bạn (tùy chọn)", fontSize = 12.sp) },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2,
+            maxLines = 3,
+            shape = RoundedCornerShape(10.dp),
+            enabled = !isSubmitting,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+            )
+        )
+        // File picker button
+        OutlinedButton(
+            onClick = onAddFiles,
+            enabled = !isSubmitting && itemAttachments.size < 5,
+            modifier = Modifier.fillMaxWidth().height(40.dp),
+            shape = RoundedCornerShape(10.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+            contentPadding = PaddingValues(horizontal = 12.dp)
+        ) {
+            Icon(Icons.Outlined.AttachFile, null, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Thêm ảnh / PDF  (${itemAttachments.size}/5)", fontSize = 12.sp)
+        }
+        // File list
+        if (itemAttachments.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                itemAttachments.forEach { att ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    if (att.fileType == "IMAGE") Icons.Outlined.Image else Icons.Outlined.PictureAsPdf,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(att.name, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            TextButton(
+                                onClick = { onRemoveFile(att.uri) },
+                                enabled = !isSubmitting,
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text("Xóa", color = Color(0xFFE53935), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -854,6 +1296,18 @@ private fun ComplaintDialog(
         attachments = (attachments + picked).distinctBy { it.uri }.take(5)
     }
 
+    val daysRemaining: Long? = remember(order.deliveredAt) {
+        order.deliveredAt?.let { raw ->
+            runCatching {
+                val delivered = when {
+                    raw.contains('T') -> LocalDateTime.parse(raw.substringBefore('.')).toLocalDate()
+                    else -> LocalDate.parse(raw.take(10))
+                }
+                30L - ChronoUnit.DAYS.between(delivered, LocalDate.now())
+            }.getOrNull()
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(24.dp),
@@ -868,6 +1322,47 @@ private fun ComplaintDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (daysRemaining != null) {
+                    when {
+                        daysRemaining < 0 -> Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.errorContainer
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.Block, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                Text(
+                                    "Đã hết thời hạn khiếu nại (30 ngày sau khi giao hàng)",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                        daysRemaining <= 7 -> Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFFFF3E0)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.Warning, null, tint = Color(0xFFE65100), modifier = Modifier.size(16.dp))
+                                Text(
+                                    "Còn $daysRemaining ngày để khiếu nại",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFFE65100),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                        else -> {}
+                    }
+                }
                 Text("Loại khiếu nại", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -902,13 +1397,13 @@ private fun ComplaintDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenTop,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        focusedLabelColor = GreenTop,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
                         unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        cursorColor = GreenTop,
+                        cursorColor = MaterialTheme.colorScheme.primary,
                         focusedContainerColor = MaterialTheme.colorScheme.surface,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
@@ -921,13 +1416,13 @@ private fun ComplaintDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenTop,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        focusedLabelColor = GreenTop,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
                         unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        cursorColor = GreenTop,
+                        cursorColor = MaterialTheme.colorScheme.primary,
                         focusedContainerColor = MaterialTheme.colorScheme.surface,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
@@ -976,8 +1471,8 @@ private fun ComplaintDialog(
         confirmButton = {
             Button(
                 onClick = { onSubmit(selectedType, title, description, attachments.map { it.uri }) },
-                enabled = !isSubmitting && title.isNotBlank() && description.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                enabled = !isSubmitting && title.isNotBlank() && description.isNotBlank() && (daysRemaining == null || daysRemaining >= 0),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(12.dp),
                 elevation = ButtonDefaults.buttonElevation(0.dp)
             ) {
@@ -1019,14 +1514,17 @@ private fun paymentMethodLabel(v: String) = when (v.uppercase()) {
     "COD" -> "Thanh toán khi nhận hàng"; "MOMO" -> "Ví MoMo"; "VNPAY" -> "Thanh toán online"; "ZALOPAY" -> "ZaloPay"; else -> v
 }
 
-private fun orderStatusPresentation(v: String): Pair<String, Color> = when (v.uppercase()) {
-    "PENDING" -> "Chờ xác nhận" to Color(0xFFF59E0B)
-    "PROCESSING" -> "Đang xử lý" to Color(0xFF2563EB)
-    "SHIPPING" -> "Đang giao" to Color(0xFF7C3AED)
-    "DELIVERED" -> "Đã giao" to Color(0xFF2E7D32)
-    "CANCELLED" -> "Đã hủy" to Color(0xFFDC2626)
-    "RETURNED" -> "Hoàn trả" to Color(0xFF6B7280)
-    else -> v to Color(0xFF6B7280)
+private fun orderStatusPresentation(status: String, paymentStatus: String = ""): Pair<String, Color> {
+    val refunded = paymentStatus.uppercase() in setOf("REFUNDED", "PARTIALLY_REFUNDED", "REFUND_PROCESSING")
+    return when (status.uppercase()) {
+        "PENDING" -> "Chờ xác nhận" to Color(0xFFF59E0B)
+        "PROCESSING" -> "Đang xử lý" to Color(0xFF2563EB)
+        "SHIPPING" -> "Đang giao" to Color(0xFF7C3AED)
+        "DELIVERED" -> if (refunded) "Hoàn tiền" to Color(0xFF0277BD) else "Đã giao" to Color(0xFF2E7D32)
+        "CANCELLED" -> "Đã hủy" to Color(0xFFDC2626)
+        "RETURNED" -> "Trả hàng" to Color(0xFF7B1FA2)
+        else -> status to Color(0xFF6B7280)
+    }
 }
 
 private fun paymentStatusPresentation(v: String): Pair<String, Color> = when (v.uppercase()) {
@@ -1056,10 +1554,4 @@ private fun formatCurrency(value: Double): String {
     return DecimalFormat("#,###", symbols).format(value) + " đ"
 }
 
-private fun formatDateTime(raw: String): String {
-    val output = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
-    return runCatching { OffsetDateTime.parse(raw).format(output) }
-        .recoverCatching { LocalDateTime.parse(raw).format(output) }
-        .recoverCatching { LocalDate.parse(raw).format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) }
-        .getOrElse { raw.replace('T', ' ').take(16) }
-}
+private fun formatDateTime(raw: String): String = formatVnDateTime(raw)

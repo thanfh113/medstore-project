@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.AddComment
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +35,7 @@ import com.example.nhathuoc.viewmodel.ChatViewModel
 private val ChatHistGreenTop = Color(0xFF2E7D32)
 private val ChatHistGreenLight = Color(0xFF66BB6A)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatHistoryScreen(
     onBack: () -> Unit = {},
@@ -48,10 +50,14 @@ fun ChatHistoryScreen(
     val aiConversationsState by aiViewModel.conversationsState.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadSessions()
         aiViewModel.loadConversations()
+    }
+    LaunchedEffect(aiConversationsState.isLoading, historyState.isLoading) {
+        if (!aiConversationsState.isLoading && !historyState.isLoading) isRefreshing = false
     }
 
     Scaffold(
@@ -118,19 +124,29 @@ fun ChatHistoryScreen(
                 )
             }
 
-            when (selectedTab) {
-                0 -> AiConversationList(
-                    state = aiConversationsState,
-                    onOpenConversation = onOpenAiConversation,
-                    onNewChat = onNewChat,
-                    onRetry = { aiViewModel.loadConversations() }
-                )
-                1 -> ConsultantSessionList(
-                    historyState = historyState,
-                    onOpenSession = onOpenSession,
-                    onNewChat = onNewChat,
-                    onRetry = { viewModel.loadSessions() }
-                )
+            PullToRefreshBox(
+                modifier = Modifier.fillMaxSize().weight(1f),
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    isRefreshing = true
+                    if (selectedTab == 0) aiViewModel.loadConversations()
+                    else viewModel.loadSessions()
+                }
+            ) {
+                when (selectedTab) {
+                    0 -> AiConversationList(
+                        state = aiConversationsState,
+                        onOpenConversation = onOpenAiConversation,
+                        onNewChat = onNewChat,
+                        onRetry = { aiViewModel.loadConversations() }
+                    )
+                    1 -> ConsultantSessionList(
+                        historyState = historyState,
+                        onOpenSession = onOpenSession,
+                        onNewChat = onNewChat,
+                        onRetry = { viewModel.loadSessions() }
+                    )
+                }
             }
         }
     }

@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.nhathuoc.data.model.NotificationDto
 import com.example.nhathuoc.data.model.UiState
+import com.example.nhathuoc.util.formatVnDateTime
 import com.example.nhathuoc.viewmodel.NotificationViewModel
 import kotlinx.coroutines.delay
 
@@ -515,7 +516,7 @@ private fun NotificationCard(
                 Spacer(Modifier.height(4.dp))
 
                 // Time
-                val displayTime = item.createdAt.take(16).replace("T", " ")
+                val displayTime = formatVnDateTime(item.createdAt)
                 Text(
                     text = displayTime,
                     fontSize = 11.sp,

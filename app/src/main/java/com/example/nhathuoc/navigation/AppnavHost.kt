@@ -282,17 +282,18 @@ fun AppnavHost(navController: NavHostController) {
 
         // â”€â”€ Product Detail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         composable(
-            route = "ProductDetailScreen/{productId}?openReview={openReview}",
+            route = "ProductDetailScreen/{productId}?openReview={openReview}&reviewOrderId={reviewOrderId}&reviewOrderItemId={reviewOrderItemId}",
             arguments = listOf(
                 navArgument("productId") { type = NavType.StringType },
-                navArgument("openReview") {
-                    type = NavType.BoolType
-                    defaultValue = false
-                }
+                navArgument("openReview") { type = NavType.BoolType; defaultValue = false },
+                navArgument("reviewOrderId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("reviewOrderItemId") { type = NavType.StringType; nullable = true; defaultValue = null }
             )
         ) { backStackEntry ->
             val productId = backStackEntry.arguments?.getString("productId") ?: ""
             val openReview = backStackEntry.arguments?.getBoolean("openReview") ?: false
+            val reviewOrderId = backStackEntry.arguments?.getString("reviewOrderId")
+            val reviewOrderItemId = backStackEntry.arguments?.getString("reviewOrderItemId")
             val cartViewModel: CartViewModel = hiltViewModel()
 
             if (productId.startsWith("mock-")) {
@@ -367,6 +368,7 @@ fun AppnavHost(navController: NavHostController) {
                 val reviews by detailViewModel.reviews.collectAsState()
                 val reviewSubmitState by detailViewModel.reviewSubmitState.collectAsState()
                 val reviewFeedbackMessage by detailViewModel.reviewFeedbackMessage.collectAsState()
+                val currentUserId by detailViewModel.currentUserId.collectAsState()
 
                 LaunchedEffect(productId) {
                     detailViewModel.loadProduct(productId)
@@ -477,9 +479,7 @@ fun AppnavHost(navController: NavHostController) {
                                     fileUrl = cert.documentUrl.orEmpty(),
                                     fileType = cert.fileType,
                                     resourceType = cert.resourceType ?: cert.cloudinaryResourceType,
-                                    issuedBy = cert.issuer,
-                                    issuedAt = cert.issueDate,
-                                    expiresAt = cert.expiryDate
+                                    issuedBy = cert.issuer
                                 )
                             }
                         )
@@ -533,11 +533,12 @@ fun AppnavHost(navController: NavHostController) {
                             },
                             openReviewOnStart = openReview,
                             reviewSubmitted = reviewSubmitState is UiState.Success,
+                            currentUserId = currentUserId,
                             onSubmitReview = { rating, title, comment, attachments ->
-                                detailViewModel.submitReview(dto.id, rating, title, comment, attachments)
+                                detailViewModel.submitReview(dto.id, rating, title, comment, attachments, reviewOrderId, reviewOrderItemId)
                             },
-                            onReportReview = { reviewId ->
-                                detailViewModel.reportReview(reviewId)
+                            onReportReview = { reviewId, reason, note ->
+                                detailViewModel.reportReview(reviewId, reason, note)
                             }
                         )
                     }
@@ -553,8 +554,11 @@ fun AppnavHost(navController: NavHostController) {
             OrderDetailScreen(
                 orderId = orderId,
                 onBack = { navController.popBackStack() },
-                onOpenProduct = { productId, openReview ->
-                    navController.navigate("ProductDetailScreen/${Uri.encode(productId)}?openReview=$openReview")
+                onOpenProduct = { productId, openReview, orderId, orderItemId ->
+                    val base = "ProductDetailScreen/${Uri.encode(productId)}?openReview=$openReview"
+                    val withOrder = if (!orderId.isNullOrBlank()) "$base&reviewOrderId=${Uri.encode(orderId)}" else base
+                    val full = if (!orderItemId.isNullOrBlank()) "$withOrder&reviewOrderItemId=${Uri.encode(orderItemId)}" else withOrder
+                    navController.navigate(full)
                 },
                 onResumePayment = { pendingOrderId, paymentMethod ->
                     navController.currentBackStackEntry?.savedStateHandle?.set("resumeOrderId", pendingOrderId)

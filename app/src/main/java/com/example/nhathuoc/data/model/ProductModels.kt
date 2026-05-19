@@ -72,8 +72,6 @@ data class ProductCertificateDto(
     val name: String,
     val issuer: String,
     val certificateNumber: String,
-    val issueDate: String,
-    val expiryDate: String?,
     val documentUrl: String?,
     val fileType: String? = null,
     val cloudinaryPublicId: String? = null,

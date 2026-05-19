@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +35,7 @@ import com.example.nhathuoc.viewmodel.CategoryProductViewModel
 
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoryProductScreen(
     categoryId: String,
@@ -46,10 +48,9 @@ fun CategoryProductScreen(
     val state by viewModel.state.collectAsState()
     val products by viewModel.allProducts.collectAsState()
 
-    // Load products when screen appears
-    LaunchedEffect(categoryId) {
-        viewModel.loadProductsByCategory(categoryId)
-    }
+    LaunchedEffect(categoryId) { viewModel.loadProductsByCategory(categoryId) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(state) { if (state !is UiState.Loading) isRefreshing = false }
 
     var sortMode by remember { mutableStateOf("price_asc") }
     val sortOptions = listOf("price_asc" to "Giá thấp", "price_desc" to "Giá cao", "name" to "Tên A-Z")
@@ -109,9 +110,14 @@ fun CategoryProductScreen(
             }
 
             // ── Content ────────────────────────────────────────────────────
+            PullToRefreshBox(
+                modifier = Modifier.fillMaxSize().weight(1f),
+                isRefreshing = isRefreshing,
+                onRefresh = { isRefreshing = true; viewModel.loadProductsByCategory(categoryId) }
+            ) {
             when (state) {
                 is UiState.Loading -> {
-                    Box(
+                    if (!isRefreshing) Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
@@ -210,6 +216,7 @@ fun CategoryProductScreen(
                 }
                 else -> {}
             }
+            } // end PullToRefreshBox
         }
     }
 }

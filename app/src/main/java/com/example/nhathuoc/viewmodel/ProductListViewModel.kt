@@ -85,6 +85,8 @@ class ProductListViewModel @Inject constructor(
         performSearch()
     }
 
+    fun refresh() { performSearch() }
+
     fun resetFilters() {
         _searchQuery.value = ""
         _selectedCategory.value = null

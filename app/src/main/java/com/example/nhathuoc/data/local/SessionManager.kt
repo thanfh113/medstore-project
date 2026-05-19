@@ -28,6 +28,9 @@ class SessionManager(private val context: Context) {
         private val USER_PHONE_KEY = stringPreferencesKey("user_phone")
         private val USER_EMAIL_KEY = stringPreferencesKey("user_email")
         private val USER_ROLE_KEY = stringPreferencesKey("user_role")
+        private val USER_AVATAR_URI_KEY = stringPreferencesKey("user_avatar_uri")
+        private val USER_GENDER_KEY = stringPreferencesKey("user_gender")
+        private val USER_DATE_OF_BIRTH_KEY = stringPreferencesKey("user_date_of_birth")
     }
 
     // Save authentication data
@@ -83,6 +86,15 @@ class SessionManager(private val context: Context) {
     val userRole: Flow<String?> = context.dataStore.data
         .map { preferences -> preferences[USER_ROLE_KEY] }
 
+    val userAvatarUri: Flow<String?> = context.dataStore.data
+        .map { preferences -> preferences[USER_AVATAR_URI_KEY] }
+
+    val userGender: Flow<Int?> = context.dataStore.data
+        .map { preferences -> preferences[USER_GENDER_KEY]?.toIntOrNull() }
+
+    val userDateOfBirth: Flow<String?> = context.dataStore.data
+        .map { preferences -> preferences[USER_DATE_OF_BIRTH_KEY] }
+
     // Check if user is logged in
     val isLoggedIn: Flow<Boolean> = context.dataStore.data
         .map { preferences ->
@@ -102,16 +114,23 @@ class SessionManager(private val context: Context) {
     suspend fun updateUserInfo(
         fullName: String?,
         phone: String,
-        email: String?
+        email: String?,
+        gender: Int? = null,
+        dateOfBirth: String? = null
     ) {
         context.dataStore.edit { preferences ->
-            if (fullName != null) {
-                preferences[USER_FULL_NAME_KEY] = fullName
-            }
+            if (fullName != null) preferences[USER_FULL_NAME_KEY] = fullName
             preferences[USER_PHONE_KEY] = phone
-            if (email != null) {
-                preferences[USER_EMAIL_KEY] = email
-            }
+            if (email != null) preferences[USER_EMAIL_KEY] = email
+            if (gender != null) preferences[USER_GENDER_KEY] = gender.toString()
+            if (dateOfBirth != null) preferences[USER_DATE_OF_BIRTH_KEY] = dateOfBirth
+        }
+    }
+
+    suspend fun saveAvatarUri(uri: String?) {
+        context.dataStore.edit { preferences ->
+            if (uri != null) preferences[USER_AVATAR_URI_KEY] = uri
+            else preferences.remove(USER_AVATAR_URI_KEY)
         }
     }
 

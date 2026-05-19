@@ -40,21 +40,11 @@ import com.example.nhathuoc.PaymentReturnBus
 import com.example.nhathuoc.data.model.CartItemDto
 import com.example.nhathuoc.data.model.PaymentStatusDto
 import com.example.nhathuoc.data.model.UserAddress
-import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.viewmodel.CheckoutViewModel
 import java.text.NumberFormat
 import java.util.Locale
 
 private val checkoutLocale = Locale("vi", "VN")
-
-// Design tokens
-private val GreenLight = Color(0xFFE8F5E9)
-private val GreenDark = Color(0xFF2E7D32)
-private val TextPrimary = Color(0xFF1B2B1F)
-private val TextSecondary = Color(0xFF5A7A62)
-private val BgGray = Color(0xFFF3F7F4)
-private val DividerColor = Color(0xFFE0EDE3)
-private val CardBg = Color.White
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -146,7 +136,7 @@ fun CheckoutRealScreen(
         },
         snackbarHost = { SnackbarHost(hostState = snackbars) },
         bottomBar = {
-            Surface(color = CardBg, shadowElevation = 12.dp) {
+            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -160,12 +150,12 @@ fun CheckoutRealScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Tổng thanh toán", fontSize = 13.sp, color = TextSecondary)
+                        Text("Tổng thanh toán", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
                             formatCurrency(state.total),
                             fontSize = 22.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = GreenTop
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                     Button(
@@ -175,7 +165,7 @@ fun CheckoutRealScreen(
                             .height(52.dp),
                         enabled = !state.isLoading && selectedAddress != null && state.cartItems.isNotEmpty(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = GreenTop,
+                            containerColor = MaterialTheme.colorScheme.primary,
                             disabledContainerColor = Color(0xFFB0C4B1)
                         ),
                         shape = RoundedCornerShape(16.dp),
@@ -199,7 +189,7 @@ fun CheckoutRealScreen(
                 }
             }
         },
-        containerColor = BgGray
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -214,7 +204,7 @@ fun CheckoutRealScreen(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
-                        color = CardBg,
+                        color = MaterialTheme.colorScheme.surface,
                         shadowElevation = 1.dp
                     ) {
                         Box(
@@ -223,7 +213,7 @@ fun CheckoutRealScreen(
                                 .padding(32.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(color = GreenTop)
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -242,7 +232,7 @@ fun CheckoutRealScreen(
                             ) {
                                 Text(
                                     if (selectedAddress == null) "Chọn" else "Đổi",
-                                    color = GreenTop,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -254,7 +244,7 @@ fun CheckoutRealScreen(
                                 ) {
                                     Text(
                                         "+ Thêm",
-                                        color = GreenTop,
+                                        color = MaterialTheme.colorScheme.primary,
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -300,21 +290,21 @@ fun CheckoutRealScreen(
                             Icon(
                                 Icons.Filled.LocalOffer,
                                 contentDescription = null,
-                                tint = GreenTop,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                         },
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GreenTop,
-                            unfocusedBorderColor = Color(0xFFE0EDE3),
-                            focusedLabelColor = GreenTop,
-                            unfocusedLabelColor = Color(0xFF5A7A62),
-                            focusedTextColor = Color(0xFF1B2B1F),
-                            unfocusedTextColor = Color(0xFF1B2B1F),
-                            cursorColor = GreenTop,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            cursorColor = MaterialTheme.colorScheme.primary,
                             focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color(0xFFFAFCFA)
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     )
                     Spacer(Modifier.height(10.dp))
@@ -335,21 +325,21 @@ fun CheckoutRealScreen(
                         supportingText = {
                             Text(
                                 "Khả dụng: ${state.availableRewardPoints} điểm",
-                                color = TextSecondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp
                             )
                         },
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GreenTop,
-                            unfocusedBorderColor = Color(0xFFE0EDE3),
-                            focusedLabelColor = GreenTop,
-                            unfocusedLabelColor = Color(0xFF5A7A62),
-                            focusedTextColor = Color(0xFF1B2B1F),
-                            unfocusedTextColor = Color(0xFF1B2B1F),
-                            cursorColor = GreenTop,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            cursorColor = MaterialTheme.colorScheme.primary,
                             focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color(0xFFFAFCFA)
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     )
                 }
@@ -369,15 +359,15 @@ fun CheckoutRealScreen(
                         label = { Text("Ví dụ: Gọi trước khi giao...", fontSize = 13.sp) },
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GreenTop,
-                            unfocusedBorderColor = Color(0xFFE0EDE3),
-                            focusedLabelColor = GreenTop,
-                            unfocusedLabelColor = Color(0xFF5A7A62),
-                            focusedTextColor = Color(0xFF1B2B1F),
-                            unfocusedTextColor = Color(0xFF1B2B1F),
-                            cursorColor = GreenTop,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            cursorColor = MaterialTheme.colorScheme.primary,
                             focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color(0xFFFAFCFA)
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     )
                 }
@@ -391,20 +381,20 @@ fun CheckoutRealScreen(
                     action = {
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = GreenLight
+                            color = MaterialTheme.colorScheme.primaryContainer
                         ) {
                             Text(
                                 "${state.totalItems} sản phẩm",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = GreenTop,
+                                color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }
                     }
                 ) {
                     if (state.cartItems.isEmpty()) {
-                        Text("Giỏ hàng đang trống.", color = TextSecondary)
+                        Text("Giỏ hàng đang trống.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             state.cartItems.forEach { CartItemRow(it) }
@@ -431,14 +421,14 @@ fun CheckoutRealScreen(
                         )
                         SummaryRow("Thuế VAT", state.tax)
                         Spacer(Modifier.height(4.dp))
-                        HorizontalDivider(color = DividerColor)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Spacer(Modifier.height(4.dp))
                         SummaryRow("Tổng cộng", state.total, emphasize = true)
                         Spacer(Modifier.height(8.dp))
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
-                            color = GreenLight
+                            color = MaterialTheme.colorScheme.primaryContainer
                         ) {
                             Row(
                                 modifier = Modifier.padding(10.dp),
@@ -448,12 +438,12 @@ fun CheckoutRealScreen(
                                 Icon(
                                     Icons.Outlined.LocalShipping,
                                     contentDescription = null,
-                                    tint = GreenTop,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(
                                     text = deliveryDescriptionFor(state.paymentMethod),
-                                    color = TextSecondary,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 12.sp,
                                     lineHeight = 17.sp
                                 )
@@ -503,7 +493,7 @@ private fun CheckoutSectionCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        color = CardBg,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -520,27 +510,27 @@ private fun CheckoutSectionCard(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(GreenLight),
+                            .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             icon,
                             contentDescription = null,
-                            tint = GreenTop,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                     Text(
                         title,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp
                     )
                 }
                 action?.invoke()
             }
             Spacer(Modifier.height(14.dp))
-            HorizontalDivider(color = DividerColor)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(14.dp))
             content()
         }
@@ -558,13 +548,13 @@ private fun SelectedAddressCard(address: UserAddress) {
             modifier = Modifier
                 .size(42.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(GreenLight),
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Filled.LocationOn,
                 contentDescription = null,
-                tint = GreenTop,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -577,29 +567,29 @@ private fun SelectedAddressCard(address: UserAddress) {
                     address.recipientName.orEmpty(),
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (address.isDefault) {
-                    Surface(shape = RoundedCornerShape(20.dp), color = GreenLight) {
+                    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.primaryContainer) {
                         Text(
                             "Mặc định",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = GreenTop,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                         )
                     }
                 }
             }
             Spacer(Modifier.height(3.dp))
-            Text(address.recipientPhone.orEmpty(), fontSize = 13.sp, color = TextSecondary)
+            Text(address.recipientPhone.orEmpty(), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(4.dp))
             val addrStreet = address.fullAddress?.takeIf(String::isNotBlank) ?: address.address
             Text(
                 text = listOf(addrStreet, address.ward, address.district, address.province)
                     .mapNotNull { it?.takeIf(String::isNotBlank) }
                     .joinToString(", "),
-                color = Color(0xFF4B5563),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 lineHeight = 19.sp
             )
@@ -625,10 +615,10 @@ private fun PaymentMethodSection(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp)),
                 shape = RoundedCornerShape(14.dp),
-                color = if (isSelected) GreenLight else Color(0xFFF8FAF8),
+                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                 border = BorderStroke(
                     if (isSelected) 2.dp else 1.dp,
-                    if (isSelected) GreenTop else DividerColor
+                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                 )
             ) {
                 Row(
@@ -642,13 +632,13 @@ private fun PaymentMethodSection(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isSelected) GreenTop else Color(0xFFEEF2EE)),
+                            .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             icon,
                             contentDescription = null,
-                            tint = if (isSelected) Color.White else TextSecondary,
+                            tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -656,13 +646,13 @@ private fun PaymentMethodSection(
                         label,
                         fontSize = 14.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) GreenDark else TextPrimary,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
                     RadioButton(
                         selected = isSelected,
                         onClick = { onSelected(value) },
-                        colors = RadioButtonDefaults.colors(selectedColor = GreenTop, unselectedColor = Color(0xFF9CA3AF))
+                        colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary, unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
                 }
             }
@@ -682,13 +672,13 @@ private fun CartItemRow(item: CartItemDto) {
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(GreenLight),
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Outlined.MedicalServices,
                 contentDescription = null,
-                tint = GreenTop,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -697,7 +687,7 @@ private fun CartItemRow(item: CartItemDto) {
                 text = item.displayName,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
-                color = TextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -705,14 +695,14 @@ private fun CartItemRow(item: CartItemDto) {
             Text(
                 "${item.quantity} ${item.unit} × ${formatCurrency(item.unitPrice)}",
                 fontSize = 12.sp,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Text(
             text = formatCurrency(item.totalPrice),
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
-            color = GreenTop
+            color = MaterialTheme.colorScheme.primary
         )
     }
 }
@@ -733,13 +723,13 @@ private fun SummaryRow(label: String, valueText: String, emphasize: Boolean = fa
             text = label,
             fontSize = if (emphasize) 16.sp else 14.sp,
             fontWeight = if (emphasize) FontWeight.Bold else FontWeight.Normal,
-            color = if (emphasize) TextPrimary else TextSecondary
+            color = if (emphasize) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             text = valueText,
             fontSize = if (emphasize) 18.sp else 14.sp,
             fontWeight = if (emphasize) FontWeight.ExtraBold else FontWeight.SemiBold,
-            color = if (emphasize) GreenTop else Color(0xFF111827)
+            color = if (emphasize) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -768,15 +758,15 @@ private fun CheckoutGatewayWebView(
                 }
             )
         },
-        containerColor = CardBg
+        containerColor = MaterialTheme.colorScheme.surface
     ) { innerPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = when (paymentStatus?.status) {
-                    "COMPLETED" -> Color(0xFFE8F5E9)
+                    "COMPLETED" -> MaterialTheme.colorScheme.primaryContainer
                     "PENDING" -> Color(0xFFFFF8E1)
-                    else -> BgGray
+                    else -> MaterialTheme.colorScheme.background
                 }
             ) {
                 Row(
@@ -791,7 +781,7 @@ private fun CheckoutGatewayWebView(
                         },
                         contentDescription = null,
                         tint = when (paymentStatus?.status) {
-                            "COMPLETED" -> GreenTop
+                            "COMPLETED" -> MaterialTheme.colorScheme.primary
                             else -> Color(0xFFFF8F00)
                         },
                         modifier = Modifier.size(20.dp)
@@ -799,7 +789,7 @@ private fun CheckoutGatewayWebView(
                     Column {
                         Text(
                             "Đơn hàng: $orderId",
-                            color = GreenTop,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
                         )
@@ -809,7 +799,7 @@ private fun CheckoutGatewayWebView(
                                 "PENDING" -> "Đang chờ xác nhận từ cổng thanh toán."
                                 else -> "Hoàn tất thanh toán rồi quay lại ứng dụng."
                             },
-                            color = TextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp
                         )
                     }

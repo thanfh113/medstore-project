@@ -62,6 +62,7 @@ import com.example.nhathuoc.data.model.ChatMessageDto
 import com.example.nhathuoc.data.model.ChatProductRecommendation
 import com.example.nhathuoc.data.model.ChatSessionDto
 import com.example.nhathuoc.data.remote.BackendUrlResolver
+import com.example.nhathuoc.util.formatVnDateTime
 import com.example.nhathuoc.viewmodel.ChatViewModel
 import kotlinx.serialization.json.Json
 
@@ -479,7 +480,7 @@ private fun ChatMessageBubble(
                 }
 
                 Text(
-                    text = message.createdAt.replace('T', ' ').take(16),
+                    text = formatVnDateTime(message.createdAt),
                     color = if (isCurrentUser) Color.White.copy(alpha = 0.72f) else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp
                 )

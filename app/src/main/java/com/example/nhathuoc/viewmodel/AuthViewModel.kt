@@ -7,6 +7,7 @@ import com.example.nhathuoc.data.model.*
 import com.example.nhathuoc.data.model.toUserMessage
 import com.example.nhathuoc.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -35,6 +36,9 @@ class AuthViewModel @Inject constructor(
     val userPhone: Flow<String?> = authRepository.getUserPhone()
     val userEmail: Flow<String?> = authRepository.getUserEmail()
     val userRole: Flow<String?> = authRepository.getUserRole()
+    val userAvatarUri: Flow<String?> = authRepository.getUserAvatarUri()
+    val userGender: Flow<Int?> = authRepository.getUserGender()
+    val userDateOfBirth: Flow<String?> = authRepository.getUserDateOfBirth()
 
     fun register(fullName: String, phone: String, email: String, password: String) {
         Log.d("AuthViewModel", "register() called with phone=$phone, email=$email")
@@ -84,15 +88,44 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun updateProfile(fullName: String, email: String) {
+    fun updateProfile(
+        fullName: String,
+        email: String,
+        gender: Int? = null,
+        dateOfBirth: String? = null,
+        avatarFile: File? = null
+    ) {
         viewModelScope.launch {
             _userState.value = UiState.Loading
-            when (val result = authRepository.updateProfile(fullName, email)) {
+
+            var cloudinaryUrl: String? = null
+            if (avatarFile != null && avatarFile.exists()) {
+                when (val upload = authRepository.uploadAvatar(avatarFile)) {
+                    is NetworkResult.Success -> {
+                        cloudinaryUrl = upload.data
+                        authRepository.saveAvatarUri(cloudinaryUrl)
+                    }
+                    is NetworkResult.Error -> {
+                        _userState.value = UiState.Error("Tải ảnh lên thất bại: ${upload.message}")
+                        return@launch
+                    }
+                    is NetworkResult.Exception -> {
+                        _userState.value = UiState.Error("Tải ảnh lên thất bại")
+                        return@launch
+                    }
+                }
+            }
+
+            when (val result = authRepository.updateProfile(fullName, email, gender, dateOfBirth, cloudinaryUrl)) {
                 is NetworkResult.Success -> _userState.value = UiState.Success(result.data.user)
                 is NetworkResult.Error -> _userState.value = UiState.Error(result.message)
                 is NetworkResult.Exception -> _userState.value = UiState.Error(result.e.toUserMessage())
             }
         }
+    }
+
+    fun saveAvatarUri(uri: String?) {
+        viewModelScope.launch { authRepository.saveAvatarUri(uri) }
     }
 
     fun changePassword(currentPassword: String, newPassword: String) {

@@ -3,6 +3,7 @@ package com.example.nhathuoc.viewmodel
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.nhathuoc.data.local.SessionManager
 import com.example.nhathuoc.data.model.NetworkResult
 import com.example.nhathuoc.data.model.ProductCertificateDto
 import com.example.nhathuoc.data.model.ProductDto
@@ -25,8 +26,16 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class ProductDetailViewModel @Inject constructor(
     private val productRepository: ProductRepository,
-    private val fileUploadRepository: FileUploadRepository
+    private val fileUploadRepository: FileUploadRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
+
+    private val _currentUserId = MutableStateFlow<String?>(null)
+    val currentUserId: StateFlow<String?> = _currentUserId.asStateFlow()
+
+    init {
+        viewModelScope.launch { _currentUserId.value = sessionManager.getUserId() }
+    }
 
     private val _productState = MutableStateFlow<UiState<ProductDto>>(UiState.Idle)
     val productState: StateFlow<UiState<ProductDto>> = _productState.asStateFlow()
@@ -103,7 +112,9 @@ class ProductDetailViewModel @Inject constructor(
         rating: Int,
         title: String?,
         comment: String?,
-        attachmentUris: List<Uri> = emptyList()
+        attachmentUris: List<Uri> = emptyList(),
+        orderId: String? = null,
+        orderItemId: String? = null
     ) {
         if (productId.startsWith("mock-")) return
         viewModelScope.launch {
@@ -135,7 +146,9 @@ class ProductDetailViewModel @Inject constructor(
                 rating = rating.coerceIn(1, 5),
                 title = title?.trim()?.ifBlank { null },
                 comment = comment?.trim()?.ifBlank { null },
-                attachments = attachments
+                attachments = attachments,
+                orderId = orderId?.ifBlank { null },
+                orderItemId = orderItemId?.ifBlank { null }
             )
             when (val result = productRepository.createProductReview(productId, request)) {
                 is NetworkResult.Success -> {
@@ -159,14 +172,11 @@ class ProductDetailViewModel @Inject constructor(
         }
     }
 
-    fun reportReview(reviewId: String) {
+    fun reportReview(reviewId: String, reason: String = "OTHER", note: String? = null) {
         viewModelScope.launch {
             _reviewSubmitState.value = UiState.Loading
             _reviewFeedbackMessage.value = null
-            val request = ReportReviewRequest(
-                reason = "OTHER",
-                note = "Người dùng báo cáo đánh giá từ ứng dụng Android"
-            )
+            val request = ReportReviewRequest(reason = reason, note = note)
             when (val result = productRepository.reportReview(reviewId, request)) {
                 is NetworkResult.Success -> {
                     _reviewSubmitState.value = UiState.Success(Unit)

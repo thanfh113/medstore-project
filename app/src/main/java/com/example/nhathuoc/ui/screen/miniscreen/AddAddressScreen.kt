@@ -31,16 +31,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.util.ValidationUtils
-
-private val GreenLight = Color(0xFFE8F5E9)
-private val GreenMid = Color(0xFFA5D6A7)
-private val TextPrimary = Color(0xFF1B2B1F)
-private val TextSecondary = Color(0xFF5A7A62)
-private val BgGray = Color(0xFFF3F7F4)
-private val ErrorRed = Color(0xFFE53935)
-private val DividerColor = Color(0xFFE0EDE3)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,7 +89,7 @@ fun AddAddressScreen(
                             .fillMaxWidth()
                             .height(52.dp),
                         shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                     ) {
                         Text(
@@ -112,7 +103,7 @@ fun AddAddressScreen(
                 }
             }
         },
-        containerColor = BgGray
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -208,10 +199,10 @@ fun AddAddressScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                color = if (isDefault) GreenLight else Color.White,
+                color = if (isDefault) MaterialTheme.colorScheme.primaryContainer else Color.White,
                 border = androidx.compose.foundation.BorderStroke(
                     1.5.dp,
-                    if (isDefault) GreenTop else DividerColor
+                    if (isDefault) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                 )
             ) {
                 Row(
@@ -226,12 +217,12 @@ fun AddAddressScreen(
                             "Đặt làm địa chỉ mặc định",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (isDefault) GreenTop else TextPrimary
+                            color = if (isDefault) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             "Dùng cho mọi đơn hàng tiếp theo",
                             fontSize = 12.sp,
-                            color = if (isDefault) TextSecondary else Color(0xFF9CA3AF)
+                            color = if (isDefault) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF9CA3AF)
                         )
                     }
                     Switch(
@@ -239,7 +230,7 @@ fun AddAddressScreen(
                         onCheckedChange = { isDefault = it },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = GreenTop,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
                             uncheckedThumbColor = Color.White,
                             uncheckedTrackColor = Color(0xFFCDD5CF)
                         )
@@ -274,20 +265,20 @@ private fun FormSection(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(GreenLight),
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(icon, contentDescription = null, tint = GreenTop, modifier = Modifier.size(18.dp))
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 }
                 Text(
                     title,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     letterSpacing = 0.2.sp
                 )
             }
-            HorizontalDivider(color = DividerColor, thickness = 1.dp, modifier = Modifier.padding(bottom = 14.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp, modifier = Modifier.padding(bottom = 14.dp))
             content()
         }
     }
@@ -317,7 +308,7 @@ private fun StyledTextField(
                     Icon(
                         leadingIcon,
                         contentDescription = null,
-                        tint = if (error != null) ErrorRed else GreenTop,
+                        tint = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -329,12 +320,12 @@ private fun StyledTextField(
             singleLine = singleLine,
             minLines = minLines,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = GreenTop,
-                unfocusedBorderColor = DividerColor,
-                errorBorderColor = ErrorRed,
-                focusedLabelColor = GreenTop,
-                unfocusedLabelColor = TextSecondary,
-                errorLabelColor = ErrorRed,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                errorBorderColor = MaterialTheme.colorScheme.error,
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                errorLabelColor = MaterialTheme.colorScheme.error,
                 focusedContainerColor = Color.White,
                 unfocusedContainerColor = Color(0xFFFAFCFA)
             )
@@ -350,7 +341,7 @@ private fun StyledTextField(
             ) {
                 Text(
                     text = error ?: "",
-                    color = ErrorRed,
+                    color = MaterialTheme.colorScheme.error,
                     fontSize = 12.sp
                 )
             }

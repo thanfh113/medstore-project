@@ -25,14 +25,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.nhathuoc.ui.theme.GreenTop
-
-private val GreenLight = Color(0xFFE8F5E9)
-private val GreenMid = Color(0xFF81C784)
-private val GreenDark = Color(0xFF2E7D32)
-private val TextPrimary = Color(0xFF1B2B1F)
-private val TextSecondary = Color(0xFF5A7A62)
-private val BgGray = Color(0xFFF3F7F4)
 
 @Composable
 fun OrderConfirmationScreen(
@@ -56,7 +48,7 @@ fun OrderConfirmationScreen(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(Color(0xFFF0FDF4), BgGray),
+                    colors = listOf(Color(0xFFF0FDF4), MaterialTheme.colorScheme.background),
                     startY = 0f,
                     endY = 600f
                 )
@@ -85,7 +77,7 @@ fun OrderConfirmationScreen(
                 Icon(
                     imageVector = Icons.Filled.CheckCircle,
                     contentDescription = "Thành công",
-                    tint = GreenTop,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(72.dp)
                 )
             }
@@ -107,13 +99,13 @@ fun OrderConfirmationScreen(
                         text = if (useMockData) "Đặt thử nghiệm thành công!" else "Đặt hàng thành công!",
                         fontSize = 26.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = GreenDark,
+                        color = MaterialTheme.colorScheme.primary,
                         textAlign = TextAlign.Center
                     )
                     Text(
                         text = "Đơn hàng đang được xử lý.\nChúng tôi sẽ liên hệ sớm nhất có thể.",
                         fontSize = 14.sp,
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                         lineHeight = 21.sp,
                         modifier = Modifier.padding(horizontal = 8.dp)
@@ -134,7 +126,7 @@ fun OrderConfirmationScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.surface,
                     shadowElevation = 2.dp
                 ) {
                     Column(
@@ -146,11 +138,11 @@ fun OrderConfirmationScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Mã đơn hàng", fontSize = 13.sp, color = TextSecondary)
+                            Text("Mã đơn hàng", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Icon(
                                 Icons.Outlined.ContentCopy,
                                 contentDescription = "Copy",
-                                tint = GreenTop,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -158,10 +150,10 @@ fun OrderConfirmationScreen(
                             orderId,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = GreenDark,
+                            color = MaterialTheme.colorScheme.primary,
                             letterSpacing = 0.5.sp
                         )
-                        HorizontalDivider(color = Color(0xFFE0EDE3))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         // Status steps
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -195,7 +187,7 @@ fun OrderConfirmationScreen(
                     Button(
                         onClick = onNavigateToOrders,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         shape = RoundedCornerShape(16.dp),
                         elevation = ButtonDefaults.buttonElevation(0.dp)
                     ) {
@@ -216,7 +208,7 @@ fun OrderConfirmationScreen(
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                         shape = RoundedCornerShape(16.dp),
                         border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFB2DFDB)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenTop)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(
                             Icons.Outlined.Home,
@@ -242,7 +234,7 @@ private fun StatusStep(label: String, done: Boolean) {
             modifier = Modifier
                 .size(24.dp)
                 .clip(CircleShape)
-                .background(if (done) GreenTop else Color(0xFFE0EDE3)),
+                .background(if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
             contentAlignment = Alignment.Center
         ) {
             if (done) {
@@ -257,7 +249,7 @@ private fun StatusStep(label: String, done: Boolean) {
         Text(
             label,
             fontSize = 10.sp,
-            color = if (done) GreenTop else TextSecondary,
+            color = if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = if (done) FontWeight.Bold else FontWeight.Normal
         )
     }
@@ -270,6 +262,6 @@ private fun StatusDivider() {
             .padding(bottom = 14.dp)
             .width(20.dp)
             .height(2.dp)
-            .background(Color(0xFFE0EDE3))
+            .background(MaterialTheme.colorScheme.outlineVariant)
     )
 }

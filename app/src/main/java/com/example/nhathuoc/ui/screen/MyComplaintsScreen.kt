@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -29,7 +30,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.nhathuoc.data.model.ComplaintDto
 import com.example.nhathuoc.data.model.UiState
-import com.example.nhathuoc.ui.theme.GreenTop
 import com.example.nhathuoc.viewmodel.OrderViewModel
 import java.text.NumberFormat
 import java.util.Locale
@@ -57,8 +57,10 @@ fun MyComplaintsScreen(
 ) {
     val state by viewModel.complaintsListState.collectAsState()
     var selectedStatus by rememberSaveable { mutableStateOf<String?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.getComplaints() }
+    LaunchedEffect(state) { if (state !is UiState.Loading) isRefreshing = false }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -87,7 +89,7 @@ fun MyComplaintsScreen(
                     complaintFilters.forEach { filter ->
                         val isSelected = filter.value == selectedStatus
                         Surface(
-                            color = if (isSelected) GreenTop else MaterialTheme.colorScheme.surface,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                             contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                             shape = RoundedCornerShape(999.dp),
                             shadowElevation = if (isSelected) 0.dp else 1.dp,
@@ -105,47 +107,55 @@ fun MyComplaintsScreen(
             }
 
             // ── Content ───────────────────────────────────────────────────────
-            when (val current = state) {
-                is UiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-
-                is UiState.Error -> ComplaintEmptyState(
-                    iconTint = MaterialTheme.colorScheme.error,
-                    iconBg = MaterialTheme.colorScheme.errorContainer,
-                    title = "Không tải được khiếu nại",
-                    subtitle = current.message
-                )
-
-                is UiState.Success -> {
-                    val complaints = current.data.filter { c ->
-                        selectedStatus == null || c.status.equals(selectedStatus, ignoreCase = true)
+            PullToRefreshBox(
+                modifier = Modifier.fillMaxSize().weight(1f),
+                isRefreshing = isRefreshing,
+                onRefresh = { isRefreshing = true; viewModel.getComplaints() }
+            ) {
+                when (val current = state) {
+                    is UiState.Loading -> {
+                        if (!isRefreshing) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
                     }
-                    if (complaints.isEmpty()) {
-                        ComplaintEmptyState(
-                            iconTint = GreenTop,
-                            iconBg = MaterialTheme.colorScheme.primaryContainer,
-                            title = if (selectedStatus == null) "Chưa có khiếu nại nào" else "Không có khiếu nại ở trạng thái này",
-                            subtitle = "Bạn có thể tạo khiếu nại từ trang chi tiết đơn hàng sau khi đơn đã được xử lý.",
-                            onGoToOrders = if (selectedStatus == null) ({ navController?.navigate("MyOrdersScreen") }) else null
-                        )
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(complaints, key = { it.id }) { complaint ->
-                                ComplaintCard(
-                                    complaint = complaint,
-                                    onClick = { navController?.navigate("ComplaintDetailScreen/${complaint.id}") }
-                                )
+
+                    is UiState.Error -> ComplaintEmptyState(
+                        iconTint = MaterialTheme.colorScheme.error,
+                        iconBg = MaterialTheme.colorScheme.errorContainer,
+                        title = "Không tải được khiếu nại",
+                        subtitle = current.message
+                    )
+
+                    is UiState.Success -> {
+                        val complaints = current.data.filter { c ->
+                            selectedStatus == null || c.status.equals(selectedStatus, ignoreCase = true)
+                        }
+                        if (complaints.isEmpty()) {
+                            ComplaintEmptyState(
+                                iconTint = MaterialTheme.colorScheme.primary,
+                                iconBg = MaterialTheme.colorScheme.primaryContainer,
+                                title = if (selectedStatus == null) "Chưa có khiếu nại nào" else "Không có khiếu nại ở trạng thái này",
+                                subtitle = "Bạn có thể tạo khiếu nại từ trang chi tiết đơn hàng sau khi đơn đã được xử lý.",
+                                onGoToOrders = if (selectedStatus == null) ({ navController?.navigate("MyOrdersScreen") }) else null
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(complaints, key = { it.id }) { complaint ->
+                                    ComplaintCard(
+                                        complaint = complaint,
+                                        onClick = { navController?.navigate("ComplaintDetailScreen/${complaint.id}") }
+                                    )
+                                }
                             }
                         }
                     }
-                }
 
-                else -> Unit
+                    else -> Unit
+                }
             }
         }
     }
@@ -185,7 +195,7 @@ private fun ComplaintCard(complaint: ComplaintDto, onClick: () -> Unit) {
                         Icon(
                             Icons.Outlined.Flag,
                             contentDescription = null,
-                            tint = GreenTop,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -194,7 +204,7 @@ private fun ComplaintCard(complaint: ComplaintDto, onClick: () -> Unit) {
                             complaint.complaintCode,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = GreenTop
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Text(
                             complaintTypeLabel(complaint.type),
@@ -316,11 +326,11 @@ private fun ComplaintCard(complaint: ComplaintDto, onClick: () -> Unit) {
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Xem chi tiết", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = GreenTop)
+                Text("Xem chi tiết", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                 Icon(
                     Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                     contentDescription = null,
-                    tint = GreenTop,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -368,7 +378,7 @@ private fun ComplaintEmptyState(
             if (onGoToOrders != null) {
                 Button(
                     onClick = onGoToOrders,
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenTop),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(24.dp)
                 ) {
                     Text("Xem đơn hàng của tôi", fontSize = 14.sp)
@@ -383,7 +393,7 @@ private fun complaintStatusAppearance(status: String): Triple<String, Color, Col
     "OPEN"           -> Triple("Mới tạo",        Color(0xFFDBEAFE), Color(0xFF2563EB))
     "IN_REVIEW"      -> Triple("Đang xử lý",     Color(0xFFFEF3C7), Color(0xFFD97706))
     "NEED_MORE_INFO" -> Triple("Cần bổ sung",     Color(0xFFFFF3E0), Color(0xFFB45309))
-    "APPROVED"       -> Triple("Đã duyệt",        Color(0xFFE8F5E9),        GreenTop)
+    "APPROVED"       -> Triple("Đã duyệt",        Color(0xFFE8F5E9),        Color(0xFF2E7D32))
     "RESOLVED"       -> Triple("Đã giải quyết",   Color(0xFFE8F5E9), Color(0xFF2E7D32))
     "REJECTED"       -> Triple("Từ chối",          Color(0xFFFFEBEE), Color(0xFFE53935))
     "CANCELLED"      -> Triple("Đã hủy",           Color(0xFFF3F4F6), Color(0xFF6B7280))

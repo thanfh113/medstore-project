@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.material.icons.outlined.MedicalServices
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +65,8 @@ fun ProductListScreen(
 
     var showFilterSheet by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
+    var isRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(state) { if (state !is UiState.Loading) isRefreshing = false }
 
     // Detect if any filter is active for badge on filter button
     val filterActive = priceRange.start > 0 || priceRange.endInclusive < 1000000 || sortBy != null
@@ -87,34 +90,40 @@ fun ProductListScreen(
             onBack = onBack
         )
 
-        when (state) {
-            is UiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(12.dp))
-                        Text("Đang tải sản phẩm...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+        PullToRefreshBox(
+            modifier = Modifier.fillMaxSize().weight(1f),
+            isRefreshing = isRefreshing,
+            onRefresh = { isRefreshing = true; viewModel.refresh() }
+        ) {
+            when (state) {
+                is UiState.Loading -> {
+                    if (!isRefreshing) Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.height(12.dp))
+                            Text("Đang tải sản phẩm...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                        }
                     }
                 }
-            }
-            is UiState.Error -> {
-                ErrorState(
-                    message = (state as UiState.Error).message,
-                    onRetry = { viewModel.resetFilters() }
-                )
-            }
-            else -> {
-                if (products.isEmpty() && state !is UiState.Loading) {
-                    EmptyState(hasFilters = searchText.isNotBlank() || filterActive, onReset = { viewModel.resetFilters(); searchText = "" })
-                } else {
-                    ProductGrid(
-                        products = products,
-                        onProductClick = { productId ->
-                            navController.navigate("ProductDetailScreen/$productId")
-                        },
-                        onLoadMore = { viewModel.loadMoreProducts() },
-                        hasMore = hasMore
+                is UiState.Error -> {
+                    ErrorState(
+                        message = (state as UiState.Error).message,
+                        onRetry = { viewModel.resetFilters() }
                     )
+                }
+                else -> {
+                    if (products.isEmpty() && state !is UiState.Loading) {
+                        EmptyState(hasFilters = searchText.isNotBlank() || filterActive, onReset = { viewModel.resetFilters(); searchText = "" })
+                    } else {
+                        ProductGrid(
+                            products = products,
+                            onProductClick = { productId ->
+                                navController.navigate("ProductDetailScreen/$productId")
+                            },
+                            onLoadMore = { viewModel.loadMoreProducts() },
+                            hasMore = hasMore
+                        )
+                    }
                 }
             }
         }

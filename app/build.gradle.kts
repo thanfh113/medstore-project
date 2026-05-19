@@ -32,6 +32,7 @@ android {
         }
     }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -49,6 +50,8 @@ kapt {
 }
 
 dependencies {
+
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))

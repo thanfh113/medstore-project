@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -36,6 +37,8 @@ import java.time.format.DateTimeFormatter
 
 private data class OnlineOrderStatusFilter(val backendValue: String?, val label: String)
 
+private const val REFUNDED_DISPLAY_FILTER = "REFUNDED_DISPLAY"
+
 private val orderStatusFilters = listOf(
     OnlineOrderStatusFilter(null, "Tất cả"),
     OnlineOrderStatusFilter("PENDING", "Chờ xác nhận"),
@@ -43,7 +46,8 @@ private val orderStatusFilters = listOf(
     OnlineOrderStatusFilter("SHIPPING", "Đang giao"),
     OnlineOrderStatusFilter("DELIVERED", "Đã giao"),
     OnlineOrderStatusFilter("CANCELLED", "Đã hủy"),
-    OnlineOrderStatusFilter("RETURNED", "Hoàn trả")
+    OnlineOrderStatusFilter("RETURNED", "Trả hàng"),
+    OnlineOrderStatusFilter(REFUNDED_DISPLAY_FILTER, "Hoàn tiền")
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,9 +59,26 @@ fun MyOrdersScreen(
 ) {
     val viewModel: OrderViewModel = hiltViewModel()
     val ordersState by viewModel.ordersListState.collectAsState()
+    val posOrdersState by viewModel.posOrdersListState.collectAsState()
     var selectedStatus by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
-    LaunchedEffect(selectedStatus) { viewModel.getOrders(status = selectedStatus) }
+    LaunchedEffect(selectedStatus) {
+        if (selectedTab == 0) {
+            val apiStatus = if (selectedStatus == REFUNDED_DISPLAY_FILTER) "DELIVERED" else selectedStatus
+            viewModel.getOrders(status = apiStatus)
+        }
+    }
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == 0) {
+            val apiStatus = if (selectedStatus == REFUNDED_DISPLAY_FILTER) "DELIVERED" else selectedStatus
+            viewModel.getOrders(status = apiStatus)
+        } else viewModel.getPosOrders()
+    }
+    LaunchedEffect(ordersState, posOrdersState) {
+        if (ordersState !is UiState.Loading && posOrdersState !is UiState.Loading) isRefreshing = false
+    }
 
     Scaffold(
         modifier = modifier,
@@ -75,86 +96,160 @@ fun MyOrdersScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Filter chips
-            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    orderStatusFilters.forEach { filter ->
-                        val isSelected = filter.backendValue == selectedStatus
-                        Surface(
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                            contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                            shape = RoundedCornerShape(999.dp),
-                            shadowElevation = if (isSelected) 0.dp else 1.dp,
-                            modifier = Modifier.clickable { selectedStatus = filter.backendValue }
-                        ) {
-                            Text(
-                                text = filter.label,
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                            )
-                        }
-                    }
-                }
+            // Tab: Đặt online / Mua tại quầy
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
+                    text = { Text("Đặt online", fontSize = 13.sp) })
+                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
+                    text = { Text("Mua tại quầy", fontSize = 13.sp) })
             }
 
-            when (val state = ordersState) {
-                is UiState.Loading -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-
-                is UiState.Error -> {
-                    EmptyState(
-                        icon = Icons.Outlined.WarningAmber,
-                        iconBg = Color(0xFFFFEBEE),
-                        iconTint = Color(0xFFE57373),
-                        title = "Không tải được đơn hàng",
-                        subtitle = state.message
-                    )
-                }
-
-                is UiState.Success<*> -> {
-                    val response = state.data as OrderListResponse
-                    val orders = response.orders.filter { !it.orderCode.startsWith("POS-", ignoreCase = true) }
-
-                    if (orders.isEmpty()) {
-                        EmptyState(
-                            icon = Icons.Outlined.ShoppingBag,
-                            iconBg = Color(0xFFE8F5E9),
-                            iconTint = MaterialTheme.colorScheme.primary,
-                            title = if (selectedStatus == null) "Chưa có đơn hàng nào" else "Không có đơn ở trạng thái này",
-                            subtitle = "Khi bạn đặt hàng trên ứng dụng, đơn sẽ xuất hiện ở đây."
-                        )
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(orders, key = { it.id }) { order ->
-                                OrderCard(
-                                    order = order,
-                                    onClick = { navController?.navigate("OrderDetailScreen/${order.id}") },
-                                    onResumePayment = {
-                                        navController?.currentBackStackEntry?.savedStateHandle?.set("resumeOrderId", order.id)
-                                        navController?.currentBackStackEntry?.savedStateHandle?.set("resumePaymentMethod", order.paymentMethod.uppercase())
-                                        navController?.navigate("CheckoutScreen")
-                                    }
+            if (selectedTab == 0) {
+                // Filter chips cho đơn online
+                Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        orderStatusFilters.forEach { filter ->
+                            val isSelected = filter.backendValue == selectedStatus
+                            Surface(
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                shape = RoundedCornerShape(999.dp),
+                                shadowElevation = if (isSelected) 0.dp else 1.dp,
+                                modifier = Modifier.clickable { selectedStatus = filter.backendValue }
+                            ) {
+                                Text(
+                                    text = filter.label,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                                 )
                             }
                         }
                     }
                 }
+            }
 
-                else -> Unit
+            PullToRefreshBox(
+                modifier = Modifier.fillMaxSize().weight(1f),
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    isRefreshing = true
+                    if (selectedTab == 0) viewModel.getOrders(status = selectedStatus)
+                    else viewModel.getPosOrders()
+                }
+            ) {
+                if (selectedTab == 0) {
+                    // Đơn online
+                    when (val state = ordersState) {
+                        is UiState.Loading -> {
+                            if (!isRefreshing) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        is UiState.Error -> {
+                            EmptyState(
+                                icon = Icons.Outlined.WarningAmber,
+                                iconBg = Color(0xFFFFEBEE),
+                                iconTint = Color(0xFFE57373),
+                                title = "Không tải được đơn hàng",
+                                subtitle = state.message
+                            )
+                        }
+                        is UiState.Success<*> -> {
+                            val response = state.data as OrderListResponse
+                            val orders = response.orders
+                                .filter { !it.orderCode.startsWith("POS-", ignoreCase = true) }
+                                .let { list ->
+                                    if (selectedStatus == REFUNDED_DISPLAY_FILTER)
+                                        list.filter { it.paymentStatus.uppercase() in setOf("REFUNDED", "PARTIALLY_REFUNDED", "REFUND_PROCESSING") }
+                                    else list
+                                }
+                            if (orders.isEmpty()) {
+                                EmptyState(
+                                    icon = Icons.Outlined.ShoppingBag,
+                                    iconBg = Color(0xFFE8F5E9),
+                                    iconTint = MaterialTheme.colorScheme.primary,
+                                    title = if (selectedStatus == null) "Chưa có đơn hàng nào" else "Không có đơn ở trạng thái này",
+                                    subtitle = "Khi bạn đặt hàng trên ứng dụng, đơn sẽ xuất hiện ở đây."
+                                )
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    items(orders, key = { it.id }) { order ->
+                                        OrderCard(
+                                            order = order,
+                                            onClick = { navController?.navigate("OrderDetailScreen/${order.id}") },
+                                            onResumePayment = {
+                                                navController?.currentBackStackEntry?.savedStateHandle?.set("resumeOrderId", order.id)
+                                                navController?.currentBackStackEntry?.savedStateHandle?.set("resumePaymentMethod", order.paymentMethod.uppercase())
+                                                navController?.navigate("CheckoutScreen")
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        else -> Unit
+                    }
+                } else {
+                    // Đơn POS tại quầy
+                    when (val state = posOrdersState) {
+                        is UiState.Loading -> {
+                            if (!isRefreshing) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        is UiState.Error -> {
+                            EmptyState(
+                                icon = Icons.Outlined.WarningAmber,
+                                iconBg = Color(0xFFFFEBEE),
+                                iconTint = Color(0xFFE57373),
+                                title = "Không tải được đơn tại quầy",
+                                subtitle = state.message
+                            )
+                        }
+                        is UiState.Success<*> -> {
+                            val orders = (state.data as OrderListResponse).orders
+                            if (orders.isEmpty()) {
+                                EmptyState(
+                                    icon = Icons.Outlined.ShoppingBag,
+                                    iconBg = Color(0xFFE8F5E9),
+                                    iconTint = MaterialTheme.colorScheme.primary,
+                                    title = "Chưa có đơn mua tại quầy",
+                                    subtitle = "Khi nhân viên tạo đơn cho số điện thoại của bạn, đơn sẽ xuất hiện ở đây."
+                                )
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    items(orders, key = { it.id }) { order ->
+                                        OrderCard(
+                                            order = order,
+                                            onClick = { navController?.navigate("OrderDetailScreen/${order.id}") },
+                                            onResumePayment = {}
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        else -> Unit
+                    }
+                }
             }
         }
     }
@@ -193,7 +288,7 @@ private fun OrderCard(
     onResumePayment: () -> Unit
 ) {
     val canResume = canResumeGatewayPayment(order)
-    val (statusLabel, statusBg, statusFg) = statusAppearance(order.status)
+    val (statusLabel, statusBg, statusFg) = statusAppearance(order.status, order.paymentStatus)
 
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -392,14 +487,20 @@ private fun PaymentPill(method: String, status: String) {
     InfoPill(label, bg, fg)
 }
 
-private fun statusAppearance(status: String): Triple<String, Color, Color> = when (status.uppercase()) {
-    "PENDING" -> Triple("Chờ xác nhận", Color(0xFFFFF3E0), Color(0xFFEF6C00))
-    "PROCESSING" -> Triple("Đang xử lý", Color(0xFFE3F2FD), Color(0xFF1565C0))
-    "SHIPPING" -> Triple("Đang giao", Color(0xFFE0F2F1), Color(0xFF00796B))
-    "DELIVERED" -> Triple("Đã giao", Color(0xFFE8F5E9), Color(0xFF2E7D32))
-    "CANCELLED" -> Triple("Đã hủy", Color(0xFFFFEBEE), Color(0xFFC62828))
-    "RETURNED" -> Triple("Hoàn trả", Color(0xFFF3E5F5), Color(0xFF7B1FA2))
-    else -> Triple(status, Color(0xFFF1F3F4), Color(0xFF5F6368))
+private fun statusAppearance(status: String, paymentStatus: String = ""): Triple<String, Color, Color> {
+    val refunded = paymentStatus.uppercase() in setOf("REFUNDED", "PARTIALLY_REFUNDED", "REFUND_PROCESSING")
+    return when (status.uppercase()) {
+        "PENDING" -> Triple("Chờ xác nhận", Color(0xFFFFF3E0), Color(0xFFEF6C00))
+        "PROCESSING" -> Triple("Đang xử lý", Color(0xFFE3F2FD), Color(0xFF1565C0))
+        "SHIPPING" -> Triple("Đang giao", Color(0xFFE0F2F1), Color(0xFF00796B))
+        "DELIVERED" -> if (refunded)
+            Triple("Hoàn tiền", Color(0xFFE1F5FE), Color(0xFF0277BD))
+        else
+            Triple("Đã giao", Color(0xFFE8F5E9), Color(0xFF2E7D32))
+        "CANCELLED" -> Triple("Đã hủy", Color(0xFFFFEBEE), Color(0xFFC62828))
+        "RETURNED" -> Triple("Trả hàng", Color(0xFFF3E5F5), Color(0xFF7B1FA2))
+        else -> Triple(status, Color(0xFFF1F3F4), Color(0xFF5F6368))
+    }
 }
 
 private fun canResumeGatewayPayment(order: OrderDto): Boolean {

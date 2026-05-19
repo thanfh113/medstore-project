@@ -5,7 +5,11 @@ import com.example.nhathuoc.data.local.SessionManager
 import com.example.nhathuoc.data.model.*
 import com.example.nhathuoc.data.remote.ApiService
 import kotlinx.coroutines.flow.Flow
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import retrofit2.HttpException
+import java.io.File
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -65,6 +69,14 @@ class AuthRepository @Inject constructor(
                     email = authResponse.user.email,
                     role = authResponse.user.role
                 )
+                sessionManager.updateUserInfo(
+                    fullName = authResponse.user.fullName,
+                    phone = authResponse.user.phone,
+                    email = authResponse.user.email,
+                    gender = authResponse.user.gender,
+                    dateOfBirth = authResponse.user.dateOfBirth
+                )
+                sessionManager.saveAvatarUri(authResponse.user.avatarUrl)
                 NetworkResult.Success(authResponse)
             } else {
                 NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
@@ -94,7 +106,7 @@ class AuthRepository @Inject constructor(
             val response = apiService.getMe()
             if (response.isSuccessful) {
                 val user = response.body()!!
-                sessionManager.updateUserInfo(user.fullName, user.phone, user.email)
+                sessionManager.updateUserInfo(user.fullName, user.phone, user.email, user.gender, user.dateOfBirth)
                 NetworkResult.Success(user)
             } else {
                 NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
@@ -108,15 +120,46 @@ class AuthRepository @Inject constructor(
         }
     }
 
-    suspend fun updateProfile(fullName: String, email: String): NetworkResult<UpdateUserResponse> {
+    suspend fun uploadAvatar(file: File): NetworkResult<String> {
         return try {
-            val response = apiService.updateUser(UpdateUserRequest(fullName = fullName, email = email))
+            val body = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
+            val part = MultipartBody.Part.createFormData("file", file.name, body)
+            val response = apiService.uploadFile(part, "AVATAR")
+            if (response.isSuccessful) {
+                NetworkResult.Success(response.body()!!.url)
+            } else {
+                NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+            }
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
+    suspend fun updateProfile(
+        fullName: String,
+        email: String,
+        gender: Int? = null,
+        dateOfBirth: String? = null,
+        avatarUrl: String? = null
+    ): NetworkResult<UpdateUserResponse> {
+        return try {
+            val response = apiService.updateUser(UpdateUserRequest(
+                fullName = fullName,
+                email = email,
+                gender = gender,
+                dateOfBirth = dateOfBirth,
+                avatarUrl = avatarUrl
+            ))
             if (response.isSuccessful) {
                 val updateResponse = response.body()!!
                 sessionManager.updateUserInfo(
                     fullName = updateResponse.user.fullName,
                     phone = updateResponse.user.phone,
-                    email = updateResponse.user.email
+                    email = updateResponse.user.email,
+                    gender = updateResponse.user.gender,
+                    dateOfBirth = updateResponse.user.dateOfBirth
                 )
                 NetworkResult.Success(updateResponse)
             } else {
@@ -153,7 +196,11 @@ class AuthRepository @Inject constructor(
     fun getUserPhone(): Flow<String?> = sessionManager.userPhone
     fun getUserEmail(): Flow<String?> = sessionManager.userEmail
     fun getUserRole(): Flow<String?> = sessionManager.userRole
+    fun getUserAvatarUri(): Flow<String?> = sessionManager.userAvatarUri
+    fun getUserGender(): Flow<Int?> = sessionManager.userGender
+    fun getUserDateOfBirth(): Flow<String?> = sessionManager.userDateOfBirth
     suspend fun getUserId(): String? = sessionManager.getUserId()
+    suspend fun saveAvatarUri(uri: String?) = sessionManager.saveAvatarUri(uri)
 
     private fun parseErrorMessage(errorBody: String?): String = parseErrorBody(errorBody)
 }

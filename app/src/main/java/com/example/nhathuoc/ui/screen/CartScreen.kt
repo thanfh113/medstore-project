@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.MedicalServices
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -53,6 +54,7 @@ private fun Double.fmtVnd() = NumberFormat.getCurrencyInstance(cartLocale)
     .format(this).replace("₫", "đ")
 
 // ── Screen ────────────────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CartScreen(
     modifier: Modifier = Modifier,
@@ -91,9 +93,9 @@ fun CartScreen(
     }
 
     // Load cart on entry
-    LaunchedEffect(Unit) {
-        viewModel.loadCart()
-    }
+    LaunchedEffect(Unit) { viewModel.loadCart() }
+    var isRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.isLoading) { if (!uiState.isLoading) isRefreshing = false }
 
     // Show error in snackbar
     LaunchedEffect(uiState.error) {
@@ -240,14 +242,15 @@ fun CartScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(padding)
+        PullToRefreshBox(
+            modifier = modifier.fillMaxSize().padding(padding),
+            isRefreshing = isRefreshing,
+            onRefresh = { isRefreshing = true; viewModel.loadCart() }
         ) {
+        Box(modifier = Modifier.fillMaxSize()) {
             when {
                 // ── Loading (first load, no items yet) ──────────────────
-                uiState.isLoading && uiState.items.isEmpty() -> {
+                uiState.isLoading && uiState.items.isEmpty() && !isRefreshing -> {
                     CartLoadingState()
                 }
                 // ── Error (no items loaded) ──────────────────────────────
@@ -331,6 +334,7 @@ fun CartScreen(
                 }
             }
         }
+        } // end PullToRefreshBox
     }
 }
 
