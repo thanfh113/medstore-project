@@ -143,10 +143,6 @@ fun ProductDetailDialog(
                         DetailRow("Xuất xứ", product.origin.ifBlank { "Chưa có" })
                         DetailRow("Số lưu hành", product.registrationNumber ?: "Chưa có")
                         DetailRow("Giá gốc", product.originalPrice?.let(formatVnd) ?: "Chưa có")
-                        DetailRow(
-                            "Tư vấn kỹ thuật",
-                            if (product.requiresTechnicalConsultation) "Cần tư vấn" else "Không bắt buộc"
-                        )
                     }
                 }
 

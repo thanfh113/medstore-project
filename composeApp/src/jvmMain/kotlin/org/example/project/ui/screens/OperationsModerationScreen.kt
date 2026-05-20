@@ -21,9 +21,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.RemoveCircle
+import androidx.compose.material.icons.filled.Stars
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -845,6 +849,17 @@ private fun ComplaintListCard(
                 )
                 Text("·", color = MaterialTheme.colorScheme.outline)
                 Text(complaintTypeLabel(complaint.type), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                complaint.productName?.takeIf { it.isNotBlank() }?.let { pName ->
+                    Text("·", color = MaterialTheme.colorScheme.outline)
+                    Text(
+                        pName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 160.dp)
+                    )
+                }
                 Text("·", color = MaterialTheme.colorScheme.outline)
                 Text(formatVnDate(complaint.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
             }
@@ -1086,12 +1101,21 @@ private fun ComplaintActionZone(
                             label = { Text("Nhập số tiền") },
                             modifier = Modifier.fillMaxWidth(),
                             trailingIcon = {
-                                complaint.orderTotal?.let { total ->
-                                    if (refundAmountText.isBlank()) {
-                                        TextButton(
-                                            onClick = { onRefundAmountChange(total.toLong().toString()) },
-                                            contentPadding = PaddingValues(horizontal = 6.dp)
-                                        ) { Text("Điền đủ", style = MaterialTheme.typography.labelSmall) }
+                                if (refundAmountText.isBlank()) {
+                                    if (complaint.orderItemId == null) {
+                                        complaint.orderTotal?.let { total ->
+                                            TextButton(
+                                                onClick = { onRefundAmountChange(total.toLong().toString()) },
+                                                contentPadding = PaddingValues(horizontal = 6.dp)
+                                            ) { Text("Điền đủ", style = MaterialTheme.typography.labelSmall) }
+                                        }
+                                    } else {
+                                        complaint.itemTotal?.let { itemTotal ->
+                                            TextButton(
+                                                onClick = { onRefundAmountChange(itemTotal.toLong().toString()) },
+                                                contentPadding = PaddingValues(horizontal = 6.dp)
+                                            ) { Text("Điền đúng SP", style = MaterialTheme.typography.labelSmall) }
+                                        }
                                     }
                                 }
                             }
@@ -1140,7 +1164,10 @@ private fun ComplaintActionZone(
                             Column {
                                 Text("Khách đã trả lại hàng vật lý", style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    "Tích nếu hàng được hoàn về kho (nhầm hàng, lỗi giao). Sẽ cộng lại tồn kho và đánh dấu đơn là Hoàn trả.",
+                                    if (complaint.orderItemId != null)
+                                        "Tích nếu sản phẩm \"${complaint.productName ?: "đã chọn"}\" được hoàn về kho. Chỉ cộng lại tồn kho sản phẩm đó, đơn hàng giữ nguyên trạng thái."
+                                    else
+                                        "Tích nếu toàn bộ hàng được hoàn về kho. Sẽ cộng lại tồn kho và đánh dấu đơn là Hoàn trả.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1569,7 +1596,7 @@ private fun RewardsTab(
                 )
             }
             Text(
-                "Voucher: tự phát mã khi duyệt, user dùng ngay ở checkout. Quà vật lý: duyệt → gửi → hoàn tất thủ công.",
+                "Voucher: tự phát mã khi duyệt, user dùng ngay ở checkout.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -1597,51 +1624,100 @@ private fun RewardsTab(
 
 @Composable
 private fun PointAdjustmentCard(onAdjustPoints: (String, Int, String) -> Unit) {
-    var userId by remember { mutableStateOf("") }
+    var userInput by remember { mutableStateOf("") }
     var points by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+
+    val pointsValue = points.toIntOrNull() ?: 0
+    val isPhone = userInput.matches(Regex("^(0|\\+84)\\d{8,10}$"))
+    val inputHint = when {
+        userInput.isBlank() -> null
+        isPhone -> "Số điện thoại"
+        else -> "User ID"
+    }
+    val pointsColor = when {
+        pointsValue > 0 -> Color(0xFF2E7D32)
+        pointsValue < 0 -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.outline
+    }
 
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Điều chỉnh điểm thưởng", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Nhập số dương để cộng điểm, số âm để trừ điểm. Lý do sẽ ghi vào lịch sử điểm của user.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Stars,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Điều chỉnh điểm thưởng",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
                 OutlinedTextField(
-                    value = userId,
-                    onValueChange = { userId = it },
-                    label = { Text("User ID") },
+                    value = userInput,
+                    onValueChange = { userInput = it.trim() },
+                    label = { Text("SĐT hoặc User ID") },
+                    placeholder = { Text("0901234567", color = MaterialTheme.colorScheme.outline) },
+                    supportingText = inputHint?.let { { Text(it, color = MaterialTheme.colorScheme.primary) } },
+                    singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
                 OutlinedTextField(
                     value = points,
-                    onValueChange = { points = it.filter { ch -> ch == '-' || ch.isDigit() } },
-                    label = { Text("Số điểm (+/-)") },
-                    modifier = Modifier.weight(0.5f)
+                    onValueChange = { v ->
+                        val filtered = v.filter { it == '-' || it.isDigit() }
+                        if (filtered.count { it == '-' } <= 1 && (filtered.isEmpty() || filtered == "-" || filtered.trimStart('-').all { it.isDigit() }))
+                            points = filtered
+                    },
+                    label = { Text("Số điểm") },
+                    placeholder = { Text("+100 / -50", color = MaterialTheme.colorScheme.outline) },
+                    supportingText = if (pointsValue != 0) {
+                        { Text(if (pointsValue > 0) "+$pointsValue điểm" else "$pointsValue điểm", color = pointsColor, fontWeight = FontWeight.Medium) }
+                    } else null,
+                    singleLine = true,
+                    modifier = Modifier.width(140.dp)
                 )
             }
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
-                label = { Text("Lý do ghi nhận") },
+                label = { Text("Lý do điều chỉnh") },
+                placeholder = { Text("VD: Bù điểm đơn lỗi #ORD-001", color = MaterialTheme.colorScheme.outline) },
                 minLines = 2,
+                maxLines = 3,
                 modifier = Modifier.fillMaxWidth()
             )
             Button(
                 onClick = {
-                    onAdjustPoints(userId, points.toIntOrNull() ?: 0, description)
-                    userId = ""; points = ""; description = ""
+                    onAdjustPoints(userInput, pointsValue, description)
+                    userInput = ""; points = ""; description = ""
                 },
-                enabled = userId.isNotBlank() && (points.toIntOrNull() ?: 0) != 0 && description.isNotBlank(),
+                enabled = userInput.isNotBlank() && pointsValue != 0 && description.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (pointsValue >= 0) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.error
+                ),
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("Ghi nhận điều chỉnh điểm") }
+            ) {
+                Icon(
+                    if (pointsValue >= 0) Icons.Default.AddCircle else Icons.Default.RemoveCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(if (pointsValue >= 0) "Cộng điểm" else "Trừ điểm")
+            }
         }
     }
 }
@@ -1670,7 +1746,7 @@ private fun RedemptionCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(redemption.productName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        if (isVoucher) "Voucher giảm giá" else "Quà vật lý",
+                        "Voucher giảm giá",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -1705,24 +1781,10 @@ private fun RedemptionCard(
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = {
-                        onUpdateRedemption(
-                            redemption.id, "APPROVED",
-                            if (isVoucher) "Duyệt voucher và phát mã riêng" else "Duyệt quà đổi điểm"
-                        )
+                        onUpdateRedemption(redemption.id, "APPROVED", "Duyệt voucher và phát mã")
                     },
                     enabled = processingId != redemption.id && redemption.status == "PROCESSING"
-                ) { Text(if (isVoucher) "Duyệt & phát mã" else "Duyệt") }
-
-                if (!isVoucher) {
-                    OutlinedButton(
-                        onClick = { onUpdateRedemption(redemption.id, "SHIPPED", "Đã gửi quà đổi điểm") },
-                        enabled = processingId != redemption.id && redemption.status in setOf("APPROVED", "SHIPPED")
-                    ) { Text("Đã gửi") }
-                    OutlinedButton(
-                        onClick = { onUpdateRedemption(redemption.id, "DELIVERED", "User đã nhận quà đổi điểm") },
-                        enabled = processingId != redemption.id && redemption.status in setOf("APPROVED", "SHIPPED")
-                    ) { Text("Hoàn tất") }
-                }
+                ) { Text("Duyệt & phát mã") }
 
                 OutlinedButton(
                     onClick = { onUpdateRedemption(redemption.id, "CANCELLED", "Cửa hàng hủy yêu cầu đổi điểm") },

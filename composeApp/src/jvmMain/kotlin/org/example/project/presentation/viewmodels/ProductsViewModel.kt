@@ -412,8 +412,6 @@ class ProductsViewModel(
                     inventoryNote = null,
                     registrationNumber = formData.registrationNumber.ifBlank { null },
                     riskClassification = normalizedRisk,
-                    requiresCertification = formData.requiresCertification || restrictedOnlineRisk,
-                    requiresConsultation = formData.requiresConsultation || restrictedOnlineRisk,
                     images = formData.productImages.mapIndexed { index, image ->
                         CompleteProductImageDraft(
                             url = image.url,

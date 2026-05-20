@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
@@ -252,7 +253,7 @@ private fun RecentOrdersOverviewTable(orders: List<RecentOrderDto>) {
                             Text(order.orderCode, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
                             Text(order.customerName, modifier = Modifier.weight(1.4f))
                             Box(modifier = Modifier.weight(1f)) {
-                                DashboardOrderStatusBadge(order.status)
+                                DashboardOrderStatusBadge(order.status, order.paymentStatus)
                             }
                             Text(
                                 formatDashboardVnd(order.total),
@@ -276,28 +277,30 @@ private fun RecentOrdersOverviewTable(orders: List<RecentOrderDto>) {
 }
 
 @Composable
-private fun DashboardOrderStatusBadge(status: String) {
-    val (bgColor, textColor, text) = when (status.uppercase()) {
-        "PAID", "DELIVERED", "SUCCESS", "COMPLETED" ->
-            Triple(Color(0xFFE8F5E9), Color(0xFF2E7D32), "Thành công")
-        "PENDING", "PROCESSING", "SHIPPING" ->
-            Triple(Color(0xFFFFF3E0), Color(0xFFEF6C00), "Đang xử lý")
-        "FAILED", "CANCELLED", "RETURNED" ->
-            Triple(Color(0xFFFFEBEE), Color(0xFFD32F2F), "Không thành công")
-        else -> Triple(Color(0xFFF5F5F5), Color.Gray, status)
+private fun DashboardOrderStatusBadge(status: String, paymentStatus: String = "") {
+    val refundedSet = setOf("REFUNDED", "PARTIALLY_REFUNDED", "REFUND_PROCESSING")
+    val isRefunded = status.uppercase() == "DELIVERED" && paymentStatus.uppercase() in refundedSet
+
+    val (bgColor, textColor, label) = when {
+        isRefunded                           -> Triple(Color(0xFF0288D1), Color.White,          "Hoàn tiền")
+        status.uppercase() == "PENDING"      -> Triple(Color(0xFFFFF3E0), Color(0xFFEF6C00),   "Chờ xử lý")
+        status.uppercase() == "PROCESSING"   -> Triple(Color(0xFFFFF3E0), Color(0xFFEF6C00),   "Đang xử lý")
+        status.uppercase() == "SHIPPING"     -> Triple(Color(0xFF2196F3), Color.White,          "Đang giao")
+        status.uppercase() == "DELIVERED"    -> Triple(Color(0xFF4CAF50), Color.White,          "Hoàn thành")
+        status.uppercase() == "CANCELLED"    -> Triple(Color(0xFFF44336), Color.White,          "Đã hủy")
+        status.uppercase() == "RETURNED"     -> Triple(Color(0xFF7B1FA2), Color.White,          "Trả hàng")
+        else                                 -> Triple(Color(0xFFF5F5F5), Color.Gray,            status)
     }
 
-    Surface(
-        color = bgColor,
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Text(
-            text = text,
-            color = textColor,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-        )
+    Surface(color = bgColor, shape = RoundedCornerShape(20.dp)) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.size(7.dp).background(textColor, CircleShape))
+            Spacer(Modifier.width(6.dp))
+            Text(text = label, color = textColor, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        }
     }
 }
 

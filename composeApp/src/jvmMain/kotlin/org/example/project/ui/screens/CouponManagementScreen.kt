@@ -64,7 +64,7 @@ fun CouponManagementScreen(viewModel: CouponAdminViewModel) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Mã giảm giá", "Quà đổi điểm")
     val discountOptions = listOf("PERCENT" to "Giảm theo %", "FIXED_AMOUNT" to "Giảm tiền cố định", "FREESHIP" to "Freeship (Miễn phí vận chuyển)")
-    val rewardTypeOptions = listOf("VOUCHER" to "Voucher giảm giá", "ITEM" to "Quà vật lý")
+    val rewardTypeOptions = listOf("VOUCHER" to "Voucher giảm giá")
 
     Scaffold(
         topBar = {
@@ -241,7 +241,7 @@ private fun RewardProductTab(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        "Voucher tự phát mã khi duyệt. Quà vật lý cần admin xử lý thủ công.",
+                        "Voucher tự phát mã khi duyệt.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -385,7 +385,7 @@ private fun RewardProductItemCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        if (reward.rewardType == "VOUCHER") "Voucher giảm giá" else "Quà vật lý",
+                        "Voucher giảm giá",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -624,7 +624,7 @@ private fun RewardProductFormCard(
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                "Voucher: gắn coupon template để backend phát mã riêng khi admin duyệt. Quà vật lý: xử lý thủ công qua tab Đổi điểm.",
+                "Voucher: gắn coupon template để backend phát mã riêng khi admin duyệt.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -765,16 +765,6 @@ private fun RewardProductFormCard(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
-
-            if (state.rewardType == "ITEM") {
-                OutlinedTextField(
-                    value = state.rewardUsagePerUserLimit,
-                    onValueChange = onRewardUsagePerUserLimitChange,
-                    label = { Text("Giới hạn đổi mỗi user (bỏ trống = không giới hạn)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
 
             SwitchRow("Đang hoạt động", state.rewardIsActive, onToggleRewardActive)
 

@@ -707,13 +707,6 @@ private fun ProductRow(
                 containerColor = statusContainerColor,
                 contentColor = statusContentColor
             )
-            if (product.requiresTechnicalConsultation) {
-                StatusChip(
-                    text = "Cần tư vấn",
-                    containerColor = Color(0xFFE3F2FD),
-                    contentColor = Color(0xFF1565C0)
-                )
-            }
         }
 
         Row(

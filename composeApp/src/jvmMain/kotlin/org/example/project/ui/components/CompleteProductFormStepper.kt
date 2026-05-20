@@ -52,9 +52,7 @@ data class CompleteProductFormData(
     // Group 2: Healthcare Specific
     val registrationNumber: String = "",
     val riskClassification: String = "A",
-    val requiresConsultation: Boolean = false,
-    val requiresCertification: Boolean = false,
-    
+
     // Group 3: Pricing & Images
     val price: Double = 0.0,
     val originalPrice: Double? = null,
@@ -414,18 +412,11 @@ private fun Step1BasicInfo(
                     "Loại D - cần tư vấn/ký kết" to "D"
                 ),
                 onSelect = { selectedRisk ->
-                    val restrictedOnline = selectedRisk == "C" || selectedRisk == "D"
-                    onUpdate(
-                        data.copy(
-                            riskClassification = selectedRisk,
-                            requiresCertification = restrictedOnline,
-                            requiresConsultation = restrictedOnline
-                        )
-                    )
+                    onUpdate(data.copy(riskClassification = selectedRisk))
                 }
             )
         }
-        
+
         // Unit (Required)
         item {
             DropdownField(
@@ -692,14 +683,7 @@ private fun Step2HealthcareSpecific(
                         "Loại D" to "D"
                     ),
                     onSelect = { selectedRisk ->
-                        val restrictedOnline = selectedRisk == "C" || selectedRisk == "D"
-                        onUpdate(
-                            data.copy(
-                                riskClassification = selectedRisk,
-                                requiresCertification = restrictedOnline,
-                                requiresConsultation = restrictedOnline
-                            )
-                        )
+                        onUpdate(data.copy(riskClassification = selectedRisk))
                     }
                 )
             }
@@ -744,14 +728,6 @@ private fun Step2HealthcareSpecific(
                 )
             }
 
-            item {
-                CheckboxField(
-                    label = "Cần tư vấn trước khi mua",
-                    checked = data.requiresConsultation,
-                    onCheckedChange = { onUpdate(data.copy(requiresConsultation = it)) },
-                    description = "Chỉ bật với sản phẩm cần nhân viên tư vấn thêm."
-                )
-            }
         }
 
         uploadError?.let { message ->

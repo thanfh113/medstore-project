@@ -137,7 +137,13 @@ fun App() {
                     Crossfade(targetState = currentRoute, label = "screen_transition") { route ->
                         when (route) {
                             "dashboard" -> StoreOverviewScreen(viewModel = dashboardViewModel)
-                            "orders" -> OrdersScreen(viewModel = ordersViewModel)
+                            "orders" -> OrdersScreen(
+                                viewModel = ordersViewModel,
+                                onNavigateToPosWithOrder = { orderId, orderCode, total, method ->
+                                    posViewModel.resumeOrderFromOrders(orderId, orderCode, total, method)
+                                    currentRoute = "pos"
+                                }
+                            )
                             "products" -> ProductsScreen(viewModel = productsViewModel)
                             "pos" -> PosWorkspaceScreen(viewModel = posViewModel)
                             "banners" -> BannerManagementScreen(viewModel = bannerViewModel)

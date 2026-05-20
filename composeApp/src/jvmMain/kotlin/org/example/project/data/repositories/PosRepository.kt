@@ -194,6 +194,52 @@ class PosRepository(private val client: HttpClient) {
         Result.failure(IllegalStateException(e.message ?: "Khong the tai trang thai don POS"))
     }
 
+    suspend fun getPendingOrders(): Result<List<PosOrderStatusResult>> = try {
+        val response = executeAuthorized { token ->
+            client.get("$baseUrl/pending") {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }
+        }
+        if (!response.status.isSuccess()) {
+            return Result.failure(IllegalStateException(extractErrorMessage(response.bodyAsText())))
+        }
+        val payload = response.body<PosEnvelope<List<PosOrderStatusResult>>>()
+        Result.success(payload.data)
+    } catch (e: Exception) {
+        Result.failure(IllegalStateException(e.message ?: "Khong the tai danh sach don cho"))
+    }
+
+    suspend fun cancelOrder(orderId: String): Result<Unit> = try {
+        val response = executeAuthorized { token ->
+            client.post("$baseUrl/$orderId/cancel") {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                contentType(ContentType.Application.Json)
+            }
+        }
+        if (!response.status.isSuccess()) {
+            return Result.failure(IllegalStateException(extractErrorMessage(response.bodyAsText())))
+        }
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(IllegalStateException(e.message ?: "Khong the huy don POS"))
+    }
+
+    suspend fun switchToCash(orderId: String): Result<PosOrderStatusResult> = try {
+        val response = executeAuthorized { token ->
+            client.post("$baseUrl/$orderId/switch-to-cash") {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                contentType(ContentType.Application.Json)
+            }
+        }
+        if (!response.status.isSuccess()) {
+            return Result.failure(IllegalStateException(extractErrorMessage(response.bodyAsText())))
+        }
+        val payload = response.body<PosEnvelope<PosOrderStatusResult>>()
+        Result.success(payload.data)
+    } catch (e: Exception) {
+        Result.failure(IllegalStateException(e.message ?: "Khong the chuyen sang tien mat"))
+    }
+
     private suspend fun executeAuthorized(request: suspend (String) -> HttpResponse): HttpResponse {
         val token = authToken?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("Chua dang nhap de thao tac POS")

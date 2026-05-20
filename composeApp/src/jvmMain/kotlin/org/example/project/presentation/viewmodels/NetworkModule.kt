@@ -37,6 +37,7 @@ object NetworkModule {
                     ignoreUnknownKeys = true
                     prettyPrint = true
                     isLenient = true
+                    encodeDefaults = true
                 })
             }
         }
@@ -139,7 +140,7 @@ object NetworkModule {
 
     fun ordersViewModel(): OrdersViewModel {
         ensureRepositoryAuthRetryConfigured()
-        return OrdersViewModel(orderRepository)
+        return OrdersViewModel(orderRepository, posRepository)
     }
 
     fun dashboardViewModel(): DashboardViewModel {

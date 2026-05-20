@@ -45,6 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -74,6 +75,7 @@ import java.awt.image.BufferedImage
 import java.text.NumberFormat
 import java.util.Locale
 import org.example.project.data.models.Product
+import org.example.project.data.repositories.PosOrderStatusResult
 import org.example.project.presentation.viewmodels.PosCartItem
 import org.example.project.presentation.viewmodels.PosUiState
 import org.example.project.presentation.viewmodels.PosViewModel
@@ -88,6 +90,7 @@ fun PosWorkspaceScreen(viewModel: PosViewModel) {
 
     LaunchedEffect(Unit) {
         viewModel.loadProducts()
+        viewModel.loadPendingOrders()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -325,6 +328,15 @@ private fun PosInvoiceSidebar(state: PosUiState, viewModel: PosViewModel) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            if (state.pendingOrders.isNotEmpty()) {
+                PendingOrdersSection(
+                    orders = state.pendingOrders,
+                    hasActiveOrder = state.hasActiveOrder,
+                    onResume = viewModel::resumeOrder,
+                    onCancel = viewModel::cancelOrderById
+                )
+            }
+
             if (state.isChangingPaymentMethod && state.activeOrderCode != null) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -854,16 +866,27 @@ private fun PosPaymentStage(
                         OutlinedButton(
                             onClick = viewModel::backToCheckoutFromPendingPayment,
                             modifier = Modifier
-                                .widthIn(min = 180.dp)
+                                .widthIn(min = 130.dp)
                                 .height(52.dp),
                             enabled = !state.isSubmitting
                         ) {
-                            Text("Quay lại")
+                            Text("Đổi TT")
+                        }
+                        OutlinedButton(
+                            onClick = { viewModel.cancelOrderById(state.activeOrderId!!) },
+                            modifier = Modifier.height(52.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                            enabled = !state.isSubmitting
+                        ) {
+                            Text("Hủy đơn")
                         }
                         Button(
                             onClick = viewModel::confirmCashOrder,
                             modifier = Modifier
-                                .widthIn(min = 240.dp)
+                                .widthIn(min = 180.dp)
                                 .height(52.dp),
                             enabled = !state.isSubmitting
                         ) {
@@ -899,17 +922,38 @@ private fun PosPaymentStage(
                             )
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         OutlinedButton(onClick = viewModel::backToCheckoutFromPendingPayment) {
-                            Text("Quay lại")
+                            Text("Đổi TT")
+                        }
+                        OutlinedButton(
+                            onClick = viewModel::parkActiveOrder,
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.secondary
+                            )
+                        ) {
+                            Text("Để sang chờ")
+                        }
+                        OutlinedButton(
+                            onClick = { viewModel.cancelOrderById(state.activeOrderId!!) },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                        ) {
+                            Text("Hủy đơn")
                         }
                         if (!state.gatewayPaymentUrl.isNullOrBlank()) {
                             Button(onClick = viewModel::openGatewayPaymentPage) {
-                                Text("Mở trang thanh toán")
+                                Text("Mở trang TT")
                             }
                         }
                         OutlinedButton(onClick = viewModel::refreshPendingPaymentStatus) {
-                            Text("Kiểm tra trạng thái")
+                            Text("Kiểm tra")
                         }
                     }
                 }
@@ -919,6 +963,76 @@ private fun PosPaymentStage(
         else -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("Đang chuẩn bị thanh toán...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PendingOrdersSection(
+    orders: List<PosOrderStatusResult>,
+    hasActiveOrder: Boolean,
+    onResume: (PosOrderStatusResult) -> Unit,
+    onCancel: (String) -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                "Đơn chờ thanh toán (${orders.size})",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+            orders.forEach { order ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            order.orderCode,
+                            fontWeight = FontWeight.Medium,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Text(
+                            "${formatPosAmount(order.total)} · ${paymentMethodLabel(order.paymentMethod ?: "?")}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.75f)
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        TextButton(
+                            onClick = { onResume(order) },
+                            enabled = !hasActiveOrder
+                        ) {
+                            Text(
+                                "Tiếp tục",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (hasActiveOrder)
+                                    MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.4f)
+                                else
+                                    MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                        TextButton(onClick = { onCancel(order.id) }) {
+                            Text(
+                                "Hủy",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
             }
         }
     }

@@ -15,6 +15,7 @@ import org.example.project.data.repositories.CouponAdminRepository
 import org.example.project.data.repositories.PosOrderItemRequest
 import org.example.project.data.repositories.CreatePosOrderRequest
 import org.example.project.data.repositories.DesktopOrderRepository
+import org.example.project.data.repositories.PosOrderStatusResult
 import org.example.project.data.repositories.PosRepository
 import org.example.project.data.repositories.ProductRepository
 import org.example.project.printing.PosReceiptData
@@ -56,6 +57,7 @@ data class PosUiState(
     val isArchivingInvoice: Boolean = false,
     val isPollingPayment: Boolean = false,
     val isChangingPaymentMethod: Boolean = false,
+    val pendingOrders: List<PosOrderStatusResult> = emptyList(),
     val successMessage: String? = null,
     val error: String? = null
 ) {
@@ -252,6 +254,7 @@ class PosViewModel(
     }
 
     fun backToCheckoutFromCash() {
+        val orderId = _uiState.value.activeOrderId
         paymentPollingJob?.cancel()
         _uiState.update {
             it.copy(
@@ -275,6 +278,14 @@ class PosViewModel(
                 error = null
             )
         }
+        if (orderId != null) {
+            scope.launch {
+                posRepository.cancelOrder(orderId)
+                loadPendingOrders()
+            }
+        } else {
+            loadPendingOrders()
+        }
     }
 
     fun changePaymentMethodForActiveOrder() {
@@ -285,7 +296,32 @@ class PosViewModel(
             return
         }
         if (state.paymentMethod == "CASH") {
-            _uiState.update { it.copy(error = "Đơn đang chờ thanh toán điện tử. Không thể đổi sang tiền mặt. Hủy đơn và tạo đơn mới nếu muốn thanh toán tiền mặt.") }
+            scope.launch {
+                _uiState.update { it.copy(isSubmitting = true, error = null) }
+                posRepository.switchToCash(orderId).fold(
+                    onSuccess = {
+                        paymentPollingJob?.cancel()
+                        _uiState.update { s ->
+                            s.copy(
+                                isSubmitting = false,
+                                isChangingPaymentMethod = false,
+                                currentPaymentStep = 3,
+                                activeOrderPaymentMethod = "CASH",
+                                activeOrderPaymentStatus = "UNPAID",
+                                gatewayPaymentUrl = null,
+                                gatewayQrContent = null,
+                                gatewayPaymentReference = null,
+                                isGatewayWebViewVisible = false,
+                                isPollingPayment = false,
+                                error = null
+                            )
+                        }
+                    },
+                    onFailure = { err ->
+                        _uiState.update { it.copy(isSubmitting = false, error = err.message ?: "Không thể chuyển sang tiền mặt") }
+                    }
+                )
+            }
             return
         }
         _uiState.update { it.copy(isChangingPaymentMethod = false, currentPaymentStep = 3, error = null) }
@@ -316,6 +352,156 @@ class PosViewModel(
                 isSubmitting = false,
                 successMessage = null,
                 error = null
+            )
+        }
+        loadPendingOrders()
+    }
+
+    fun loadPendingOrders() {
+        scope.launch {
+            posRepository.getPendingOrders().onSuccess { orders ->
+                val activeId = _uiState.value.activeOrderId
+                _uiState.update { it.copy(pendingOrders = orders.filter { o -> o.id != activeId }) }
+            }
+        }
+    }
+
+    fun parkActiveOrder() {
+        paymentPollingJob?.cancel()
+        _uiState.update { state ->
+            state.copy(
+                currentPaymentStep = 0,
+                activeOrderId = null,
+                activeOrderCode = null,
+                activeOrderStatus = null,
+                activeOrderPaymentMethod = null,
+                activeOrderPaymentStatus = null,
+                activeOrderTotal = null,
+                isChangingPaymentMethod = false,
+                cashReceivedInput = "",
+                gatewayPaymentUrl = null,
+                gatewayQrContent = null,
+                gatewayPaymentReference = null,
+                gatewayPaidAt = null,
+                isGatewayWebViewVisible = false,
+                isPollingPayment = false,
+                isSubmitting = false,
+                successMessage = null,
+                error = null
+            )
+        }
+        loadPendingOrders()
+    }
+
+    fun resumeOrderFromOrders(orderId: String, orderCode: String, total: Double, selectedMethod: String) {
+        paymentPollingJob?.cancel()
+        _uiState.update {
+            it.copy(
+                currentPaymentStep = 3,
+                activeOrderId = orderId,
+                activeOrderCode = orderCode,
+                activeOrderStatus = "PENDING",
+                activeOrderPaymentMethod = selectedMethod,
+                activeOrderPaymentStatus = if (selectedMethod == "CASH") "UNPAID" else "PENDING",
+                activeOrderTotal = total,
+                isChangingPaymentMethod = false,
+                cashReceivedInput = "",
+                gatewayPaymentUrl = null,
+                gatewayQrContent = null,
+                gatewayPaymentReference = null,
+                gatewayPaidAt = null,
+                isGatewayWebViewVisible = false,
+                isPollingPayment = selectedMethod != "CASH",
+                successMessage = null,
+                error = null
+            )
+        }
+        if (selectedMethod == "CASH") {
+            scope.launch {
+                posRepository.switchToCash(orderId).onFailure { err ->
+                    _uiState.update { it.copy(error = err.message) }
+                }
+            }
+        } else {
+            initGatewayPaymentForOrder(orderId, selectedMethod)
+        }
+    }
+
+    fun resumeOrder(order: PosOrderStatusResult) {
+        if (_uiState.value.hasActiveOrder) {
+            _uiState.update { it.copy(error = "Vui lòng đặt sang chờ hoặc hoàn tất đơn hiện tại trước") }
+            return
+        }
+        paymentPollingJob?.cancel()
+        _uiState.update {
+            it.copy(
+                currentPaymentStep = 3,
+                activeOrderId = order.id,
+                activeOrderCode = order.orderCode,
+                activeOrderStatus = order.status,
+                activeOrderPaymentMethod = order.paymentMethod,
+                activeOrderPaymentStatus = order.paymentStatus,
+                activeOrderTotal = order.total,
+                isChangingPaymentMethod = false,
+                cashReceivedInput = "",
+                gatewayPaymentUrl = null,
+                gatewayQrContent = null,
+                gatewayPaymentReference = order.paymentReference,
+                gatewayPaidAt = null,
+                isGatewayWebViewVisible = false,
+                isPollingPayment = order.paymentMethod != null && order.paymentMethod != "CASH",
+                successMessage = null,
+                error = null
+            )
+        }
+        if (order.paymentMethod != null && order.paymentMethod != "CASH") {
+            initGatewayPaymentForOrder(order.id, order.paymentMethod)
+        }
+    }
+
+    fun cancelOrderById(orderId: String) {
+        scope.launch {
+            posRepository.cancelOrder(orderId).fold(
+                onSuccess = {
+                    val isActive = _uiState.value.activeOrderId == orderId
+                    if (isActive) {
+                        paymentPollingJob?.cancel()
+                        _uiState.update { state ->
+                            state.copy(
+                                currentPaymentStep = 0,
+                                activeOrderId = null,
+                                activeOrderCode = null,
+                                activeOrderStatus = null,
+                                activeOrderPaymentMethod = null,
+                                activeOrderPaymentStatus = null,
+                                activeOrderTotal = null,
+                                cashReceivedInput = "",
+                                isChangingPaymentMethod = false,
+                                gatewayPaymentUrl = null,
+                                gatewayQrContent = null,
+                                gatewayPaymentReference = null,
+                                gatewayPaidAt = null,
+                                isGatewayWebViewVisible = false,
+                                isPollingPayment = false,
+                                isSubmitting = false,
+                                pendingOrders = state.pendingOrders.filter { it.id != orderId },
+                                successMessage = null,
+                                error = null
+                            )
+                        }
+                    } else {
+                        _uiState.update { state ->
+                            state.copy(
+                                pendingOrders = state.pendingOrders.filter { it.id != orderId },
+                                error = null
+                            )
+                        }
+                    }
+                    loadPendingOrders()
+                },
+                onFailure = { err ->
+                    _uiState.update { it.copy(error = err.message ?: "Không thể hủy đơn") }
+                }
             )
         }
     }
@@ -364,11 +550,6 @@ class PosViewModel(
                 _uiState.update { it.copy(error = "Giỏ hàng trống") }
                 return@launch
             }
-            if (state.hasActiveOrder) {
-                _uiState.update { it.copy(error = "Đang có đơn POS chưa hoàn tất") }
-                return@launch
-            }
-
             _uiState.update { it.copy(isSubmitting = true, error = null, successMessage = null) }
             val request = CreatePosOrderRequest(
                 items = state.cart.map {

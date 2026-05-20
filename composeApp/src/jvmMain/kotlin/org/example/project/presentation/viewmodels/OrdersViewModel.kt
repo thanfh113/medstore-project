@@ -12,6 +12,7 @@ import org.example.project.data.repositories.DesktopOrderRepository
 import org.example.project.data.repositories.InternalOrderDetailDto
 import org.example.project.data.repositories.InternalOrderItemDto
 import org.example.project.data.repositories.InternalOrderSummaryDto
+import org.example.project.data.repositories.PosRepository
 import org.example.project.printing.PosReceiptData
 import org.example.project.printing.ReceiptPdfArchiver
 import java.io.File
@@ -71,6 +72,13 @@ data class OrderDto(
     val items: List<OrderItemDto>
 )
 
+data class PosPaymentDialogState(
+    val orderId: String,
+    val orderCode: String,
+    val total: Double,
+    val selectedMethod: String = "MOMO"
+)
+
 data class OrdersUiState(
     val isLoading: Boolean = false,
     val orders: List<OrderDto> = emptyList(),
@@ -84,11 +92,13 @@ data class OrdersUiState(
     val isUpdatingStatus: Boolean = false,
     val isExportingInvoice: Boolean = false,
     val lastArchivedInvoicePath: String? = null,
-    val invoiceMessage: String? = null
+    val invoiceMessage: String? = null,
+    val posPaymentDialog: PosPaymentDialogState? = null
 )
 
 class OrdersViewModel(
     private val orderRepository: DesktopOrderRepository,
+    private val posRepository: PosRepository? = null,
     private val receiptArchiver: ReceiptPdfArchiver = ReceiptPdfArchiver()
 ) {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -243,6 +253,31 @@ class OrdersViewModel(
                 _uiState.update { it.copy(error = error.message ?: "Không thể mở thư mục hóa đơn") }
             }
         )
+    }
+
+    fun openPosPaymentDialog(order: OrderDto) {
+        _uiState.update {
+            it.copy(
+                posPaymentDialog = PosPaymentDialogState(
+                    orderId = order.id,
+                    orderCode = order.orderCode,
+                    total = order.total,
+                    selectedMethod = if (order.paymentMethod in listOf("MOMO", "ZALOPAY")) order.paymentMethod else "MOMO"
+                ),
+                error = null
+            )
+        }
+    }
+
+    fun dismissPosPaymentDialog() {
+        _uiState.update { it.copy(posPaymentDialog = null) }
+    }
+
+    fun setPosPaymentMethod(method: String) {
+        _uiState.update { state ->
+            val dialog = state.posPaymentDialog ?: return@update state
+            state.copy(posPaymentDialog = dialog.copy(selectedMethod = method))
+        }
     }
 
     fun availableStatuses(selectedChannel: OrderChannel?): List<OrderStatus> {

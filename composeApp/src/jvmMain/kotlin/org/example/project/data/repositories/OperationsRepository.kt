@@ -92,6 +92,7 @@ data class OperationsComplaintDto(
     val userId: String,
     val userName: String? = null,
     val orderId: String,
+    val orderItemId: String? = null,
     val productName: String? = null,
     val type: String,
     val title: String,
@@ -111,6 +112,7 @@ data class OperationsComplaintDto(
     val resolvedAt: String? = null,
     val closedAt: String? = null,
     val orderTotal: Double? = null,
+    val itemTotal: Double? = null,
     val attachments: List<OperationsComplaintAttachmentDto> = emptyList(),
     val messages: List<OperationsComplaintMessageDto> = emptyList(),
     val events: List<OperationsComplaintEventDto> = emptyList()

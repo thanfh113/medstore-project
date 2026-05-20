@@ -94,8 +94,6 @@ fun ProductFormDialog(
     var expDate by remember { mutableStateOf(product?.expDate ?: "") }
     var registrationNumber by remember { mutableStateOf(product?.registrationNumber ?: "") }
     var riskClassification by remember { mutableStateOf(product?.riskClassification ?: RiskClassification.A) }
-    var requiresCertification by remember { mutableStateOf(product?.ceIsoRequired ?: false) }
-    var requiresConsultation by remember { mutableStateOf(product?.requiresTechnicalConsultation ?: false) }
     var isActive by remember { mutableStateOf(product?.isActive ?: true) }
     val existingImages = remember(product?.id) {
         mutableStateListOf<ProductImage>().apply {
@@ -375,16 +373,7 @@ fun ProductFormDialog(
 
                         RiskClassificationDropdown(
                             selectedRiskClassification = riskClassification,
-                            onRiskClassificationSelected = {
-                                riskClassification = it
-                                if (it == RiskClassification.C || it == RiskClassification.D) {
-                                    requiresCertification = true
-                                    requiresConsultation = true
-                                } else {
-                                    requiresCertification = false
-                                    requiresConsultation = false
-                                }
-                            },
+                            onRiskClassificationSelected = { riskClassification = it },
                             enabled = !isLoading
                         )
 
@@ -405,26 +394,6 @@ fun ProductFormDialog(
                             }
 
                             Spacer(modifier = Modifier.height(12.dp))
-                        }
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = requiresCertification || restrictedOnlineRisk,
-                                onCheckedChange = { requiresCertification = it || restrictedOnlineRisk },
-                                enabled = !isLoading && !restrictedOnlineRisk
-                            )
-                            Spacer(modifier = Modifier.padding(4.dp))
-                            Text("Yêu cầu chứng nhận hồ sơ thiết bị")
-                        }
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = requiresConsultation || restrictedOnlineRisk,
-                                onCheckedChange = { requiresConsultation = it || restrictedOnlineRisk },
-                                enabled = !isLoading && !restrictedOnlineRisk
-                            )
-                            Spacer(modifier = Modifier.padding(4.dp))
-                            Text("Cần tư vấn kỹ thuật trước khi bán")
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -632,7 +601,6 @@ fun ProductFormDialog(
                                     brand = brand.trim(),
                                     origin = origin.trim(),
                                     sku = sku.trim().ifBlank { null },
-                                    ceIsoRequired = requiresCertification || restrictedOnlineRisk,
                                     isActive = isActive,
                                     createdAt = product?.createdAt ?: now,
                                     updatedAt = now,
@@ -640,7 +608,6 @@ fun ProductFormDialog(
                                     unit = unit.trim().ifBlank { "Cái" },
                                     registrationNumber = registrationNumber.trim().ifBlank { null },
                                     riskClassification = riskClassification,
-                                    requiresTechnicalConsultation = requiresConsultation || restrictedOnlineRisk,
                                     images = normalizedImages,
                                     certificates = certificates.toList()
                                 ),

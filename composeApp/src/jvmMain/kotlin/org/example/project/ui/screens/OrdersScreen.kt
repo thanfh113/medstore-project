@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -61,10 +62,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import org.example.project.data.repositories.InternalOrderItemDto
 import org.example.project.presentation.viewmodels.OrderChannel
 import org.example.project.presentation.viewmodels.OrderStatus
 import org.example.project.presentation.viewmodels.OrdersViewModel
+import org.example.project.presentation.viewmodels.PosPaymentDialogState
 import org.example.project.ui.components.OrderItemDetailDialog
 import org.example.project.util.formatUtcToVnDateTime
 import org.example.project.util.formatVnDate
@@ -123,7 +126,10 @@ private fun OrderChannelChip(channel: OrderChannel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OrdersScreen(viewModel: OrdersViewModel) {
+fun OrdersScreen(
+    viewModel: OrdersViewModel,
+    onNavigateToPosWithOrder: (orderId: String, orderCode: String, total: Double, method: String) -> Unit = { _, _, _, _ -> }
+) {
     val uiState by viewModel.uiState.collectAsState()
     val statusOptions = viewModel.availableStatuses(uiState.selectedChannel)
     var selectedOrderItem by remember(uiState.selectedOrderDetail?.id) {
@@ -539,27 +545,41 @@ fun OrdersScreen(viewModel: OrdersViewModel) {
                                 when {
                                     order.channel == OrderChannel.POS &&
                                         order.status == OrderStatus.PENDING -> {
-                                        Row(
+                                        Column(
                                             modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
-                                            OutlinedButton(
-                                                onClick = { viewModel.updateOrderStatus(order.id, OrderStatus.CANCELLED) },
-                                                enabled = !uiState.isUpdatingStatus,
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .height(48.dp)
-                                            ) {
-                                                Text("Hủy đơn", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            }
                                             Button(
-                                                onClick = { viewModel.updateOrderStatus(order.id, OrderStatus.DELIVERED) },
+                                                onClick = { viewModel.openPosPaymentDialog(order) },
                                                 enabled = !uiState.isUpdatingStatus,
                                                 modifier = Modifier
-                                                    .weight(1f)
+                                                    .fillMaxWidth()
                                                     .height(48.dp)
                                             ) {
-                                                Text("Hoàn tất đơn", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                Text("Tiếp tục thanh toán", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                OutlinedButton(
+                                                    onClick = { viewModel.updateOrderStatus(order.id, OrderStatus.CANCELLED) },
+                                                    enabled = !uiState.isUpdatingStatus,
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .height(48.dp)
+                                                ) {
+                                                    Text("Hủy đơn", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                }
+                                                Button(
+                                                    onClick = { viewModel.updateOrderStatus(order.id, OrderStatus.DELIVERED) },
+                                                    enabled = !uiState.isUpdatingStatus,
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .height(48.dp)
+                                                ) {
+                                                    Text("Hoàn tất đơn", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                }
                                             }
                                         }
                                     }
@@ -663,4 +683,89 @@ fun OrdersScreen(viewModel: OrdersViewModel) {
             formatVnd = ::formatVND
         )
     }
+
+    uiState.posPaymentDialog?.let { dialog ->
+        PosPaymentDialog(
+            dialog = dialog,
+            onDismiss = viewModel::dismissPosPaymentDialog,
+            onSelectMethod = viewModel::setPosPaymentMethod,
+            onConfirm = { orderId, orderCode, total, method ->
+                viewModel.dismissPosPaymentDialog()
+                onNavigateToPosWithOrder(orderId, orderCode, total, method)
+            }
+        )
+    }
 }
+
+@Composable
+private fun PosPaymentDialog(
+    dialog: PosPaymentDialogState,
+    onDismiss: () -> Unit,
+    onSelectMethod: (String) -> Unit,
+    onConfirm: (orderId: String, orderCode: String, total: Double, method: String) -> Unit
+) {
+    val methods = listOf("MOMO" to "MoMo", "ZALOPAY" to "ZaloPay", "CASH" to "Tiền mặt")
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .width(340.dp)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    "Tiếp tục thanh toán",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    dialog.orderCode,
+                    color = Color.Gray,
+                    fontSize = 13.sp
+                )
+                Text(
+                    formatVND(dialog.total),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    methods.forEach { (value, label) ->
+                        val selected = dialog.selectedMethod == value
+                        OutlinedButton(
+                            onClick = { onSelectMethod(value) },
+                            modifier = Modifier.weight(1f).height(42.dp),
+                            colors = if (selected) ButtonDefaults.outlinedButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            ) else ButtonDefaults.outlinedButtonColors(),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp)
+                        ) {
+                            Text(label, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = { onConfirm(dialog.orderId, dialog.orderCode, dialog.total, dialog.selectedMethod) },
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) {
+                    Text("Xác nhận & Mở POS")
+                }
+
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text("Hủy")
+                }
+            }
+        }
+    }
+}
+

@@ -43,7 +43,6 @@ data class Product(
     val brand: String = "",
     val origin: String = "",
     val sku: String? = null,
-    val ceIsoRequired: Boolean,
     val isActive: Boolean = true,
     val createdAt: String,
     val updatedAt: String,
@@ -51,9 +50,6 @@ data class Product(
     val unit: String = "Cái",
     val registrationNumber: String? = null,
     val riskClassification: RiskClassification = RiskClassification.A,
-    val requiresTechnicalConsultation: Boolean = false,
-    val isFlashSale: Boolean = false,
-    val flashSaleEnd: String? = null,
     val images: List<ProductImage> = emptyList(),
     val certificates: List<ProductCertificate> = emptyList()
 )
@@ -76,28 +72,10 @@ data class ProductCategory(
     val sortOrder: Int = 0
 )
 
-private val coreProductCategoryIds = listOf(
-    "cat-supplies",
-    "cat-bandage",
-    "cat-device",
-    "cat-protect",
-    "cat-instrument",
-    "cat-infection-control",
-    "cat-therapy",
-    "cat-lab"
-)
-
 fun topLevelProductCategories(categories: List<ProductCategory>): List<ProductCategory> {
-    val coreGroups = categories.filter { it.id in coreProductCategoryIds }
-    val decadeGroups = categories.filter { it.sortOrder > 0 && it.sortOrder % 10 == 0 }
-    val groups = coreGroups.ifEmpty {
-        decadeGroups.ifEmpty {
-            categories.filter { it.parentId.isNullOrBlank() }
-        }
-    }
-    return groups.sortedWith(compareBy<ProductCategory> {
-        coreProductCategoryIds.indexOf(it.id).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE
-    }.thenBy { it.sortOrder }.thenBy { it.displayName })
+    return categories
+        .filter { it.parentId.isNullOrBlank() }
+        .sortedWith(compareBy({ it.sortOrder }, { it.displayName }))
 }
 
 fun childProductCategories(
@@ -173,23 +151,3 @@ object MedicalSpecialties {
     )
 }
 
-object ProductCategories {
-    val categories = listOf(
-        ProductCategory("cat-supplies", "dung-cu-tiem-truyen", "Dụng cụ tiêm truyền"),
-        ProductCategory("cat-syringe", "bom-tiem-ong-xi-lanh", "Bơm tiêm - Ống xi lanh", "cat-supplies"),
-        ProductCategory("cat-needle", "kim-tiem", "Kim tiêm", "cat-supplies"),
-        ProductCategory("cat-infusion-set", "day-truyen-dich", "Dây truyền dịch", "cat-supplies"),
-        ProductCategory("cat-bandage", "bang-gac-cam-mau", "Băng gạc - Cầm máu"),
-        ProductCategory("cat-sterile-gauze", "gac-vo-trung", "Gạc vô trùng", "cat-bandage"),
-        ProductCategory("cat-device", "thiet-bi-chan-doan", "Thiết bị chẩn đoán"),
-        ProductCategory("cat-blood-pressure", "may-do-huyet-ap", "Máy đo huyết áp", "cat-device"),
-        ProductCategory("cat-thermometer", "nhiet-ke-y-te", "Nhiệt kế y tế", "cat-device"),
-        ProductCategory("cat-protect", "khau-trang-ppe", "Khẩu trang - PPE"),
-        ProductCategory("cat-mask", "khau-trang-y-te", "Khẩu trang y tế", "cat-protect"),
-        ProductCategory("cat-gloves", "gang-tay-y-te", "Găng tay y tế", "cat-protect"),
-        ProductCategory("cat-instrument", "thiet-bi-phau-thuat", "Thiết bị phẫu thuật"),
-        ProductCategory("cat-infection-control", "chong-nhiem-khuan", "Chống nhiễm khuẩn"),
-        ProductCategory("cat-therapy", "phuc-hoi-chuc-nang", "Phục hồi chức năng"),
-        ProductCategory("cat-lab", "vat-tu-xet-nghiem", "Vật tư xét nghiệm")
-    )
-}
