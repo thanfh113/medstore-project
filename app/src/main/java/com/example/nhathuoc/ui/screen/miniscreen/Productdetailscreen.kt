@@ -104,8 +104,6 @@ data class ProductDetail(
     val productType: String = "MEDICINE",
     val registrationNumber: String? = null,
     val riskClassification: String = "A",
-    val requiresCertification: Boolean = false,
-    val requiresConsultation: Boolean = false,
     val certificates: List<ProductCertificate> = emptyList()
 )
 
@@ -1406,7 +1404,7 @@ private fun CertificatePreviewRow(cert: ProductCertificate) {
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f))
             ) {
                 Text(
-                    if (isPdf) "Tải" else "Mở",
+                    "Mở",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold,
@@ -1444,18 +1442,15 @@ private fun Context.openCertificateDocument(url: String, title: String, isPdf: B
     val targetUrl = BackendUrlResolver.resolveFileUrl(url)
     if (targetUrl.isBlank()) return
 
-    if (isPdf || targetUrl.isPdfUrl()) {
-        downloadCertificateDocument(targetUrl, title, isPdf = true)
-        return
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {
+        if (isPdf || targetUrl.isPdfUrl()) setDataAndType(Uri.parse(targetUrl), "application/pdf")
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
-
     runCatching {
-        startActivity(
-            Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
+        startActivity(intent)
     }.onFailure {
-        Toast.makeText(this, "Không mở được tài liệu, đang tải xuống", Toast.LENGTH_SHORT).show()
-        downloadCertificateDocument(targetUrl, title, isPdf = false)
+        Toast.makeText(this, "Không mở được, đang tải xuống", Toast.LENGTH_SHORT).show()
+        downloadCertificateDocument(targetUrl, title, isPdf)
     }
 }
 

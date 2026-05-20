@@ -322,9 +322,7 @@ fun AppnavHost(navController: NavHostController) {
                     stockQuantity = dto.stock,
                     productType = dto.productType,
                     registrationNumber = dto.registrationNumber,
-                    riskClassification = dto.riskClassification,
-                    requiresCertification = dto.requiresCertification || dto.isPrescription,
-                    requiresConsultation = dto.requiresConsultation
+                    riskClassification = dto.riskClassification
                 )
 
                 ProductDetailScreen(
@@ -337,9 +335,6 @@ fun AppnavHost(navController: NavHostController) {
                         } else {
                             navController.navigate("AiChatScreen?productId=${Uri.encode(dto.id)}")
                         }
-                    },
-                    onFindPharmacy = {
-                        Toast.makeText(context, "Tính năng tìm cửa hàng gần đây đang phát triển", Toast.LENGTH_SHORT).show()
                     },
                     onAddToCart = { _ ->
                         Toast.makeText(
@@ -469,8 +464,6 @@ fun AppnavHost(navController: NavHostController) {
                             productType = dto.productType,
                             registrationNumber = dto.registrationNumber,
                             riskClassification = dto.riskClassification,
-                            requiresCertification = dto.requiresCertification || dto.isPrescription,
-                            requiresConsultation = dto.requiresConsultation,
                             certificates = certificates.map { cert ->
                                 com.example.nhathuoc.ui.screen.miniscreen.ProductCertificate(
                                     id = cert.id,
@@ -506,9 +499,6 @@ fun AppnavHost(navController: NavHostController) {
                                 } else {
                                     navController.navigate("AiChatScreen?productId=${Uri.encode(dto.id)}")
                                 }
-                            },
-                            onFindPharmacy = {
-                                Toast.makeText(context, "Tính năng tìm cửa hàng gần đây đang phát triển", Toast.LENGTH_SHORT).show()
                             },
                             onAddToCart = { quantity ->
                                 addToCartAction(quantity)

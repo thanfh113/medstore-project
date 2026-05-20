@@ -36,12 +36,7 @@ data class ProductDto(
     val productType: String = "MEDICINE", // Added: MEDICINE, SUPPLEMENT, DEVICE, etc.
     val registrationNumber: String? = null, // Added for regulatory compliance
     val riskClassification: String = "A", // Medical device risk class A|B|C|D
-    val requiresCertification: Boolean = false,
     val isPrescription: Boolean = false, // Added for prescription requirement
-    val requiresConsultation: Boolean = false, // Added for consultation requirement
-    val isFlashSale: Boolean = false,
-    val flashSaleEnd: String? = null, // Added for flash sale end time
-    val isBestSeller: Boolean = false,
     val stock: Int,
     val isActive: Boolean = true,
     val createdAt: String,

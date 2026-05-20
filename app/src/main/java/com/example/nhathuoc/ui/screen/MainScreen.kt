@@ -38,6 +38,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -150,6 +153,7 @@ fun MainScreen(navController: NavController) {
             }
         }
 
+        val context = LocalContext.current
         ConsultBottomSheet(
             visible = showConsultSheet,
             onDismiss = { showConsultSheet = false },
@@ -160,6 +164,10 @@ fun MainScreen(navController: NavController) {
             onChatClick = {
                 showConsultSheet = false
                 navController.navigate("ChatHistoryScreen")
+            },
+            onPhoneClick = {
+                showConsultSheet = false
+                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:18001234")))
             }
         )
     }
@@ -171,7 +179,8 @@ fun ConsultBottomSheet(
     visible: Boolean,
     onDismiss: () -> Unit,
     onAiChatClick: () -> Unit = {},
-    onChatClick: () -> Unit = {}
+    onChatClick: () -> Unit = {},
+    onPhoneClick: () -> Unit = {}
 ) {
     val sheetHeightDp = 520.dp
     val density       = LocalDensity.current
@@ -232,7 +241,8 @@ fun ConsultBottomSheet(
                         onDismiss()
                     },
                     onAiChatClick = onAiChatClick,
-                    onChatClick = onChatClick
+                    onChatClick = onChatClick,
+                    onPhoneClick = onPhoneClick
                 )
             }
         }
@@ -243,7 +253,8 @@ fun ConsultBottomSheet(
 private fun ConsultSheetContent(
     onClose: () -> Unit,
     onAiChatClick: () -> Unit = {},
-    onChatClick: () -> Unit = {}
+    onChatClick: () -> Unit = {},
+    onPhoneClick: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -409,7 +420,7 @@ private fun ConsultSheetContent(
 
         // Gọi hỗ trợ kỹ thuật button
         Surface(
-            onClick = {},
+            onClick = onPhoneClick,
             shape = RoundedCornerShape(50),
             color = MaterialTheme.colorScheme.surfaceVariant,
             modifier = Modifier

@@ -55,6 +55,16 @@ fun CategoryProductScreen(
     var sortMode by remember { mutableStateOf("price_asc") }
     val sortOptions = listOf("price_asc" to "Giá thấp", "price_desc" to "Giá cao", "name" to "Tên A-Z")
 
+    var searchActive by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    val displayedProducts = remember(products, searchQuery) {
+        if (searchQuery.isBlank()) products
+        else products.filter {
+            it.name.contains(searchQuery, ignoreCase = true) ||
+            it.brand.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         containerColor = MaterialTheme.colorScheme.background
@@ -65,47 +75,86 @@ fun CategoryProductScreen(
                 .padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             // ── TopBar ─────────────────────────────────────────────────────
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Brush.horizontalGradient(listOf(Color(0xFF2E7D32), Color(0xFF66BB6A))))
                     .statusBarsPadding()
-                    .padding(vertical = 8.dp)
+                    .padding(bottom = if (searchActive) 10.dp else 0.dp)
             ) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.align(Alignment.CenterStart)
-                ) {
-                    Icon(Icons.Filled.ArrowBackIosNew, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                }
-                Text(
-                    categoryTitle,
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    lineHeight = 20.sp,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
+                Box(
                     modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(horizontal = 80.dp)
-                )
-                Row(
-                    modifier = Modifier.align(Alignment.CenterEnd),
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
                 ) {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Outlined.Search, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    ) {
+                        Icon(Icons.Filled.ArrowBackIosNew, null, tint = Color.White, modifier = Modifier.size(20.dp))
                     }
-                    IconButton(onClick = { navController?.navigate("CartScreen") }) {
-                        Icon(
-                            Icons.Outlined.ShoppingCart,
-                            null,
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
-                        )
+                    Text(
+                        categoryTitle,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        lineHeight = 20.sp,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 80.dp)
+                    )
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = {
+                            searchActive = !searchActive
+                            if (!searchActive) searchQuery = ""
+                        }) {
+                            Icon(
+                                if (searchActive) Icons.Filled.Close else Icons.Outlined.Search,
+                                null, tint = Color.White, modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        IconButton(onClick = { navController?.navigate("CartScreen") }) {
+                            Icon(Icons.Outlined.ShoppingCart, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                        }
                     }
+                }
+                if (searchActive) {
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 14.sp),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                        decorationBox = { innerTextField ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.Search, null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Box(Modifier.weight(1f)) {
+                                    if (searchQuery.isEmpty()) Text("Tìm trong danh mục...", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
+                                    innerTextField()
+                                }
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(20.dp)) {
+                                        Icon(Icons.Filled.Close, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
@@ -152,7 +201,7 @@ fun CategoryProductScreen(
                     }
                 }
                 is UiState.Success -> {
-                    if (products.isEmpty()) {
+                    if (displayedProducts.isEmpty()) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -165,7 +214,11 @@ fun CategoryProductScreen(
                                     modifier = Modifier.size(64.dp)
                                 )
                                 Spacer(Modifier.height(12.dp))
-                                Text("Không có sản phẩm trong danh mục này", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    if (searchQuery.isNotBlank()) "Không tìm thấy sản phẩm phù hợp"
+                                    else "Không có sản phẩm trong danh mục này",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     } else {
@@ -203,7 +256,7 @@ fun CategoryProductScreen(
                             }
 
                             // Product list
-                            items(products) { product ->
+                            items(displayedProducts) { product ->
                                 CategoryProductCard(
                                     product = product,
                                     onClick = {

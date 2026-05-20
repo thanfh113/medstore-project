@@ -26,8 +26,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocalPharmacy
 import androidx.compose.material.icons.outlined.HealthAndSafety
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -320,31 +324,56 @@ private fun ChatContextCards(
         }
 
         session.consultantName?.takeIf { it.isNotBlank() }?.let { consultantName ->
-            Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer, tonalElevation = 1.dp) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text("Nhân viên đang tư vấn", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(consultantName, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    session.consultantQualificationTitle?.takeIf { it.isNotBlank() }?.let {
-                        Text(it, fontSize = 13.sp)
-                    }
-                    session.consultantQualificationInstitution?.takeIf { it.isNotBlank() }?.let {
-                        Text("Đơn vị cấp: $it", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text(
-                        if (session.consultantVerified == true) "Hồ sơ chuyên môn đã xác minh" else "Hồ sơ chuyên môn chưa xác minh",
-                        fontSize = 12.sp,
-                        color = if (session.consultantVerified == true) MaterialTheme.colorScheme.primary else Color(0xFFE65100)
-                    )
-                    session.consultantQualificationDocumentUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                        AssistChip(
-                            onClick = { onOpenConsultantDocument(url) },
-                            label = { Text("Xem chứng chỉ chuyên môn") }
+            var expanded by remember { mutableStateOf(false) }
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 1.dp
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { expanded = !expanded }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Nhân viên đang tư vấn", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(consultantName, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Icon(
+                            imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (expanded) "Thu gọn" else "Mở rộng",
+                            tint = MaterialTheme.colorScheme.primary
                         )
+                    }
+                    if (expanded) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            session.consultantQualificationTitle?.takeIf { it.isNotBlank() }?.let {
+                                Text(it, fontSize = 13.sp)
+                            }
+                            session.consultantQualificationInstitution?.takeIf { it.isNotBlank() }?.let {
+                                Text("Đơn vị cấp: $it", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text(
+                                if (session.consultantVerified == true) "Hồ sơ chuyên môn đã xác minh" else "Hồ sơ chuyên môn chưa xác minh",
+                                fontSize = 12.sp,
+                                color = if (session.consultantVerified == true) MaterialTheme.colorScheme.primary else Color(0xFFE65100)
+                            )
+                            session.consultantQualificationDocumentUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                                AssistChip(
+                                    onClick = { onOpenConsultantDocument(url) },
+                                    label = { Text("Xem chứng chỉ chuyên môn") }
+                                )
+                            }
+                        }
                     }
                 }
             }

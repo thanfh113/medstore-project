@@ -54,7 +54,7 @@ private val GreenTopRw = Color(0xFF2E7D32)
 private val GoldColorRw = Color(0xFFFFAB00)
 
 // ── Point-tier filter labels ──────────────────────────────────────────────
-private val pointFilters = listOf("1.500 điểm", "3.000 điểm", "4.500 điểm", "6.000 điểm", "10.000 điểm")
+private val pointFilters = listOf("1.500 điểm", "3.000 điểm", "4.500 điểm", "6.000 điểm", "10.000 điểm", "Tất cả")
 
 // ── Fallback UI model (used only when API products list is empty) ─────────
 data class RewardProduct(
@@ -67,12 +67,7 @@ data class RewardProduct(
     val pointCost: Int
 )
 
-private val fallbackRewardProducts = listOf(
-    RewardProduct(1, Icons.Outlined.MedicalServices, Color(0xFF1565C0), Color(0xFFE3F2FD), "Bộ dụng cụ y tế cơ bản", "2.000đ / Bộ", 3000),
-    RewardProduct(2, Icons.Outlined.HealthAndSafety, Color(0xFF2E7D32), Color(0xFFE8F5E9), "Bộ kit kiểm tra đường huyết (10 que thử)", "7.000đ / Bộ", 10000),
-    RewardProduct(3, Icons.Outlined.Science,         Color(0xFF1565C0), Color(0xFFE3F2FD), "Kẽm hữu cơ Zinc Gluconate tăng miễn dịch", "4.000đ / Hộp", 6000),
-    RewardProduct(4, Icons.Outlined.MonitorHeart,    Color(0xFFE53935), Color(0xFFFFEBEE), "Omega-3 hỗ trợ tim mạch 1000mg 100 viên", "5.000đ / Hộp", 7500),
-)
+private val fallbackRewardProducts = emptyList<RewardProduct>()
 
 private enum class RewardScreenTab {
     REWARDS,
@@ -128,8 +123,8 @@ fun RewardScreen(
 
     // Tier filter
     val tierPts = selectedFilter.replace(".", "").replace(" điểm", "").trim().toIntOrNull() ?: 0
-    val filteredApi      = apiProducts.filter { it.pointCost <= tierPts + 1500 }
-    val filteredFallback = fallbackRewardProducts.filter { it.pointCost <= tierPts + 1500 }
+    val filteredApi      = if (selectedFilter == "Tất cả") apiProducts else apiProducts.filter { it.pointCost <= tierPts + 1500 }
+    val filteredFallback = if (selectedFilter == "Tất cả") fallbackRewardProducts else fallbackRewardProducts.filter { it.pointCost <= tierPts + 1500 }
     val totalEarnedPoints = transactions.filter { it.points > 0 }.sumOf { it.points }
     val totalUsedPoints = transactions.filter { it.points < 0 }.sumOf { -it.points }
 

@@ -49,53 +49,14 @@ data class DrawerMenuItem(
 
 val defaultDrawerMenuItems = listOf(
     DrawerMenuItem("Thông báo"),
-    DrawerMenuItem("Dụng cụ tiêm truyền", categoryId = "cat-supplies", children = listOf(
-        DrawerMenuItem("Bơm tiêm - Ống xi lanh", categoryId = "cat-syringe"),
-        DrawerMenuItem("Kim tiêm", categoryId = "cat-needle"),
-        DrawerMenuItem("Dây truyền dịch", categoryId = "cat-infusion-set"),
-        DrawerMenuItem("Ống thông", categoryId = "cat-tube"),
-    )),
-    DrawerMenuItem("Băng gạc - Cầm máu", categoryId = "cat-bandage", children = listOf(
-        DrawerMenuItem("Gạc vô trùng", categoryId = "cat-sterile-gauze"),
-        DrawerMenuItem("Băng dính y tế", categoryId = "cat-medical-tape"),
-        DrawerMenuItem("Băng cuộn", categoryId = "cat-bandage-roll"),
-        DrawerMenuItem("Băng keo thấm tẩm kháng sinh", categoryId = "cat-antimicrobial-dressing"),
-    )),
-    DrawerMenuItem("Thiết bị chẩn đoán", categoryId = "cat-device", children = listOf(
-        DrawerMenuItem("Máy theo dõi - Máy thở", categoryId = "cat-monitor"),
-        DrawerMenuItem("Máy đo huyết áp", categoryId = "cat-blood-pressure"),
-        DrawerMenuItem("Nhiệt kế y tế", categoryId = "cat-thermometer"),
-        DrawerMenuItem("Máy đo SpO2", categoryId = "cat-spo2"),
-        DrawerMenuItem("Máy đo đường huyết", categoryId = "cat-glucose-meter"),
-    )),
-    DrawerMenuItem("Khẩu trang - PPE", categoryId = "cat-protect", children = listOf(
-        DrawerMenuItem("Khẩu trang y tế", categoryId = "cat-mask"),
-        DrawerMenuItem("Khẩu trang N95", categoryId = "cat-n95-mask"),
-        DrawerMenuItem("Găng tay y tế", categoryId = "cat-gloves"),
-        DrawerMenuItem("Quần áo bảo hộ", categoryId = "cat-protective-clothing"),
-        DrawerMenuItem("Kính bảo hộ", categoryId = "cat-goggles"),
-    )),
-    DrawerMenuItem("Thiết bị phẫu thuật", categoryId = "cat-instrument", children = listOf(
-        DrawerMenuItem("Dụng cụ vi phẫu", categoryId = "cat-surgical-tools"),
-        DrawerMenuItem("Kẹp phẫu thuật", categoryId = "cat-forceps"),
-        DrawerMenuItem("Dây khâu", categoryId = "cat-suture"),
-        DrawerMenuItem("Van cầm máu", categoryId = "cat-hemostatic-valve"),
-    )),
-    DrawerMenuItem("Chống nhiễm khuẩn", categoryId = "cat-infection-control", children = listOf(
-        DrawerMenuItem("Dung dịch sát khuẩn", categoryId = "cat-sanitizer"),
-        DrawerMenuItem("Dung dịch khử khuẩn", categoryId = "cat-disinfectant"),
-        DrawerMenuItem("Vật tư tiệt khuẩn", categoryId = "cat-sterilization"),
-    )),
-    DrawerMenuItem("Phục hồi chức năng", categoryId = "cat-therapy", children = listOf(
-        DrawerMenuItem("Nạng - Xe lăn", categoryId = "cat-crutch-wheelchair"),
-        DrawerMenuItem("Dụng cụ vật lý trị liệu", categoryId = "cat-physio-tools"),
-        DrawerMenuItem("Nẹp chỉnh hình", categoryId = "cat-orthopedic-brace"),
-    )),
-    DrawerMenuItem("Vật tư xét nghiệm", categoryId = "cat-lab", children = listOf(
-        DrawerMenuItem("Kit xét nghiệm", categoryId = "cat-test-kit"),
-        DrawerMenuItem("Vật tư phòng xét nghiệm", categoryId = "cat-lab-consumables"),
-        DrawerMenuItem("Dụng cụ lấy mẫu", categoryId = "cat-sample-container"),
-    )),
+    DrawerMenuItem("Dụng cụ tiêm truyền",   categoryId = "cat-supplies"),
+    DrawerMenuItem("Băng gạc - Cầm máu",     categoryId = "cat-bandage"),
+    DrawerMenuItem("Thiết bị chẩn đoán",     categoryId = "cat-device"),
+    DrawerMenuItem("Khẩu trang - PPE",       categoryId = "cat-protect"),
+    DrawerMenuItem("Thiết bị phẫu thuật",    categoryId = "cat-instrument"),
+    DrawerMenuItem("Chống nhiễm khuẩn",      categoryId = "cat-infection-control"),
+    DrawerMenuItem("Phục hồi chức năng",     categoryId = "cat-therapy"),
+    DrawerMenuItem("Vật tư xét nghiệm",      categoryId = "cat-lab"),
 )
 
 

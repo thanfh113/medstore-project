@@ -57,8 +57,7 @@ val mockProducts = listOf(
             imageUrl = null, category = mockCat,
             productType = "DEVICE",
             registrationNumber = "QLQN-0001-18",
-            isPrescription = false, requiresConsultation = false,
-            isFlashSale = true, isBestSeller = true,
+            isPrescription = false,
             stock = 15, createdAt = mockNow, updatedAt = mockNow
         ),
         imageResIds = listOf(
@@ -87,8 +86,7 @@ val mockProducts = listOf(
             imageUrl = null, category = mockCat,
             productType = "SUPPLY",
             registrationNumber = null,
-            isPrescription = false, requiresConsultation = false,
-            isFlashSale = true, isBestSeller = false,
+            isPrescription = false,
             stock = 200, createdAt = mockNow, updatedAt = mockNow
         ),
         imageResIds = listOf(
@@ -117,8 +115,7 @@ val mockProducts = listOf(
             imageUrl = null, category = mockCat,
             productType = "DEVICE",
             registrationNumber = "QLQN-0023-20",
-            isPrescription = false, requiresConsultation = false,
-            isFlashSale = false, isBestSeller = true,
+            isPrescription = false,
             stock = 30, createdAt = mockNow, updatedAt = mockNow
         ),
         imageResIds = listOf(
@@ -147,8 +144,7 @@ val mockProducts = listOf(
             imageUrl = null, category = mockCat,
             productType = "DEVICE",
             registrationNumber = null,
-            isPrescription = false, requiresConsultation = false,
-            isFlashSale = true, isBestSeller = false,
+            isPrescription = false,
             stock = 50, createdAt = mockNow, updatedAt = mockNow
         ),
         imageResIds = listOf(
@@ -176,8 +172,7 @@ val mockProducts = listOf(
             imageUrl = null, category = mockCat,
             productType = "SUPPLY",
             registrationNumber = null,
-            isPrescription = false, requiresConsultation = false,
-            isFlashSale = false, isBestSeller = true,
+            isPrescription = false,
             stock = 100, createdAt = mockNow, updatedAt = mockNow
         ),
         imageResIds = listOf(
@@ -206,8 +201,7 @@ val mockProducts = listOf(
             imageUrl = null, category = mockCat,
             productType = "SUPPLY",
             registrationNumber = null,
-            isPrescription = false, requiresConsultation = false,
-            isFlashSale = true, isBestSeller = false,
+            isPrescription = false,
             stock = 80, createdAt = mockNow, updatedAt = mockNow
         ),
         imageResIds = listOf(

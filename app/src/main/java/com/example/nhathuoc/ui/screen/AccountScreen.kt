@@ -58,30 +58,10 @@ private val orderStatuses = listOf(
 )
 
 private val accountMenuItems = listOf(
-    MenuItem(Icons.Outlined.QrCode2,         "Mã QR của tôi"),
     MenuItem(Icons.Outlined.AccountCircle,   "Thông tin cá nhân"),
     MenuItem(Icons.Outlined.Lock,            "Đổi mật khẩu"),
     MenuItem(Icons.Outlined.LocationOn,      "Quản lý sổ địa chỉ"),
-    MenuItem(Icons.Outlined.CreditCard,      "Phương thức thanh toán"),
     MenuItem(Icons.Outlined.SupportAgent,    "Khiếu nại của tôi"),
-    MenuItem(Icons.Outlined.MedicalServices, "Thiết bị y tế của tôi"),
-)
-
-private val aboutMenuItems = listOf(
-    MenuItem(Icons.Outlined.HelpOutline,         "Giới thiệu"),
-    MenuItem(Icons.Outlined.VerifiedUser,        "Giấy phép kinh doanh"),
-    MenuItem(Icons.Outlined.Article,             "Quy chế hoạt động"),
-    MenuItem(Icons.Outlined.LocalShipping,       "Chính sách đặt cọc"),
-    MenuItem(Icons.Outlined.Edit,                "Chính sách nội dung"),
-    MenuItem(Icons.Outlined.Autorenew,           "Chính sách đổi trả vật tư"),
-    MenuItem(Icons.Outlined.MedicalServices,     "Chính sách hoàn hủy vật tư y tế"),
-    MenuItem(Icons.Outlined.DeliveryDining,      "Chính sách giao hàng"),
-    MenuItem(Icons.Outlined.Shield,              "Chính sách bảo mật"),
-    MenuItem(Icons.Outlined.AccountBalanceWallet,"Chính sách thanh toán"),
-    MenuItem(Icons.Outlined.AdminPanelSettings,  "Bảo mật dữ liệu cá nhân"),
-    MenuItem(Icons.Outlined.Stars,               "Trung tâm bảo hành thiết bị y tế"),
-    MenuItem(Icons.Outlined.CardGiftcard,        "Thể lệ chương trình tích điểm"),
-    MenuItem(Icons.Outlined.HeadsetMic,          "Liên hệ & Hỗ trợ"),
 )
 
 // ── Screen ─────────────────────────────────────────────────────────────────
@@ -336,12 +316,6 @@ private fun AuthenticatedAccountContent(
             SectionLabel(title = "Tài khoản")
             Spacer(Modifier.height(6.dp))
             MenuGroup(items = accountMenuItems, navController = navController)
-
-            // ── Về MedStore ─────────────────────────────────────────
-            Spacer(Modifier.height(16.dp))
-            SectionLabel(title = "Về MedStore")
-            Spacer(Modifier.height(6.dp))
-            MenuGroup(items = aboutMenuItems, navController = navController)
 
             // ── Đăng xuất ────────────────────────────────────────────
             Spacer(Modifier.height(20.dp))

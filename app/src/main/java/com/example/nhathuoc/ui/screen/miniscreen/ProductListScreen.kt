@@ -61,6 +61,7 @@ fun ProductListScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val priceRange by viewModel.priceRange.collectAsState()
     val sortBy by viewModel.sortBy.collectAsState()
+    val selectedCategory by viewModel.selectedCategory.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
 
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -69,7 +70,7 @@ fun ProductListScreen(
     LaunchedEffect(state) { if (state !is UiState.Loading) isRefreshing = false }
 
     // Detect if any filter is active for badge on filter button
-    val filterActive = priceRange.start > 0 || priceRange.endInclusive < 1000000 || sortBy != null
+    val filterActive = priceRange.start > 0 || priceRange.endInclusive < 1000000 || sortBy != null || selectedCategory != null
 
     // Debounce search
     LaunchedEffect(searchText) {
@@ -138,10 +139,12 @@ fun ProductListScreen(
             FilterSheetContent(
                 priceRange = priceRange,
                 currentSortBy = sortBy,
-                onSortSelect = { viewModel.setSortBy(it) },
-                onPriceChange = { min, max -> viewModel.setPriceRange(min, max) },
+                currentCategory = selectedCategory,
                 onReset = { viewModel.resetFilters(); searchText = "" },
-                onApply = { showFilterSheet = false }
+                onApplyFilters = { category, sort, min, max ->
+                    viewModel.applyFilters(category, sort, min, max)
+                    showFilterSheet = false
+                }
             )
         }
     }
@@ -378,28 +381,94 @@ private fun ProductListCard(product: ProductDto, onClick: () -> Unit) {
     }
 }
 
+private val categoryFilterOptions = listOf(
+    "cat-supplies"          to "Dụng cụ tiêm truyền",
+    "cat-bandage"           to "Băng gạc - Cầm máu",
+    "cat-device"            to "Thiết bị chẩn đoán",
+    "cat-protect"           to "Khẩu trang - PPE",
+    "cat-instrument"        to "Thiết bị phẫu thuật",
+    "cat-infection-control" to "Chống nhiễm khuẩn",
+    "cat-therapy"           to "Phục hồi chức năng",
+    "cat-lab"               to "Vật tư xét nghiệm",
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterSheetContent(
     priceRange: ClosedFloatingPointRange<Double>,
     currentSortBy: String?,
-    onSortSelect: (String?) -> Unit,
-    onPriceChange: (Double, Double) -> Unit,
+    currentCategory: String?,
     onReset: () -> Unit,
-    onApply: () -> Unit
+    onApplyFilters: (category: String?, sortBy: String?, minPrice: Double, maxPrice: Double) -> Unit
 ) {
     var localMinPrice by remember { mutableStateOf(priceRange.start.toInt().toString()) }
     var localMaxPrice by remember { mutableStateOf(priceRange.endInclusive.toInt().toString()) }
     var localSort by remember { mutableStateOf(currentSortBy) }
+    var localCategory by remember { mutableStateOf(currentCategory) }
+    var categoryDropdownExpanded by remember { mutableStateOf(false) }
+
+    val selectedCategoryLabel = categoryFilterOptions.firstOrNull { it.first == localCategory }?.second ?: "Tất cả danh mục"
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
             .padding(bottom = 32.dp)
             .navigationBarsPadding()
     ) {
         Text("Bộ lọc & Sắp xếp", fontSize = 17.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
+
+        // Category dropdown
+        Text("Danh mục", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(8.dp))
+        ExposedDropdownMenuBox(
+            expanded = categoryDropdownExpanded,
+            onExpandedChange = { categoryDropdownExpanded = it }
+        ) {
+            OutlinedTextField(
+                value = selectedCategoryLabel,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
+                singleLine = true,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = categoryDropdownExpanded,
+                onDismissRequest = { categoryDropdownExpanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Tất cả danh mục", fontSize = 14.sp) },
+                    onClick = {
+                        localCategory = null
+                        categoryDropdownExpanded = false
+                    }
+                )
+                categoryFilterOptions.forEach { (id, label) ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                label,
+                                fontSize = 14.sp,
+                                fontWeight = if (localCategory == id) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (localCategory == id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        onClick = {
+                            localCategory = id
+                            categoryDropdownExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
 
         // Sort
         Text("Sắp xếp theo", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -453,6 +522,7 @@ private fun FilterSheetContent(
                     localMinPrice = "0"
                     localMaxPrice = "1000000"
                     localSort = null
+                    localCategory = null
                     onReset()
                 },
                 modifier = Modifier.weight(1f),
@@ -462,11 +532,9 @@ private fun FilterSheetContent(
             }
             Button(
                 onClick = {
-                    onSortSelect(localSort)
                     val min = localMinPrice.toDoubleOrNull() ?: 0.0
                     val max = localMaxPrice.toDoubleOrNull() ?: 1000000.0
-                    onPriceChange(min, max)
-                    onApply()
+                    onApplyFilters(localCategory, localSort, min, max)
                 },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(50),

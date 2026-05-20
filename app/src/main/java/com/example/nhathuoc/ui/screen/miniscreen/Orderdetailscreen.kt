@@ -146,12 +146,23 @@ fun OrderDetailScreen(
     }
 
     if (showComplaintDialog && orderState is UiState.Success) {
+        val order = (orderState as UiState.Success<OrderDto>).data
+        val dialogComplaints = (complaintsListState as? UiState.Success)?.data
+            ?.filter { it.orderId == orderId } ?: emptyList()
+        val complainedItemIds = dialogComplaints.mapNotNull { it.orderItemId }.toSet()
+        val availableItems = order.items.filter { it.id !in complainedItemIds && !it.hasReviewed }
+        val hasWholeOrderComplaint = dialogComplaints.any { it.orderItemId == null }
         ComplaintDialog(
-            order = (orderState as UiState.Success<OrderDto>).data,
+            order = order,
+            availableItems = availableItems,
+            hasWholeOrderComplaint = hasWholeOrderComplaint,
             state = complaintState,
             onDismiss = { showComplaintDialog = false; viewModel.clearComplaintState() },
-            onSubmit = { type, title, desc, attachments ->
-                viewModel.createComplaint(orderId = orderId, type = type, title = title, description = desc, attachmentUris = attachments)
+            onSubmit = { type, title, desc, attachments, itemId, productId ->
+                viewModel.createComplaint(
+                    orderId = orderId, type = type, title = title, description = desc,
+                    attachmentUris = attachments, orderItemId = itemId, productId = productId
+                )
             }
         )
     }
@@ -177,17 +188,12 @@ fun OrderDetailScreen(
             is UiState.Success -> {
                 val order = state.data
                 val closedStatuses = setOf("RESOLVED", "REJECTED", "CANCELLED")
-                val existingActiveComplaint = (complaintsListState as? UiState.Success)?.data?.firstOrNull {
-                    it.orderId == orderId && it.status !in closedStatuses
-                }
-                val closedComplaint = (complaintsListState as? UiState.Success)?.data?.firstOrNull {
-                    it.orderId == orderId && it.status in closedStatuses
-                }
+                val allComplaintsForOrder = (complaintsListState as? UiState.Success)?.data
+                    ?.filter { it.orderId == orderId } ?: emptyList()
                 OrderDetailContent(
                     order = order,
                     isBusy = isLoading,
-                    existingActiveComplaint = existingActiveComplaint,
-                    closedComplaint = closedComplaint,
+                    allComplaintsForOrder = allComplaintsForOrder,
                     onRetry = { viewModel.getOrderById(orderId) },
                     onCancelOrder = { showCancelDialog = true },
                     onConfirmReceived = { showReceivedDialog = true },
@@ -205,8 +211,7 @@ fun OrderDetailScreen(
 private fun OrderDetailContent(
     order: OrderDto,
     isBusy: Boolean,
-    existingActiveComplaint: ComplaintDto?,
-    closedComplaint: ComplaintDto?,
+    allComplaintsForOrder: List<ComplaintDto>,
     onRetry: () -> Unit,
     onCancelOrder: () -> Unit,
     onConfirmReceived: () -> Unit,
@@ -218,25 +223,27 @@ private fun OrderDetailContent(
     val status = order.status.uppercase()
     val canCancel = status in setOf("PENDING", "PROCESSING")
     val canConfirmReceived = status == "SHIPPING"
-    // Không cho đánh giá nếu đơn có khiếu nại (dù đang mở hay đã đóng)
-    val hasAnyComplaint = existingActiveComplaint != null || closedComplaint != null
-    val canReviewProducts = status == "DELIVERED" && !hasAnyComplaint && run {
+    // Per-item complaint tracking
+    val complainedItemIds = allComplaintsForOrder.mapNotNull { it.orderItemId }.toSet()
+    val hasWholeOrderComplaint = allComplaintsForOrder.any { it.orderItemId == null }
+    // Map itemId → complaint status (for indicators in ItemsCard)
+    val complaintsForItems: Map<String, String> = allComplaintsForOrder
+        .filter { it.orderItemId != null }
+        .associate { it.orderItemId!! to it.status }
+    // Review: allowed per-item if that item has no complaint (any status)
+    val within30Days = run {
         val delivered = order.deliveredAt
         if (delivered.isNullOrBlank()) true
-        else {
-            runCatching {
-                val deliveredTime = try {
-                    OffsetDateTime.parse(delivered).toLocalDateTime()
-                } catch (_: Exception) {
-                    LocalDateTime.parse(delivered.replace(" ", "T"))
-                }
-                ChronoUnit.DAYS.between(deliveredTime, LocalDateTime.now()) <= 30
-            }.getOrDefault(true)
-        }
+        else runCatching {
+            val dt = try { OffsetDateTime.parse(delivered).toLocalDateTime() }
+                     catch (_: Exception) { LocalDateTime.parse(delivered.replace(" ", "T")) }
+            ChronoUnit.DAYS.between(dt, LocalDateTime.now()) <= 30
+        }.getOrDefault(true)
     }
-    // Complaint only after receiving goods AND no complaint (active or resolved) AND no reviews yet
-    val hasAnyReview = order.items.any { it.hasReviewed }
-    val canComplaint = status == "DELIVERED" && existingActiveComplaint == null && closedComplaint == null && !hasAnyReview
+    val canReviewProducts = status == "DELIVERED" && within30Days
+    // Complaint: per-item if not reviewed AND not already complained; whole-order slot if no whole-order complaint yet
+    val availableComplaintItems = order.items.filter { it.id !in complainedItemIds && !it.hasReviewed }
+    val canComplaint = status == "DELIVERED" && availableComplaintItems.isNotEmpty()
     val canResume = canResumeGatewayPayment(order)
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -248,8 +255,8 @@ private fun OrderDetailContent(
             item { HeaderCard(order) }
             item { ShippingCard(order) }
             if (order.shippingAddress != null) item { AddressCard(order.shippingAddress) }
-            item { ItemsCard(order.items, canReviewProducts, onOpenProduct) }
-            val firstUnreviewed = if (canReviewProducts) order.items.firstOrNull { !it.hasReviewed } else null
+            item { ItemsCard(order.items, canReviewProducts, complaintsForItems, onOpenProduct) }
+            val firstUnreviewed = if (canReviewProducts) order.items.firstOrNull { !it.hasReviewed && it.id !in complainedItemIds } else null
             if (firstUnreviewed != null) {
                 item {
                     ReviewPromptCard {
@@ -268,8 +275,7 @@ private fun OrderDetailContent(
                     canConfirmReceived = canConfirmReceived,
                     canComplaint = canComplaint,
                     canResumePayment = canResume,
-                    existingActiveComplaint = existingActiveComplaint,
-                    closedComplaint = closedComplaint,
+                    allComplaintsForOrder = allComplaintsForOrder,
                     onRetry = onRetry,
                     onCancelOrder = onCancelOrder,
                     onConfirmReceived = onConfirmReceived,
@@ -429,12 +435,17 @@ private fun AddressCard(address: UserAddress) {
 private fun ItemsCard(
     items: List<OrderItemDto>,
     canReviewProducts: Boolean,
+    complaintsForItems: Map<String, String>,
     onOpenProduct: (productId: String, openReview: Boolean, orderId: String?, orderItemId: String?) -> Unit
 ) {
+    val closedStatuses = setOf("RESOLVED", "REJECTED", "CANCELLED")
     SectionCard(title = "Sản phẩm đã đặt (${items.size})", icon = Icons.Outlined.MedicalServices) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             items.forEachIndexed { index, item ->
                 val lineTotal = item.totalPrice ?: (item.price * item.quantity)
+                val complaintStatus = complaintsForItems[item.id]
+                val hasActiveComplaint = complaintStatus != null && complaintStatus !in closedStatuses
+                val hasClosedComplaint = complaintStatus != null && complaintStatus in closedStatuses
                 Column {
                     // Tên + giá cùng hàng
                     Row(
@@ -463,12 +474,28 @@ private fun ItemsCard(
                                     Text(brand, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                                 }
                             }
+                            // Per-item complaint badge
+                            if (hasActiveComplaint || hasClosedComplaint) {
+                                Spacer(Modifier.height(4.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (hasActiveComplaint) Color(0xFFEFF6FF) else MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Text(
+                                        if (hasActiveComplaint) "Đang khiếu nại" else "Khiếu nại đã xử lý",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (hasActiveComplaint) Color(0xFF2563EB) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                    )
+                                }
+                            }
                         }
                         Spacer(Modifier.width(12.dp))
                         Text(formatCurrency(lineTotal), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
                     }
-                    // Nút đánh giá — full width bên dưới, KHÔNG bị che bởi giá
-                    if (canReviewProducts && !item.hasReviewed) {
+                    // Nút đánh giá — chỉ hiện nếu item chưa có khiếu nại
+                    if (canReviewProducts && !item.hasReviewed && complaintStatus == null) {
                         Spacer(Modifier.height(10.dp))
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -487,7 +514,6 @@ private fun ItemsCard(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(3.dp)
                                 ) {
-                                    // 5 sao đầy đủ
                                     repeat(5) {
                                         Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFFFAB00), modifier = Modifier.size(14.dp))
                                     }
@@ -629,8 +655,7 @@ private fun ActionCard(
     canConfirmReceived: Boolean,
     canComplaint: Boolean,
     canResumePayment: Boolean,
-    existingActiveComplaint: ComplaintDto?,
-    closedComplaint: ComplaintDto?,
+    allComplaintsForOrder: List<ComplaintDto>,
     onRetry: () -> Unit,
     onCancelOrder: () -> Unit,
     onConfirmReceived: () -> Unit,
@@ -671,7 +696,7 @@ private fun ActionCard(
             }
             if (canComplaint) {
                 ActionButton(
-                    label = "Khiếu nại đơn hàng",
+                    label = "Khiếu nại sản phẩm",
                     icon = Icons.Outlined.Flag,
                     bg = Color(0xFFEFF6FF),
                     fg = Color(0xFF2563EB),
@@ -679,27 +704,19 @@ private fun ActionCard(
                     outlinedBorder = Color(0xFFBFDBFE),
                     onClick = onOpenComplaint
                 )
-            } else if (existingActiveComplaint != null) {
-                // Active complaint banner
-                val (statusLabel, statusColor) = complaintStatusPresentation(existingActiveComplaint.status)
+            }
+            val closedStatuses = setOf("RESOLVED", "REJECTED", "CANCELLED")
+            allComplaintsForOrder.forEach { complaint ->
+                val (statusLabel, statusColor) = complaintStatusPresentation(complaint.status)
+                val isActive = complaint.status !in closedStatuses
                 ComplaintInfoBanner(
-                    title = "Đang có khiếu nại",
-                    code = existingActiveComplaint.complaintCode,
+                    title = if (isActive) "Đang có khiếu nại" else "Khiếu nại đã kết thúc",
+                    subtitle = complaint.productName?.takeIf { it.isNotBlank() },
+                    code = complaint.complaintCode,
                     statusLabel = statusLabel,
                     statusColor = statusColor,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    iconTint = MaterialTheme.colorScheme.primary
-                )
-            } else if (closedComplaint != null) {
-                // Resolved/rejected/cancelled complaint — no more complaints allowed
-                val (statusLabel, statusColor) = complaintStatusPresentation(closedComplaint.status)
-                ComplaintInfoBanner(
-                    title = "Khiếu nại đã kết thúc",
-                    code = closedComplaint.complaintCode,
-                    statusLabel = statusLabel,
-                    statusColor = statusColor,
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    iconTint = MaterialTheme.colorScheme.onSurfaceVariant
+                    containerColor = if (isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    iconTint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (canCancel) {
@@ -779,7 +796,8 @@ private fun ComplaintInfoBanner(
     statusLabel: String,
     statusColor: Color,
     containerColor: Color,
-    iconTint: Color
+    iconTint: Color,
+    subtitle: String? = null
 ) {
     Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = containerColor) {
         Row(
@@ -796,6 +814,9 @@ private fun ComplaintInfoBanner(
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = iconTint)
+                subtitle?.let {
+                    Text(it, fontSize = 11.sp, color = iconTint.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1265,12 +1286,15 @@ private fun BatchReviewItemRow(
 }
 
 // ─── Complaint dialog ─────────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ComplaintDialog(
     order: OrderDto,
+    availableItems: List<OrderItemDto>,
+    hasWholeOrderComplaint: Boolean,
     state: UiState<ComplaintDto>,
     onDismiss: () -> Unit,
-    onSubmit: (String, String, String, List<Uri>) -> Unit
+    onSubmit: (String, String, String, List<Uri>, String?, String?) -> Unit
 ) {
     val context = LocalContext.current
     val options = listOf(
@@ -1284,10 +1308,14 @@ private fun ComplaintDialog(
         "OTHER" to "Khác"
     )
     var selectedType by rememberSaveable { mutableStateOf(options.first().first) }
+    var typeExpanded by remember { mutableStateOf(false) }
+    var selectedItemId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedItem = availableItems.firstOrNull { it.id == selectedItemId }
     var title by rememberSaveable { mutableStateOf("") }
     var description by rememberSaveable { mutableStateOf("") }
     var attachments by remember { mutableStateOf<List<PickedComplaintAttachment>>(emptyList()) }
     val isSubmitting = state is UiState.Loading
+    val mustSelectItem = hasWholeOrderComplaint && selectedItemId == null
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         val picked = uris.map { uri ->
             val name = context.displayName(uri).ifBlank { "file_dinh_kem" }
@@ -1308,186 +1336,370 @@ private fun ComplaintDialog(
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(24.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = {
-            Text(
-                "Khiếu nại đơn #${order.orderCode}",
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (daysRemaining != null) {
-                    when {
-                        daysRemaining < 0 -> Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.errorContainer
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Outlined.Block, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                                Text(
-                                    "Đã hết thời hạn khiếu nại (30 ngày sau khi giao hàng)",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.error,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                        daysRemaining <= 7 -> Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFFFFF3E0)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Outlined.Warning, null, tint = Color(0xFFE65100), modifier = Modifier.size(16.dp))
-                                Text(
-                                    "Còn $daysRemaining ngày để khiếu nại",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFFE65100),
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                        else -> {}
+    Dialog(
+        onDismissRequest = { if (!isSubmitting) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = !isSubmitting)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column {
+                // ── Header ────────────────────────────────────────────────────────
+                Row(
+                    modifier = Modifier.padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.errorContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Outlined.Flag, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(22.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Khiếu nại đơn #${order.orderCode}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "Trong vòng 30 ngày sau khi nhận hàng",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-                Text("Loại khiếu nại", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // ── Scrollable body ───────────────────────────────────────────────
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    options.chunked(3).forEach { row ->
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            row.forEach { (value, label) ->
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = if (selectedType == value) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                                    onClick = { selectedType = value }
+                    // Days remaining banner
+                    if (daysRemaining != null) {
+                        when {
+                            daysRemaining < 0 -> Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.errorContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    Icon(Icons.Outlined.Block, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                                     Text(
-                                        label,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = if (selectedType == value) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                                        "Đã hết thời hạn khiếu nại (30 ngày sau khi giao hàng)",
+                                        fontSize = 12.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium
                                     )
+                                }
+                            }
+                            daysRemaining <= 7 -> Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFFFFF3E0)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Outlined.Warning, null, tint = Color(0xFFE65100), modifier = Modifier.size(16.dp))
+                                    Text(
+                                        "Còn $daysRemaining ngày để khiếu nại",
+                                        fontSize = 12.sp, color = Color(0xFFE65100), fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                            else -> {}
+                        }
+                    }
+
+                    // Item picker
+                    Text("Sản phẩm bị lỗi", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (!hasWholeOrderComplaint) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (selectedItemId == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                onClick = { selectedItemId = null }
+                            ) {
+                                Text(
+                                    "Không liên quan đến sản phẩm cụ thể",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (selectedItemId == null) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                                )
+                            }
+                        }
+                        availableItems.forEach { item ->
+                            val isSelected = selectedItemId == item.id
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                onClick = { selectedItemId = if (isSelected) null else item.id }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            item.name,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            "×${item.quantity} ${item.unit}  •  ${formatCurrency(item.price)}",
+                                            fontSize = 11.sp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
+                                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (isSelected) {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Tiêu đề") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary,
-                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        cursorColor = MaterialTheme.colorScheme.primary,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                )
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Mô tả chi tiết") },
-                    minLines = 3,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary,
-                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        cursorColor = MaterialTheme.colorScheme.primary,
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                )
-                OutlinedButton(
-                    onClick = { filePicker.launch(arrayOf("image/*", "application/pdf")) },
-                    enabled = !isSubmitting,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                ) {
-                    Icon(Icons.Outlined.AttachFile, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Thêm ảnh/PDF (${attachments.size}/5)", fontSize = 13.sp)
-                }
-                attachments.forEach { att ->
-                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "${att.fileType} • ${att.name}",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
+
+                    // Complaint type dropdown
+                    val selectedLabel = options.find { it.first == selectedType }?.second ?: ""
+                    ExposedDropdownMenuBox(
+                        expanded = typeExpanded,
+                        onExpandedChange = { typeExpanded = !typeExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedLabel,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Loại khiếu nại") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             )
-                            TextButton(
-                                onClick = { attachments = attachments.filterNot { it.uri == att.uri } },
-                                enabled = !isSubmitting,
-                                contentPadding = PaddingValues(horizontal = 8.dp)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = typeExpanded,
+                            onDismissRequest = { typeExpanded = false }
+                        ) {
+                            options.forEach { (value, label) ->
+                                DropdownMenuItem(
+                                    text = { Text(label, fontSize = 14.sp) },
+                                    onClick = { selectedType = value; typeExpanded = false },
+                                    trailingIcon = if (selectedType == value) ({
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }) else null
+                                )
+                            }
+                        }
+                    }
+
+                    // Title
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Tiêu đề") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            cursorColor = MaterialTheme.colorScheme.primary,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+
+                    // Description
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        label = { Text("Mô tả chi tiết") },
+                        minLines = 3,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            cursorColor = MaterialTheme.colorScheme.primary,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+
+                    // File picker
+                    OutlinedButton(
+                        onClick = { filePicker.launch(arrayOf("image/*", "application/pdf")) },
+                        enabled = !isSubmitting && attachments.size < 5,
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (attachments.size < 5) MaterialTheme.colorScheme.outlineVariant
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.Outlined.AttachFile, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            if (attachments.size < 5) "Thêm ảnh / PDF  (${attachments.size}/5)"
+                            else "Đã đạt giới hạn 5 file",
+                            fontSize = 13.sp
+                        )
+                    }
+                    // File list
+                    if (attachments.isNotEmpty()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            attachments.forEach { att ->
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(
+                                                if (att.fileType == "IMAGE") Icons.Outlined.Image else Icons.Outlined.PictureAsPdf,
+                                                null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(att.name, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
+                                        TextButton(
+                                            onClick = { attachments = attachments.filterNot { it.uri == att.uri } },
+                                            enabled = !isSubmitting,
+                                            contentPadding = PaddingValues(horizontal = 8.dp)
+                                        ) {
+                                            Text("Xóa", fontSize = 11.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Error messages
+                    if (mustSelectItem) {
+                        Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.errorContainer) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("Xóa", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                                Icon(Icons.Outlined.Info, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                                Text(
+                                    "Đã có khiếu nại chung cho đơn này. Vui lòng chọn sản phẩm cụ thể.",
+                                    fontSize = 12.sp, color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                    if (state is UiState.Error) {
+                        Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.errorContainer) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                                Text(state.message, fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
                             }
                         }
                     }
                 }
-                if (state is UiState.Error) {
-                    Text(state.message, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+
+                // ── Action buttons (pinned at bottom) ─────────────────────────────
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 20.dp, bottom = 20.dp, top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { if (!isSubmitting) onDismiss() },
+                        enabled = !isSubmitting,
+                        modifier = Modifier.weight(1f).height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) { Text("Đóng") }
+                    Button(
+                        onClick = {
+                            onSubmit(selectedType, title, description, attachments.map { it.uri }, selectedItem?.id, selectedItem?.productId)
+                        },
+                        enabled = !isSubmitting && title.isNotBlank() && description.isNotBlank()
+                            && (daysRemaining == null || daysRemaining >= 0) && !mustSelectItem,
+                        modifier = Modifier.weight(2f).height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        elevation = ButtonDefaults.buttonElevation(0.dp)
+                    ) {
+                        if (isSubmitting) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Text("Gửi khiếu nại", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+                    }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onSubmit(selectedType, title, description, attachments.map { it.uri }) },
-                enabled = !isSubmitting && title.isNotBlank() && description.isNotBlank() && (daysRemaining == null || daysRemaining >= 0),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                shape = RoundedCornerShape(12.dp),
-                elevation = ButtonDefaults.buttonElevation(0.dp)
-            ) {
-                Text(if (isSubmitting) "Đang gửi..." else "Gửi khiếu nại", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            OutlinedButton(
-                onClick = onDismiss,
-                enabled = !isSubmitting,
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) { Text("Đóng") }
         }
-    )
+    }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

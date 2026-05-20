@@ -60,8 +60,7 @@ internal fun ProductDto.toCardData() = ProductCardData(
     icon = Icons.Outlined.MedicalServices,
     iconTint = Color(0xFF2E7D32),
     iconBg = Color(0xFFE8F5E9),
-    isFlashSale = isFlashSale,
-    isBestSeller = isBestSeller,
+    isFlashSale = discountPct > 0,
     canOrderOnline = riskClassification.uppercase() != "C" && riskClassification.uppercase() != "D"
 )
 

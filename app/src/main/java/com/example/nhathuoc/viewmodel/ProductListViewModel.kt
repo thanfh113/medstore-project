@@ -85,6 +85,14 @@ class ProductListViewModel @Inject constructor(
         performSearch()
     }
 
+    fun applyFilters(category: String?, sortBy: String?, minPrice: Double, maxPrice: Double) {
+        _selectedCategory.value = category
+        _sortBy.value = sortBy
+        _priceRange.value = minPrice..maxPrice
+        _currentPage.value = 1
+        performSearch()
+    }
+
     fun refresh() { performSearch() }
 
     fun resetFilters() {
