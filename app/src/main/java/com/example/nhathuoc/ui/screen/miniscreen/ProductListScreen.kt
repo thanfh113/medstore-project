@@ -335,47 +335,57 @@ private fun ProductListCard(product: ProductDto, onClick: () -> Unit) {
 
             Spacer(Modifier.height(6.dp))
 
-            if (hasDiscount && originalPrice != null) {
-                Text(
-                    "${String.format("%,d", originalPrice.toLong()).replace(',', '.')}đ",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textDecoration = TextDecoration.LineThrough
-                )
-            }
-            Text(
-                "${String.format("%,d", product.price.toLong()).replace(',', '.')}đ",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(Modifier.height(6.dp))
-
-            if (!canOrderOnline) {
-                Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.tertiaryContainer) {
+            val hidePrice = product.contactForPrice || !canOrderOnline
+            if (hidePrice) {
+                // Ẩn giá — chỉ hiện trạng thái tồn kho
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = if (product.stock > 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
+                ) {
                     Text(
-                        "Cần tư vấn",
-                        fontSize = 10.sp,
+                        if (product.stock > 0) "Còn hàng" else "Hết hàng",
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        color = if (product.stock > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
                 Spacer(Modifier.height(4.dp))
-            }
-
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = if (product.stock > 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
-            ) {
+                if (!canOrderOnline) {
+                    Text(
+                        "Loại ${product.riskClassification} — Cần tư vấn",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                if (hasDiscount && originalPrice != null) {
+                    Text(
+                        "${String.format("%,d", originalPrice.toLong()).replace(',', '.')}đ",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textDecoration = TextDecoration.LineThrough
+                    )
+                }
                 Text(
-                    if (product.stock > 0) "Còn ${product.stock} ${product.unit}" else "Hết hàng",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (product.stock > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    "${String.format("%,d", product.price.toLong()).replace(',', '.')}đ",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
                 )
+                Spacer(Modifier.height(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = if (product.stock > 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Text(
+                        if (product.stock > 0) "Còn ${product.stock} ${product.unit}" else "Hết hàng",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (product.stock > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
             }
         }
     }

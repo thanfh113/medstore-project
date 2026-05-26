@@ -109,8 +109,8 @@ fun BestSellerList(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // 2-column grid
-                    products.chunked(2).forEach { rowItems ->
+                    // 2-column grid, tối đa 10 sản phẩm
+                    products.take(10).chunked(2).forEach { rowItems ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)

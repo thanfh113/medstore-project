@@ -322,7 +322,8 @@ fun AppnavHost(navController: NavHostController) {
                     stockQuantity = dto.stock,
                     productType = dto.productType,
                     registrationNumber = dto.registrationNumber,
-                    riskClassification = dto.riskClassification
+                    riskClassification = dto.riskClassification,
+                    contactForPrice = dto.contactForPrice
                 )
 
                 ProductDetailScreen(
@@ -464,6 +465,7 @@ fun AppnavHost(navController: NavHostController) {
                             productType = dto.productType,
                             registrationNumber = dto.registrationNumber,
                             riskClassification = dto.riskClassification,
+                            contactForPrice = dto.contactForPrice,
                             certificates = certificates.map { cert ->
                                 com.example.nhathuoc.ui.screen.miniscreen.ProductCertificate(
                                     id = cert.id,

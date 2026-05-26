@@ -86,10 +86,7 @@ private val AiGreenLight = Color(0xFF43A047)
 
 private val quickSuggestions = listOf(
     "Băng gạc loại nào phù hợp cho vết thương hở?",
-    "Máy đo huyết áp cơ học hay điện tử tốt hơn?",
-    "Cách sử dụng máy đo đường huyết tại nhà",
-    "Khẩu trang N95 và KN95 khác nhau như thế nào?",
-    "Ống nghe loại nào phù hợp cho gia đình?",
+    "Khẩu trang nào tốt?",
     "Nhiệt kế hồng ngoại có chính xác không?",
     "Cần trang bị vật tư y tế gì cho tủ thuốc gia đình?"
 )
@@ -144,7 +141,6 @@ fun AiChatScreen(
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surface)
                         .navigationBarsPadding()
-                        .imePadding()
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     if (uiState.isClosed) {

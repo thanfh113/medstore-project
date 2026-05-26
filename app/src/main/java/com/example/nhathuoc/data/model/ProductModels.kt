@@ -37,6 +37,7 @@ data class ProductDto(
     val registrationNumber: String? = null, // Added for regulatory compliance
     val riskClassification: String = "A", // Medical device risk class A|B|C|D
     val isPrescription: Boolean = false, // Added for prescription requirement
+    val contactForPrice: Boolean = false,
     val stock: Int,
     val isActive: Boolean = true,
     val createdAt: String,
@@ -117,24 +118,6 @@ data class ProductDetailResponse(
     val images: List<ProductImageDto> = emptyList(),
     val certificates: List<ProductCertificateDto>,
     val relatedProducts: List<ProductDto>
-)
-
-// Dynamic product attributes support
-@Serializable
-data class CategoryAttributeDto(
-    val id: String, // UUID from backend
-    val key: String, // Field key like "ingredients", "dosage"
-    val label: String, // Display name like "Thành phần", "Liều dùng"
-    val dataType: String, // "text", "textarea", "number", "select", "multiselect", "boolean", "date"
-    val required: Boolean,
-    val options: List<String>? = null, // For select/multiselect types
-    val unit: String? = null, // For number types like "mg", "ml"
-    val sortOrder: Int // Display order in form
-)
-
-@Serializable
-data class CategoryAttributesResponse(
-    val attributes: List<CategoryAttributeDto>
 )
 
 // Product Images model based on product_images table

@@ -61,7 +61,8 @@ internal fun ProductDto.toCardData() = ProductCardData(
     iconTint = Color(0xFF2E7D32),
     iconBg = Color(0xFFE8F5E9),
     isFlashSale = discountPct > 0,
-    canOrderOnline = riskClassification.uppercase() != "C" && riskClassification.uppercase() != "D"
+    canOrderOnline = riskClassification.uppercase() != "C" && riskClassification.uppercase() != "D",
+    contactForPrice = contactForPrice
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

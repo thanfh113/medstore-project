@@ -5,7 +5,7 @@
  * Base URL for Android emulator pointing to localhost BE
  */
 object ApiConstants {
-    const val BASE_URL = "http://192.168.0.103:8080"
+    const val BASE_URL = "http://192.168.1.32:8080"
 
     const val AUTH_REGISTER = "/api/v1/auth/register"
     const val AUTH_LOGIN = "/api/v1/auth/login"
@@ -72,6 +72,7 @@ object ApiConstants {
     const val AI_CHAT_MESSAGE = "/api/v1/ai-chat/sessions/{conversationId}/message"
     const val AI_CHAT_ESCALATE = "/api/v1/ai-chat/sessions/{conversationId}/escalate"
     const val AI_CHAT_CLOSE = "/api/v1/ai-chat/sessions/{conversationId}/close"
+    const val AI_CHAT_DELETE = "/api/v1/ai-chat/sessions/{conversationId}"
 
     const val PHARMACIES = "/api/v1/pharmacies"
     const val PHARMACY_BY_ID = "/api/v1/pharmacies/{id}"

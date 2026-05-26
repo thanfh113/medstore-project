@@ -46,7 +46,8 @@ data class ProductCardData(
     val isBestSeller: Boolean = false,
     val rating: Float = 0f,
     val reviewCount: Int = 0,
-    val canOrderOnline: Boolean = true
+    val canOrderOnline: Boolean = true,
+    val contactForPrice: Boolean = false
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -148,26 +149,29 @@ fun ProductCard(
                         lineHeight = 13.sp
                     )
 
-                    // Price row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = data.originalPrice,
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textDecoration = TextDecoration.LineThrough,
-                            maxLines = 1
-                        )
-                        Text(
-                            text = data.price,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
-                        )
+                    // Price row — ẩn giá cho sản phẩm liên hệ hoặc không bán online (C/D)
+                    val hidePrice = data.contactForPrice || !data.canOrderOnline
+                    if (!hidePrice) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = data.originalPrice,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textDecoration = TextDecoration.LineThrough,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = data.price,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1
+                            )
+                        }
                     }
 
                     // Stock
@@ -177,7 +181,11 @@ fun ProductCard(
                         modifier = Modifier.wrapContentSize()
                     ) {
                         Text(
-                            text = if (data.stock > 0) "Còn ${data.stock}" else "Hết hàng",
+                            text = if (hidePrice) {
+                                if (data.stock > 0) "Còn hàng" else "Hết hàng"
+                            } else {
+                                if (data.stock > 0) "Còn ${data.stock}" else "Hết hàng"
+                            },
                             fontSize = 9.sp,
                             color = if (data.stock > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.Bold,

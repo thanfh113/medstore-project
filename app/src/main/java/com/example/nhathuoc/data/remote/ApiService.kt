@@ -275,6 +275,9 @@ interface ApiService {
     @POST(ApiConstants.AI_CHAT_CLOSE)
     suspend fun closeAiConversation(@Path("conversationId") conversationId: String): Response<DataMessageResponse<AiConversationDto>>
 
+    @DELETE(ApiConstants.AI_CHAT_DELETE)
+    suspend fun deleteAiConversation(@Path("conversationId") conversationId: String): Response<DataMessageResponse<String>>
+
     @GET(ApiConstants.CHAT_SESSIONS)
     suspend fun getChatSessions(): Response<DataMessageResponse<List<ChatSessionDto>>>
 

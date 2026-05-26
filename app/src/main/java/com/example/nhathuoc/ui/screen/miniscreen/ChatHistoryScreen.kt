@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.AddComment
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -137,6 +138,7 @@ fun ChatHistoryScreen(
                     0 -> AiConversationList(
                         state = aiConversationsState,
                         onOpenConversation = onOpenAiConversation,
+                        onDelete = { aiViewModel.deleteConversation(it) },
                         onNewChat = onNewChat,
                         onRetry = { aiViewModel.loadConversations() }
                     )
@@ -152,10 +154,12 @@ fun ChatHistoryScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AiConversationList(
     state: com.example.nhathuoc.viewmodel.AiConversationsState,
     onOpenConversation: (String) -> Unit,
+    onDelete: (String) -> Unit,
     onNewChat: () -> Unit,
     onRetry: () -> Unit
 ) {
@@ -213,7 +217,36 @@ private fun AiConversationList(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(state.conversations, key = { it.id }) { conv ->
-                    AiConversationCard(conversation = conv, onClick = { onOpenConversation(conv.id) })
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                onDelete(conv.id)
+                                true
+                            } else false
+                        }
+                    )
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        enableDismissFromStartToEnd = false,
+                        backgroundContent = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(MaterialTheme.colorScheme.errorContainer),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                Icon(
+                                    Icons.Filled.Delete,
+                                    contentDescription = "Xóa",
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.padding(end = 24.dp)
+                                )
+                            }
+                        }
+                    ) {
+                        AiConversationCard(conversation = conv, onClick = { onOpenConversation(conv.id) })
+                    }
                 }
                 item { Spacer(Modifier.height(72.dp)) }
             }

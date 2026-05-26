@@ -196,6 +196,15 @@ class AiChatViewModel @Inject constructor(
         }
     }
 
+    fun deleteConversation(conversationId: String) {
+        viewModelScope.launch {
+            repository.deleteConversation(conversationId)
+            _conversationsState.update { state ->
+                state.copy(conversations = state.conversations.filterNot { it.id == conversationId })
+            }
+        }
+    }
+
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }

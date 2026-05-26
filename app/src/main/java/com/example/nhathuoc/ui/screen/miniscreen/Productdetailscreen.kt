@@ -104,6 +104,7 @@ data class ProductDetail(
     val productType: String = "MEDICINE",
     val registrationNumber: String? = null,
     val riskClassification: String = "A",
+    val contactForPrice: Boolean = false,
     val certificates: List<ProductCertificate> = emptyList()
 )
 
@@ -471,32 +472,49 @@ fun ProductDetailScreen(
                     Spacer(Modifier.height(14.dp))
 
                     // Price row
-                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            "${product.price} / ${product.unit}",
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Column(horizontalAlignment = Alignment.Start) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = RedColor
-                            ) {
+                    if (product.contactForPrice) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Text(
+                                "Liên hệ để biết giá",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+                    } else {
+                        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                "${product.price} / ${product.unit}",
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Column(horizontalAlignment = Alignment.Start) {
+                                if (product.discountPercent > 0) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = RedColor
+                                    ) {
+                                        Text(
+                                            "-${product.discountPercent}%",
+                                            color = Color.White,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
                                 Text(
-                                    "-${product.discountPercent}%",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    product.originalPrice,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textDecoration = TextDecoration.LineThrough
                                 )
                             }
-                            Text(
-                                product.originalPrice,
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textDecoration = TextDecoration.LineThrough
-                            )
                         }
                     }
 

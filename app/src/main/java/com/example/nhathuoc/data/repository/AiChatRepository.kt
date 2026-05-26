@@ -44,4 +44,9 @@ class AiChatRepository @Inject constructor(
         ApiErrorHandler.safeApiCall("Không thể kết thúc cuộc trò chuyện") {
             apiService.closeAiConversation(conversationId)
         }
+
+    suspend fun deleteConversation(conversationId: String): NetworkResult<DataMessageResponse<String>> =
+        ApiErrorHandler.safeApiCall("Không thể xóa cuộc trò chuyện") {
+            apiService.deleteAiConversation(conversationId)
+        }
 }
