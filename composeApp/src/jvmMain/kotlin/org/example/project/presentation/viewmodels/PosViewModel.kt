@@ -24,8 +24,11 @@ import java.io.File
 
 data class PosCartItem(
     val product: Product,
-    val quantity: Int
-)
+    val quantity: Int,
+    val overridePrice: Double? = null
+) {
+    val effectivePrice: Double get() = overridePrice ?: product.price
+}
 
 data class PosUiState(
     val isLoading: Boolean = false,
@@ -61,7 +64,7 @@ data class PosUiState(
     val successMessage: String? = null,
     val error: String? = null
 ) {
-    val subtotal: Double get() = cart.sumOf { it.product.price * it.quantity }
+    val subtotal: Double get() = cart.sumOf { it.effectivePrice * it.quantity }
     val total: Double get() = (subtotal - appliedDiscount).coerceAtLeast(0.0)
     val cashReceivedAmount: Double? get() = cashReceivedInput.toDoubleOrNull()
     val cashChangePreview: Double?
@@ -140,6 +143,27 @@ class PosViewModel(
                     return@update state.copy(error = "Số lượng vượt quá tồn kho")
                 }
                 state.cart + PosCartItem(product, quantity)
+            } else {
+                val nextQuantity = existing.quantity + quantity
+                if (nextQuantity > product.stockQuantity) {
+                    return@update state.copy(error = "Số lượng trong giỏ đã bằng tồn kho")
+                }
+                state.cart.map {
+                    if (it.product.id == product.id) it.copy(quantity = nextQuantity) else it
+                }
+            }
+            state.copy(cart = updated, error = null)
+        }
+    }
+
+    fun addToCartWithPrice(product: Product, quantity: Int, agreedPrice: Double) {
+        _uiState.update { state ->
+            if (product.stockQuantity <= 0) return@update state.copy(error = "Sản phẩm đã hết hàng")
+            if (quantity <= 0) return@update state.copy(error = "Số lượng phải lớn hơn 0")
+            if (agreedPrice <= 0.0) return@update state.copy(error = "Giá phải lớn hơn 0")
+            val existing = state.cart.firstOrNull { it.product.id == product.id }
+            val updated = if (existing == null) {
+                state.cart + PosCartItem(product, quantity, overridePrice = agreedPrice)
             } else {
                 val nextQuantity = existing.quantity + quantity
                 if (nextQuantity > product.stockQuantity) {
@@ -553,7 +577,12 @@ class PosViewModel(
             _uiState.update { it.copy(isSubmitting = true, error = null, successMessage = null) }
             val request = CreatePosOrderRequest(
                 items = state.cart.map {
-                    PosOrderItemRequest(productId = it.product.id, quantity = it.quantity, unit = it.product.unit)
+                    PosOrderItemRequest(
+                        productId = it.product.id,
+                        quantity = it.quantity,
+                        unit = it.product.unit,
+                        unitPrice = if (it.overridePrice != null) it.effectivePrice else null
+                    )
                 },
                 customerId = state.customerCode.trim().takeIf { it.isNotBlank() },
                 paymentMethod = state.paymentMethod,

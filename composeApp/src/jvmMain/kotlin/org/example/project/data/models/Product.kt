@@ -50,6 +50,7 @@ data class Product(
     val unit: String = "Cái",
     val registrationNumber: String? = null,
     val riskClassification: RiskClassification = RiskClassification.A,
+    val contactForPrice: Boolean = false,
     val images: List<ProductImage> = emptyList(),
     val certificates: List<ProductCertificate> = emptyList()
 )

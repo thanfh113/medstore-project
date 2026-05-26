@@ -22,7 +22,8 @@ import kotlinx.serialization.json.jsonPrimitive
 data class PosOrderItemRequest(
     val productId: String,
     val quantity: Int,
-    val unit: String? = null
+    val unit: String? = null,
+    val unitPrice: Double? = null
 )
 
 @Serializable

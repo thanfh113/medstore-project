@@ -46,6 +46,7 @@ data class UpdateProductRequest(
     val rewardPoints: Int? = null,
     val registrationNumber: String? = null,
     val riskClassification: String = "A",
+    val contactForPrice: Boolean = false,
     val isActive: Boolean = true,
     val attributes: Map<String, String> = emptyMap(),
     val images: List<ProductImagePayload> = emptyList(),

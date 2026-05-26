@@ -103,6 +103,7 @@ private data class BackendProductDto(
     val inventoryNote: String? = null,
     val registrationNumber: String? = null,
     val riskClassification: String = "A",
+    val contactForPrice: Boolean = false,
     val isActive: Boolean = true,
     val createdAt: String,
     val updatedAt: String,
@@ -198,6 +199,7 @@ data class CompleteProductDraft(
     val rewardPoints: Int = 0,
     val registrationNumber: String? = null,
     val riskClassification: String = "A",
+    val contactForPrice: Boolean = false,
     val images: List<CompleteProductImageDraft> = emptyList(),
     val certificates: List<CompleteProductCertificateDraft> = emptyList()
 )
@@ -224,6 +226,7 @@ private data class CreateDesktopProductRequest(
     val rewardPoints: Int = 0,
     val registrationNumber: String? = null,
     val riskClassification: String = "A",
+    val contactForPrice: Boolean = false,
     val isActive: Boolean = true,
     val attributes: Map<String, String> = emptyMap(),
     val images: List<ProductImageRequestPayload> = emptyList(),
@@ -724,6 +727,7 @@ class ProductRepository(
             unit = unit,
             registrationNumber = registrationNumber,
             riskClassification = mappedRiskClassification,
+            contactForPrice = contactForPrice,
             images = images
                 .sortedBy { it.sortOrder }
                 .map {
@@ -787,6 +791,7 @@ class ProductRepository(
             rewardPoints = rewardPoints,
             registrationNumber = registrationNumber?.ifBlank { null },
             riskClassification = riskClassification.value,
+            contactForPrice = contactForPrice,
             isActive = isActive,
             attributes = emptyMap(),
             images = images.toRequestPayload(),
@@ -816,6 +821,7 @@ class ProductRepository(
             rewardPoints = rewardPoints,
             registrationNumber = registrationNumber?.ifBlank { null },
             riskClassification = riskClassification.value,
+            contactForPrice = contactForPrice,
             isActive = isActive,
             attributes = emptyMap(),
             images = images.toUpdateImagePayload(),
@@ -881,6 +887,7 @@ class ProductRepository(
             rewardPoints = rewardPoints,
             registrationNumber = registrationNumber?.ifBlank { null },
             riskClassification = riskClassification,
+            contactForPrice = contactForPrice,
             isActive = true,
             attributes = emptyMap(),
             images = images

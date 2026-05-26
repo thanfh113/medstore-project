@@ -257,7 +257,8 @@ private fun PosCheckoutWorkspace(
                                 PosSearchResultCard(
                                     product = product,
                                     onPreview = { onPreviewProduct(product) },
-                                    onAdd = { quantity -> viewModel.addToCart(product, quantity) }
+                                    onAdd = { quantity -> viewModel.addToCart(product, quantity) },
+                                    onAddWithPrice = { quantity, price -> viewModel.addToCartWithPrice(product, quantity, price) }
                                 )
                             }
                         }
@@ -426,13 +427,13 @@ private fun PosInvoiceSidebar(state: PosUiState, viewModel: PosViewModel) {
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        "${item.quantity} x ${formatPosAmount(item.product.price)}",
+                                        "${item.quantity} x ${formatPosAmount(item.effectivePrice)}",
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
-                                    formatPosAmount(item.product.price * item.quantity),
+                                    formatPosAmount(item.effectivePrice * item.quantity),
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -593,11 +594,24 @@ private fun PaymentMethodSelector(
 private fun PosSearchResultCard(
     product: Product,
     onPreview: () -> Unit,
-    onAdd: (Int) -> Unit
+    onAdd: (Int) -> Unit,
+    onAddWithPrice: (Int, Double) -> Unit = { _, _ -> }
 ) {
     var qtyInput by remember(product.id) { mutableStateOf("1") }
     val maxQuantity = product.stockQuantity.coerceAtLeast(1)
     val selectedQuantity = qtyInput.toIntOrNull()?.coerceIn(1, maxQuantity) ?: 1
+    var showPriceDialog by remember { mutableStateOf(false) }
+
+    if (showPriceDialog) {
+        AgreedPriceDialog(
+            productName = product.name,
+            onConfirm = { price ->
+                showPriceDialog = false
+                onAddWithPrice(selectedQuantity, price)
+            },
+            onDismiss = { showPriceDialog = false }
+        )
+    }
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -632,11 +646,25 @@ private fun PosSearchResultCard(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    formatPosAmount(product.price),
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                if (product.contactForPrice) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Text(
+                            "Giá liên hệ",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = androidx.compose.ui.Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                } else {
+                    Text(
+                        formatPosAmount(product.price),
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 OutlinedButton(onClick = onPreview) {
                     Text("Chi tiết")
                 }
@@ -658,10 +686,74 @@ private fun PosSearchResultCard(
                     }
                 )
                 Button(
-                    onClick = { onAdd(selectedQuantity) },
+                    onClick = {
+                        if (product.contactForPrice) showPriceDialog = true
+                        else onAdd(selectedQuantity)
+                    },
                     enabled = product.stockQuantity > 0
                 ) {
                     Text("Thêm")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AgreedPriceDialog(
+    productName: String,
+    onConfirm: (Double) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var priceInput by remember { mutableStateOf("") }
+    val parsedPrice = priceInput.replace(".", "").replace(",", "").toDoubleOrNull()
+    val isValid = parsedPrice != null && parsedPrice > 0.0
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.widthIn(max = 380.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text("Nhập giá thỏa thuận", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    productName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                OutlinedTextField(
+                    value = priceInput,
+                    onValueChange = { priceInput = it.filter { ch -> ch.isDigit() } },
+                    label = { Text("Giá bán (VND)") },
+                    placeholder = { Text("VD: 25000000") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = priceInput.isNotBlank() && !isValid,
+                    singleLine = true
+                )
+                if (priceInput.isNotBlank() && isValid) {
+                    Text(
+                        "= ${formatPosAmount(parsedPrice!!)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) { Text("Hủy") }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = { if (isValid) onConfirm(parsedPrice!!) }, enabled = isValid) {
+                        Text("Thêm vào hóa đơn")
+                    }
                 }
             }
         }
@@ -738,13 +830,14 @@ private fun PosSelectedItemCard(
             ) {
                 Text(item.product.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    formatPosAmount(item.product.price),
+                    if (item.product.contactForPrice) "Giá TT: ${formatPosAmount(item.effectivePrice)}"
+                    else formatPosAmount(item.effectivePrice),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Text(
-                formatPosAmount(item.product.price * item.quantity),
+                formatPosAmount(item.effectivePrice * item.quantity),
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )

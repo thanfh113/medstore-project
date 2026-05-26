@@ -107,6 +107,7 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
             },
             onCancel = { viewModel.hideCreateDialog() },
             onUploadCertificate = { file -> viewModel.uploadCertificate(file) },
+            onGenerateSku = { categoryId -> viewModel.generateSkuForCategory(categoryId) },
             isCreating = uiState.isCreating,
             isUpdating = uiState.isUpdating
         )
@@ -664,20 +665,28 @@ private fun ProductRow(
                 .weight(1.4f)
                 .padding(end = 12.dp)
         ) {
-            Text(
-                text = formatVND(product.price),
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            product.originalPrice?.let {
-                Spacer(modifier = Modifier.height(4.dp))
+            if (product.contactForPrice) {
                 Text(
-                    text = "Giá gốc: ${formatVND(it)}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = "Liên hệ",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.secondary
                 )
+            } else {
+                Text(
+                    text = formatVND(product.price),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                product.originalPrice?.let {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Giá gốc: ${formatVND(it)}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
 

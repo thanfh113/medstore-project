@@ -412,6 +412,7 @@ class ProductsViewModel(
                     inventoryNote = null,
                     registrationNumber = formData.registrationNumber.ifBlank { null },
                     riskClassification = normalizedRisk,
+                    contactForPrice = formData.contactForPrice,
                     images = formData.productImages.mapIndexed { index, image ->
                         CompleteProductImageDraft(
                             url = image.url,
@@ -481,6 +482,30 @@ class ProductsViewModel(
 
     suspend fun deleteUploadedAsset(publicId: String, resourceType: String): Result<Unit> {
         return productRepository.deleteUploadedAsset(publicId, resourceType)
+    }
+
+    fun generateSkuForCategory(categoryId: String): String {
+        val state = _uiState.value
+        val category = state.categories.firstOrNull { it.id == categoryId } ?: return "SP000001"
+        val prefix = deriveCategoryPrefix(category.displayName)
+        val existingMax = state.products
+            .filter { it.categoryId == categoryId }
+            .mapNotNull { product ->
+                product.sku?.let { sku ->
+                    Regex("^${Regex.escape(prefix)}(\\d+)$").matchEntire(sku)?.groupValues?.get(1)?.toIntOrNull()
+                }
+            }
+            .maxOrNull() ?: 0
+        return "$prefix${(existingMax + 1).toString().padStart(6, '0')}"
+    }
+
+    private fun deriveCategoryPrefix(name: String): String {
+        val normalized = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD)
+            .replace(Regex("[^\\p{ASCII}]"), "")
+        val words = normalized.split(Regex("[\\s&/\\-]+")).filter { it.isNotBlank() }
+        val initials = words.mapNotNull { it.firstOrNull()?.uppercaseChar() }.take(4).joinToString("")
+        return if (initials.length >= 2) initials
+        else (words.firstOrNull() ?: "SP").take(3).uppercase().ifBlank { "SP" }
     }
 
     private fun applyFilters(
