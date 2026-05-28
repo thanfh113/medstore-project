@@ -1,4 +1,4 @@
-﻿package org.example.project.ui.screens
+package org.example.project.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -77,6 +77,7 @@ import org.example.project.data.models.selectedCategoryGroupId
 import org.example.project.data.models.topLevelProductCategories
 import org.example.project.data.repositories.ProductDeleteRequestDto
 import org.example.project.presentation.viewmodels.ProductsViewModel
+import org.example.project.presentation.viewmodels.StockReceiptDraft
 import org.example.project.ui.components.ProductFormDialog
 import org.example.project.ui.components.ProductDetailDialog
 
@@ -88,6 +89,7 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
     val canCreateProduct = uiState.categories.isNotEmpty() && !uiState.isLoading
     var productPendingDelete by remember { mutableStateOf<Product?>(null) }
     var selectedProductForStockReceipt by remember { mutableStateOf<Product?>(null) }
+    var showBulkStockReceiptDialog by remember { mutableStateOf(false) }
     var selectedProductForPreview by remember { mutableStateOf<Product?>(null) }
 
     LaunchedEffect(Unit) {
@@ -132,6 +134,18 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
         )
     }
 
+
+    if (showBulkStockReceiptDialog) {
+        BulkStockReceiptDialog(
+            products = uiState.products,
+            isLoading = uiState.isUpdating,
+            onSave = { receipts ->
+                viewModel.addStockReceipts(receipts)
+                showBulkStockReceiptDialog = false
+            },
+            onCancel = { showBulkStockReceiptDialog = false }
+        )
+    }
     selectedProductForPreview?.let { product ->
         ProductDetailDialog(
             product = product,
@@ -225,7 +239,9 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
                 searchQuery = uiState.searchQuery,
                 canCreateProduct = canCreateProduct,
                 onSearchChange = viewModel::searchProducts,
-                onCreateClick = { viewModel.showCreateDialog() }
+                onCreateClick = { viewModel.showCreateDialog() },
+                onBulkStockReceiptClick = { showBulkStockReceiptDialog = true },
+                canReceiveStock = uiState.products.isNotEmpty() && !uiState.isLoading
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -379,7 +395,9 @@ private fun SearchAndActionsRow(
     searchQuery: String,
     canCreateProduct: Boolean,
     onSearchChange: (String) -> Unit,
-    onCreateClick: () -> Unit
+    onCreateClick: () -> Unit,
+    onBulkStockReceiptClick: () -> Unit,
+    canReceiveStock: Boolean
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -400,6 +418,15 @@ private fun SearchAndActionsRow(
             )
         )
 
+        OutlinedButton(
+            onClick = onBulkStockReceiptClick,
+            enabled = canReceiveStock,
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Nhập theo phiếu", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        }
         Button(
             onClick = onCreateClick,
             enabled = canCreateProduct,
@@ -840,6 +867,370 @@ private fun FilterDropdown(
     }
 }
 
+
+private data class BulkStockReceiptLine(
+    val id: Int,
+    val productId: String = "",
+    val quantity: String = "",
+    val importPrice: String = "",
+    val mfgDate: String = "",
+    val expDate: String = ""
+)
+
+@Composable
+private fun BulkStockReceiptDialog(
+    products: List<Product>,
+    isLoading: Boolean,
+    onSave: (List<StockReceiptDraft>) -> Unit,
+    onCancel: () -> Unit
+) {
+    var invoiceCode by remember { mutableStateOf("") }
+    var rows by remember { mutableStateOf(listOf(BulkStockReceiptLine(id = 1))) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val productsById = remember(products) { products.associateBy { it.id } }
+    val estimatedTotal = rows.sumOf { line ->
+        val quantity = line.quantity.toIntOrNull() ?: 0
+        val price = line.importPrice.toDoubleOrNull() ?: 0.0
+        quantity * price
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onCancel() },
+        title = { Text("Nhập hàng theo phiếu") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 620.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                errorMessage?.let { message ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(12.dp),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = invoiceCode,
+                    onValueChange = { invoiceCode = it },
+                    label = { Text("Mã hóa đơn/phiếu nhập", fontSize = 13.sp) },
+                    placeholder = { Text("Ví dụ: PN-2026-001", fontSize = 12.sp) },
+                    singleLine = true,
+                    enabled = !isLoading,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("${rows.size} dòng nhập", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Tồn kho sẽ được cộng trực tiếp vào từng sản phẩm, không tạo bảng dữ liệu mới.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp
+                            )
+                        }
+                        if (estimatedTotal > 0.0) {
+                            Text(
+                                "Tạm tính: ${formatVND(estimatedTotal)}",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
+                rows.forEachIndexed { index, line ->
+                    BulkStockReceiptLineEditor(
+                        index = index,
+                        line = line,
+                        products = products,
+                        selectedProduct = productsById[line.productId],
+                        canRemove = rows.size > 1,
+                        isLoading = isLoading,
+                        onProductSelected = { productId ->
+                            rows = rows.map { if (it.id == line.id) it.copy(productId = productId) else it }
+                            errorMessage = null
+                        },
+                        onQuantityChange = { value ->
+                            rows = rows.map { if (it.id == line.id) it.copy(quantity = value.filter { c -> c.isDigit() }) else it }
+                            errorMessage = null
+                        },
+                        onImportPriceChange = { value ->
+                            rows = rows.map { if (it.id == line.id) it.copy(importPrice = sanitizeDecimalInput(value)) else it }
+                            errorMessage = null
+                        },
+                        onMfgDateChange = { value ->
+                            rows = rows.map { if (it.id == line.id) it.copy(mfgDate = value) else it }
+                            errorMessage = null
+                        },
+                        onExpDateChange = { value ->
+                            rows = rows.map { if (it.id == line.id) it.copy(expDate = value) else it }
+                            errorMessage = null
+                        },
+                        onRemove = {
+                            rows = rows.filterNot { it.id == line.id }
+                            errorMessage = null
+                        }
+                    )
+                }
+
+                TextButton(
+                    onClick = {
+                        val nextId = (rows.maxOfOrNull { it.id } ?: 0) + 1
+                        rows = rows + BulkStockReceiptLine(id = nextId)
+                    },
+                    enabled = !isLoading
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Thêm dòng")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val activeRows = rows.filter { line ->
+                        line.productId.isNotBlank() ||
+                            line.quantity.isNotBlank() ||
+                            line.importPrice.isNotBlank() ||
+                            line.mfgDate.isNotBlank() ||
+                            line.expDate.isNotBlank()
+                    }
+                    when {
+                        products.isEmpty() -> errorMessage = "Chưa có sản phẩm để nhập kho"
+                        activeRows.isEmpty() -> errorMessage = "Thêm ít nhất một dòng nhập kho"
+                        activeRows.any { it.productId.isBlank() } -> errorMessage = "Mỗi dòng cần chọn sản phẩm"
+                        activeRows.any { (it.quantity.toIntOrNull() ?: 0) <= 0 } -> errorMessage = "Số lượng nhập phải lớn hơn 0"
+                        activeRows.any { it.importPrice.isNotBlank() && it.importPrice.toDoubleOrNull() == null } -> errorMessage = "Giá nhập không hợp lệ"
+                        activeRows.any { !isValidStockDateText(it.mfgDate) || !isValidStockDateText(it.expDate) } -> errorMessage = "Ngày sản xuất/hạn dùng cần đúng định dạng yyyy-MM-dd"
+                        else -> {
+                            val note = invoiceCode.trim().takeIf { it.isNotBlank() }?.let { "Phiếu nhập: $it" }
+                            onSave(
+                                activeRows.map { line ->
+                                    StockReceiptDraft(
+                                        productId = line.productId,
+                                        mfgDate = line.mfgDate.ifBlank { null },
+                                        expDate = line.expDate.ifBlank { null },
+                                        quantity = line.quantity.toInt(),
+                                        importPrice = line.importPrice.toDoubleOrNull()?.takeIf { it > 0.0 },
+                                        note = note
+                                    )
+                                }
+                            )
+                        }
+                    }
+                },
+                enabled = !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text("Xác nhận nhập")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel, enabled = !isLoading) {
+                Text("Hủy")
+            }
+        }
+    )
+}
+
+@Composable
+private fun BulkStockReceiptLineEditor(
+    index: Int,
+    line: BulkStockReceiptLine,
+    products: List<Product>,
+    selectedProduct: Product?,
+    canRemove: Boolean,
+    isLoading: Boolean,
+    onProductSelected: (String) -> Unit,
+    onQuantityChange: (String) -> Unit,
+    onImportPriceChange: (String) -> Unit,
+    onMfgDateChange: (String) -> Unit,
+    onExpDateChange: (String) -> Unit,
+    onRemove: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Dòng ${index + 1}", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                if (canRemove) {
+                    TextButton(onClick = onRemove, enabled = !isLoading) {
+                        Text("Xóa")
+                    }
+                }
+            }
+            ProductStockDropdown(
+                products = products,
+                selectedProduct = selectedProduct,
+                onProductSelected = onProductSelected,
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = line.quantity,
+                    onValueChange = onQuantityChange,
+                    label = { Text("SL", fontSize = 12.sp) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    enabled = !isLoading,
+                    modifier = Modifier.width(84.dp)
+                )
+                OutlinedTextField(
+                    value = line.importPrice,
+                    onValueChange = onImportPriceChange,
+                    label = { Text("Giá nhập", fontSize = 12.sp) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    enabled = !isLoading,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = line.mfgDate,
+                    onValueChange = onMfgDateChange,
+                    label = { Text("NSX", fontSize = 12.sp) },
+                    placeholder = { Text("yyyy-MM-dd", fontSize = 11.sp) },
+                    singleLine = true,
+                    enabled = !isLoading,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = line.expDate,
+                    onValueChange = onExpDateChange,
+                    label = { Text("HSD", fontSize = 12.sp) },
+                    placeholder = { Text("yyyy-MM-dd", fontSize = 11.sp) },
+                    singleLine = true,
+                    enabled = !isLoading,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            selectedProduct?.let { product ->
+                val incoming = line.quantity.toIntOrNull() ?: 0
+                Text(
+                    "Tồn hiện tại: ${product.stockQuantity} ${product.unit} • Sau nhập: ${product.stockQuantity + incoming} ${product.unit}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProductStockDropdown(
+    products: List<Product>,
+    selectedProduct: Product?,
+    onProductSelected: (String) -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            enabled = enabled,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Sản phẩm", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    selectedProduct?.name ?: "Chọn sản phẩm",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text("Chọn", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = 320.dp)
+        ) {
+            products.sortedBy { it.name }.forEach { product ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(product.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                "Tồn: ${product.stockQuantity} ${product.unit}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp
+                            )
+                        }
+                    },
+                    onClick = {
+                        onProductSelected(product.id)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+private fun sanitizeDecimalInput(value: String): String {
+    var dotUsed = false
+    return value.filter { c ->
+        when {
+            c.isDigit() -> true
+            c == '.' && !dotUsed -> {
+                dotUsed = true
+                true
+            }
+            else -> false
+        }
+    }
+}
+
+private fun isValidStockDateText(value: String): Boolean {
+    if (value.isBlank()) return true
+    return Regex("\\d{4}-\\d{2}-\\d{2}").matches(value)
+}
 @Composable
 private fun StockReceiptDialog(
     product: Product,

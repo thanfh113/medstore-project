@@ -1,4 +1,4 @@
-﻿package org.example.project.data.repositories
+package org.example.project.data.repositories
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -150,7 +150,8 @@ data class CreateStockRequest(
     val mfgDate: String? = null,  // Format: yyyy-MM-dd
     val expDate: String? = null,  // Format: yyyy-MM-dd
     val quantity: Int,
-    val importPrice: Double? = null
+    val importPrice: Double? = null,
+    val note: String? = null
 )
 
 data class CompleteProductImageDraft(

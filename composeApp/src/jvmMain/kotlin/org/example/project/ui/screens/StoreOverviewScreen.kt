@@ -105,10 +105,10 @@ fun StoreOverviewScreen(viewModel: DashboardViewModel) {
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(state.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Không thể kết nối tới hệ thống. Vui lòng thử lại sau.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            "Kiểm tra backend đang chạy ở http://localhost:8080 rồi bấm tải lại.",
+                            "Kiểm tra kết nối hệ thống rồi bấm tải lại.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp
                         )

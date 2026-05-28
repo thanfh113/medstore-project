@@ -29,6 +29,41 @@ data class TopProductDto(
 )
 
 @Serializable
+data class FinanceTimeBreakdownDto(
+    val label: String,
+    val sortKey: String,
+    val grossRevenue: Double,
+    val netProfit: Double,
+    val orderCount: Int,
+    val successfulOrderCount: Int,
+    val quantitySold: Int
+)
+
+@Serializable
+data class FinanceCategoryReportDto(
+    val categoryId: String? = null,
+    val categoryName: String,
+    val stockQuantity: Int,
+    val quantitySold: Int,
+    val revenue: Double,
+    val cost: Double,
+    val netProfit: Double
+)
+
+@Serializable
+data class FinanceProductReportDto(
+    val productId: String,
+    val productName: String,
+    val categoryId: String? = null,
+    val categoryName: String,
+    val stockQuantity: Int,
+    val quantitySold: Int,
+    val revenue: Double,
+    val cost: Double,
+    val netProfit: Double
+)
+
+@Serializable
 data class FinanceSummaryDto(
     val grossRevenue: Double,
     val onlineRevenue: Double,
@@ -44,7 +79,12 @@ data class FinanceSummaryDto(
     val refundedOrderCount: Int = 0,
     val returnedOrderCount: Int = 0,
     val totalOrderCount: Int = 0,
-    val topSellingProducts: List<TopProductDto> = emptyList()
+    val period: String = "ALL",
+    val periodLabel: String = "Tất cả",
+    val topSellingProducts: List<TopProductDto> = emptyList(),
+    val timeBreakdown: List<FinanceTimeBreakdownDto> = emptyList(),
+    val categoryReports: List<FinanceCategoryReportDto> = emptyList(),
+    val productReports: List<FinanceProductReportDto> = emptyList()
 )
 
 class FinanceRepository(private val client: HttpClient) {
@@ -108,4 +148,3 @@ class FinanceRepository(private val client: HttpClient) {
         }.getOrElse { raw.ifBlank { "Khong the xem tai chinh" } }
     }
 }
-

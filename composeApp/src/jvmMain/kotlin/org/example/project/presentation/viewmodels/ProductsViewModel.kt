@@ -1,4 +1,4 @@
-﻿package org.example.project.presentation.viewmodels
+package org.example.project.presentation.viewmodels
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -362,6 +362,60 @@ class ProductsViewModel(
             )
         }
     }
+    fun addStockReceipts(receipts: List<StockReceiptDraft>) {
+        if (receipts.isEmpty()) {
+            _uiState.update { it.copy(error = "Chưa có dòng nhập kho hợp lệ") }
+            return
+        }
+
+        scope.launch {
+            _uiState.update { it.copy(isUpdating = true, error = null, successMessage = null) }
+
+            var successCount = 0
+            val failures = mutableListOf<String>()
+
+            receipts.forEach { receipt ->
+                val productName = _uiState.value.products
+                    .firstOrNull { it.id == receipt.productId }
+                    ?.name
+                    ?: receipt.productId.take(8).uppercase()
+
+                productRepository.updateStock(
+                    receipt.productId,
+                    CreateStockRequest(
+                        mfgDate = receipt.mfgDate?.ifBlank { null },
+                        expDate = receipt.expDate?.ifBlank { null },
+                        quantity = receipt.quantity,
+                        importPrice = receipt.importPrice,
+                        note = receipt.note?.ifBlank { null }
+                    )
+                ).fold(
+                    onSuccess = { successCount++ },
+                    onFailure = { error ->
+                        failures += "$productName: ${error.message ?: "Không thể nhập kho"}"
+                    }
+                )
+            }
+
+            _uiState.update { state ->
+                if (failures.isEmpty()) {
+                    state.copy(
+                        isUpdating = false,
+                        successMessage = "Đã nhập kho $successCount dòng sản phẩm"
+                    )
+                } else {
+                    state.copy(
+                        isUpdating = false,
+                        error = "Nhập kho $successCount/${receipts.size} dòng. Lỗi: ${failures.take(2).joinToString("; ")}"
+                    )
+                }
+            }
+
+            if (successCount > 0) {
+                loadProducts()
+            }
+        }
+    }
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
@@ -556,6 +610,15 @@ class ProductsViewModel(
     }
 }
 
+
+data class StockReceiptDraft(
+    val productId: String,
+    val mfgDate: String?,
+    val expDate: String?,
+    val quantity: Int,
+    val importPrice: Double?,
+    val note: String? = null
+)
 data class ProductsUiState(
     val products: List<Product> = emptyList(),
     val filteredProducts: List<Product> = emptyList(),
