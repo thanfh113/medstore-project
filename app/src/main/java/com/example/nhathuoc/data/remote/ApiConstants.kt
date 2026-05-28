@@ -5,7 +5,7 @@
  * Base URL for Android emulator pointing to localhost BE
  */
 object ApiConstants {
-    const val BASE_URL = "http://192.168.1.32:8080"
+    const val BASE_URL = "http://10.0.2.2:8080"
 
     const val AUTH_REGISTER = "/api/v1/auth/register"
     const val AUTH_LOGIN = "/api/v1/auth/login"
