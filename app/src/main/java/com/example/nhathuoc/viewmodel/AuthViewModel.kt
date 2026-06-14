@@ -28,6 +28,12 @@ class AuthViewModel @Inject constructor(
     private val _changePasswordState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val changePasswordState: StateFlow<UiState<String>> = _changePasswordState.asStateFlow()
 
+    private val _forgotPasswordState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val forgotPasswordState: StateFlow<UiState<String>> = _forgotPasswordState.asStateFlow()
+
+    private val _resetPasswordState = MutableStateFlow<UiState<String>>(UiState.Idle)
+    val resetPasswordState: StateFlow<UiState<String>> = _resetPasswordState.asStateFlow()
+
     private val _userState = MutableStateFlow<UiState<UserResponse>>(UiState.Idle)
     val userState: StateFlow<UiState<UserResponse>> = _userState.asStateFlow()
 
@@ -143,7 +149,31 @@ class AuthViewModel @Inject constructor(
     fun clearRegisterState() { _registerState.value = UiState.Idle }
     fun clearLogoutState() { _logoutState.value = UiState.Idle }
     fun clearUserState() { _userState.value = UiState.Idle }
+    fun forgotPassword(email: String) {
+        viewModelScope.launch {
+            _forgotPasswordState.value = UiState.Loading
+            when (val result = authRepository.forgotPassword(email)) {
+                is NetworkResult.Success  -> _forgotPasswordState.value = UiState.Success(result.data)
+                is NetworkResult.Error    -> _forgotPasswordState.value = UiState.Error(result.message)
+                is NetworkResult.Exception -> _forgotPasswordState.value = UiState.Error(result.e.toUserMessage())
+            }
+        }
+    }
+
+    fun resetPassword(email: String, otp: String, newPassword: String) {
+        viewModelScope.launch {
+            _resetPasswordState.value = UiState.Loading
+            when (val result = authRepository.resetPassword(email, otp, newPassword)) {
+                is NetworkResult.Success  -> _resetPasswordState.value = UiState.Success(result.data)
+                is NetworkResult.Error    -> _resetPasswordState.value = UiState.Error(result.message)
+                is NetworkResult.Exception -> _resetPasswordState.value = UiState.Error(result.e.toUserMessage())
+            }
+        }
+    }
+
     fun clearChangePasswordState() { _changePasswordState.value = UiState.Idle }
+    fun clearForgotPasswordState() { _forgotPasswordState.value = UiState.Idle }
+    fun clearResetPasswordState()  { _resetPasswordState.value  = UiState.Idle }
 
     fun isValidPhone(phone: String): Boolean = phone.matches(Regex("^0[0-9]{9}$"))
     fun isValidEmail(email: String): Boolean =

@@ -71,6 +71,7 @@ fun ProfileScreen(onBack: () -> Unit) {
     var nameError by remember { mutableStateOf<String?>(null) }
     var emailError by remember { mutableStateOf<String?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var hasAttemptedSave by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState()
 
     val isLoading = userState is UiState.Loading
@@ -88,10 +89,13 @@ fun ProfileScreen(onBack: () -> Unit) {
         }
     }
 
-    LaunchedEffect(Unit) { authViewModel.clearUserState() }
+    LaunchedEffect(Unit) {
+        authViewModel.clearUserState()
+        authViewModel.getCurrentUser()
+    }
 
     LaunchedEffect(userState) {
-        if (userState is UiState.Success) {
+        if (userState is UiState.Success && hasAttemptedSave) {
             authViewModel.clearUserState()
             onBack()
         }
@@ -340,14 +344,17 @@ fun ProfileScreen(onBack: () -> Unit) {
                         emailError = "Email không hợp lệ"
                         valid = false
                     }
-                    if (valid) authViewModel.updateProfile(
-                        fullName = fullName.trim(),
-                        email = email.trim(),
-                        gender = gender,
-                        dateOfBirth = dateOfBirth.ifBlank { null },
-                        avatarFile = if (avatarChanged && !avatarUri.isNullOrBlank() && !avatarUri!!.startsWith("http"))
-                            File(avatarUri!!) else null
-                    )
+                    if (valid) {
+                        hasAttemptedSave = true
+                        authViewModel.updateProfile(
+                            fullName = fullName.trim(),
+                            email = email.trim(),
+                            gender = gender,
+                            dateOfBirth = dateOfBirth.ifBlank { null },
+                            avatarFile = if (avatarChanged && !avatarUri.isNullOrBlank() && !avatarUri!!.startsWith("http"))
+                                File(avatarUri!!) else null
+                        )
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()

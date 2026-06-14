@@ -266,7 +266,10 @@ fun LoginScreen(
                                 text = "Quên mật khẩu?",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.clickable {
+                                    navController?.navigate("ForgotPasswordScreen")
+                                }
                             )
                         }
 

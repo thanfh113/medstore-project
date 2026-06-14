@@ -61,6 +61,7 @@ import com.example.nhathuoc.ui.screen.miniscreen.ProductDetail
 import com.example.nhathuoc.ui.screen.miniscreen.ProductDetailScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ProductListScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ChangePasswordScreen
+import com.example.nhathuoc.ui.screen.miniscreen.ForgotPasswordScreen
 import com.example.nhathuoc.ui.screen.miniscreen.ProfileScreen
 import com.example.nhathuoc.ui.screen.miniscreen.RegisterScreen
 // Note: AddressSelectionScreen not registered in NavHost; AddressBookScreen is used instead
@@ -668,6 +669,28 @@ fun AppnavHost(navController: NavHostController) {
         }
         composable("ChangePasswordScreen") {
             ChangePasswordScreen(onBack = { navController.popBackStack() })
+        }
+        composable(
+            route = "ForgotPasswordScreen?email={email}",
+            arguments = listOf(
+                navArgument("email") { type = NavType.StringType; defaultValue = "" }
+            )
+        ) { backStackEntry ->
+            val rawEmail = backStackEntry.arguments?.getString("email").orEmpty()
+            val lockedEmail = rawEmail.ifBlank { null }
+            ForgotPasswordScreen(
+                onBack = { navController.popBackStack() },
+                onSuccess = {
+                    if (lockedEmail != null) {
+                        navController.popBackStack()
+                    } else {
+                        navController.navigate("LoginScreen") {
+                            popUpTo("ForgotPasswordScreen") { inclusive = true }
+                        }
+                    }
+                },
+                lockedEmail = lockedEmail
+            )
         }
 
         // ── Profile Address Management ──────────────────────────────────

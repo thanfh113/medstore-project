@@ -30,6 +30,12 @@ interface ApiService {
     @POST(ApiConstants.AUTH_CHANGE_PASSWORD)
     suspend fun changePassword(@Body request: ChangePasswordRequest): Response<MessageResponse>
 
+    @POST(ApiConstants.AUTH_FORGOT_PASSWORD)
+    suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<MessageResponse>
+
+    @POST(ApiConstants.AUTH_RESET_PASSWORD)
+    suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<MessageResponse>
+
     @GET(ApiConstants.USER_ME)
     suspend fun getMe(): Response<UserResponse>
 

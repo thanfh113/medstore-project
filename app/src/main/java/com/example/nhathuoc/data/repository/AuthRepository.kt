@@ -174,6 +174,40 @@ class AuthRepository @Inject constructor(
         }
     }
 
+    suspend fun forgotPassword(email: String): NetworkResult<String> {
+        return try {
+            val response = apiService.forgotPassword(ForgotPasswordRequest(email))
+            if (response.isSuccessful) {
+                NetworkResult.Success(response.body()?.message ?: "OTP đã được gửi")
+            } else {
+                NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+            }
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
+    suspend fun resetPassword(email: String, otp: String, newPassword: String): NetworkResult<String> {
+        return try {
+            val response = apiService.resetPassword(ResetPasswordRequest(email, otp, newPassword))
+            if (response.isSuccessful) {
+                NetworkResult.Success(response.body()?.message ?: "Đặt lại mật khẩu thành công")
+            } else {
+                NetworkResult.Error(response.code(), parseErrorMessage(response.errorBody()?.string()))
+            }
+        } catch (e: HttpException) {
+            NetworkResult.Error(e.code(), e.message())
+        } catch (e: IOException) {
+            NetworkResult.Exception(e)
+        } catch (e: Exception) {
+            NetworkResult.Exception(e)
+        }
+    }
+
     suspend fun changePassword(currentPassword: String, newPassword: String): NetworkResult<String> {
         return try {
             val response = apiService.changePassword(ChangePasswordRequest(currentPassword, newPassword))

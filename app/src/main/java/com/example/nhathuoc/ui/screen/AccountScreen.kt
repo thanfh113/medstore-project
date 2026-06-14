@@ -32,6 +32,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import android.content.Context
+import android.net.Uri
 import com.example.nhathuoc.NhathuocFirebaseMessagingService
 import com.example.nhathuoc.data.local.SessionManager
 import com.example.nhathuoc.data.model.UiState
@@ -60,6 +61,7 @@ private val orderStatuses = listOf(
 private val accountMenuItems = listOf(
     MenuItem(Icons.Outlined.AccountCircle,   "Thông tin cá nhân"),
     MenuItem(Icons.Outlined.Lock,            "Đổi mật khẩu"),
+    MenuItem(Icons.Outlined.LockReset,       "Quên mật khẩu"),
     MenuItem(Icons.Outlined.LocationOn,      "Quản lý sổ địa chỉ"),
     MenuItem(Icons.Outlined.SupportAgent,    "Khiếu nại của tôi"),
 )
@@ -315,7 +317,7 @@ private fun AuthenticatedAccountContent(
             Spacer(Modifier.height(16.dp))
             SectionLabel(title = "Tài khoản")
             Spacer(Modifier.height(6.dp))
-            MenuGroup(items = accountMenuItems, navController = navController)
+            MenuGroup(items = accountMenuItems, navController = navController, userEmail = userEmail)
 
             // ── Đăng xuất ────────────────────────────────────────────
             Spacer(Modifier.height(20.dp))
@@ -421,7 +423,7 @@ private fun OrderStatusItem(item: MenuItem, onClick: () -> Unit = {}) {
 }
 
 @Composable
-private fun MenuGroup(items: List<MenuItem>, navController: NavController) {
+private fun MenuGroup(items: List<MenuItem>, navController: NavController, userEmail: String = "") {
     val context = LocalContext.current
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -438,6 +440,13 @@ private fun MenuGroup(items: List<MenuItem>, navController: NavController) {
                         when (item.label) {
                             "Thông tin cá nhân"   -> navController.navigate("ProfileScreen")
                             "Đổi mật khẩu"        -> navController.navigate("ChangePasswordScreen")
+                            "Quên mật khẩu"       -> {
+                                val route = if (userEmail.isNotBlank())
+                                    "ForgotPasswordScreen?email=${Uri.encode(userEmail)}"
+                                else
+                                    "ForgotPasswordScreen"
+                                navController.navigate(route)
+                            }
                             "Quản lý sổ địa chỉ"  -> navController.navigate("ProfileAddressBookScreen")
                             "Đơn hàng của tôi"    -> navController.navigate("MyOrdersScreen")
                             "Khiếu nại của tôi"   -> navController.navigate("MyComplaintsScreen")
