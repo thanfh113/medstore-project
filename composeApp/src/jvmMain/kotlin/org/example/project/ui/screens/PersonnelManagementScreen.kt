@@ -1,27 +1,58 @@
 package org.example.project.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.outlined.ManageAccounts
+import androidx.compose.material.icons.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -30,6 +61,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -40,20 +72,29 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.example.project.data.repositories.PersonnelEmployeeProfileDto
 import org.example.project.data.repositories.PersonnelEmployeeProfileRequest
 import org.example.project.data.repositories.PersonnelUserDto
 import org.example.project.presentation.viewmodels.PersonnelViewModel
 import org.example.project.util.formatVnDateTime
 import org.example.project.utils.openFileChooser
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.io.File
 import java.net.URI
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 private enum class PersonnelGroup(val displayName: String) {
     INTERNAL("Nhân viên & admin"),
@@ -67,12 +108,16 @@ fun PersonnelManagementScreen(viewModel: PersonnelViewModel) {
     var selectedGroup by remember { mutableStateOf(PersonnelGroup.INTERNAL) }
     var searchQuery by remember { mutableStateOf("") }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var selectedUser by remember { mutableStateOf<PersonnelUserDto?>(null) }
     var resetTarget by remember { mutableStateOf<PersonnelUserDto?>(null) }
     var profileTarget by remember { mutableStateOf<PersonnelUserDto?>(null) }
     var deleteTarget by remember { mutableStateOf<PersonnelUserDto?>(null) }
 
-    LaunchedEffect(Unit) {
-        viewModel.loadUsers()
+    LaunchedEffect(Unit) { viewModel.loadUsers() }
+
+    // Keep selectedUser in sync after list refresh
+    LaunchedEffect(uiState.users) {
+        selectedUser = selectedUser?.let { cur -> uiState.users.find { it.id == cur.id } }
     }
 
     if (showCreateDialog) {
@@ -80,8 +125,8 @@ fun PersonnelManagementScreen(viewModel: PersonnelViewModel) {
             creating = uiState.creating,
             initialRole = if (selectedGroup == PersonnelGroup.USER) "USER" else "EMPLOYEE",
             onDismiss = { showCreateDialog = false },
-            onCreate = { fullName, phone, email, password, role, profile, qualificationDocumentFile ->
-                viewModel.createUser(fullName, phone, email, password, role, profile, qualificationDocumentFile)
+            onCreate = { fullName, phone, email, password, role, profile, qualDocFile ->
+                viewModel.createUser(fullName, phone, email, password, role, profile, qualDocFile)
                 showCreateDialog = false
             }
         )
@@ -98,9 +143,7 @@ fun PersonnelManagementScreen(viewModel: PersonnelViewModel) {
             user = user,
             processing = uiState.processingUserId == user.id,
             onDismiss = { profileTarget = null },
-            onSave = { profile, qualificationDocumentFile ->
-                viewModel.updateEmployeeProfile(user, profile, qualificationDocumentFile)
-            }
+            onSave = { profile, qualDocFile -> viewModel.updateEmployeeProfile(user, profile, qualDocFile) }
         )
     }
 
@@ -124,6 +167,7 @@ fun PersonnelManagementScreen(viewModel: PersonnelViewModel) {
             onConfirm = {
                 viewModel.deleteUser(user.id)
                 deleteTarget = null
+                selectedUser = null
             }
         )
     }
@@ -146,8 +190,19 @@ fun PersonnelManagementScreen(viewModel: PersonnelViewModel) {
             TopAppBar(
                 title = { Text("Quản lý tài khoản", fontWeight = FontWeight.Bold) },
                 actions = {
-                    TextButton(onClick = { showCreateDialog = true }) {
-                        Text(if (selectedGroup == PersonnelGroup.USER) "Thêm tài khoản user" else "Thêm tài khoản nhân viên")
+                    uiState.successMessage?.let {
+                        Text(it, color = Color(0xFF2E7D32), fontSize = 13.sp, modifier = Modifier.padding(end = 12.dp))
+                    }
+                    uiState.error?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.padding(end = 12.dp))
+                    }
+                    Button(
+                        onClick = { showCreateDialog = true },
+                        modifier = Modifier.padding(end = 12.dp)
+                    ) {
+                        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(if (selectedGroup == PersonnelGroup.USER) "Thêm user" else "Thêm nhân viên")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -162,80 +217,185 @@ fun PersonnelManagementScreen(viewModel: PersonnelViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
         ) {
-            uiState.error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error)
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-            uiState.successMessage?.let {
-                Text(it, color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            TabRow(selectedTabIndex = PersonnelGroup.entries.indexOf(selectedGroup)) {
-                PersonnelGroup.entries.forEachIndexed { index, group ->
+            TabRow(
+                selectedTabIndex = PersonnelGroup.entries.indexOf(selectedGroup),
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                PersonnelGroup.entries.forEach { group ->
                     Tab(
                         selected = selectedGroup == group,
-                        onClick = { selectedGroup = group },
+                        onClick = {
+                            if (selectedGroup != group) {
+                                selectedGroup = group
+                                selectedUser = null
+                                searchQuery = ""
+                            }
+                        },
                         text = { Text(group.displayName) }
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = {
-                    Text(
-                        if (selectedGroup == PersonnelGroup.USER) {
-                            "Tìm khách hàng theo tên, SĐT, email"
-                        } else {
-                            "Tìm nhân viên theo tên, SĐT, email, bằng cấp"
-                        }
+            Row(modifier = Modifier.fillMaxSize()) {
+                // ─── LEFT PANEL: compact user list ───────────────────────────
+                Column(
+                    modifier = Modifier
+                        .width(310.dp)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.surface)
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = {
+                            Text("Tìm kiếm...", fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Outlined.Search, contentDescription = null,
+                                modifier = Modifier.size(18.dp))
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        singleLine = true,
+                        shape = RoundedCornerShape(20.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary
+                        )
                     )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
 
-            Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "${filteredUsers.size} " +
+                            if (selectedGroup == PersonnelGroup.USER) "khách hàng" else "nhân viên/admin",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                    )
 
-            Text(
-                text = when (selectedGroup) {
-                    PersonnelGroup.INTERNAL -> "Nhân viên dùng desktop và được coi là người có chuyên môn. Admin cần bổ sung, xác minh ảnh bằng cấp/chứng chỉ cho EMPLOYEE."
-                    PersonnelGroup.USER -> "Tài khoản khách hàng dùng Android: hỗ trợ khóa/mở khóa và đặt lại mật khẩu khi cần."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    when {
+                        uiState.isLoading -> Box(
+                            Modifier.fillMaxWidth().padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                        }
+                        filteredUsers.isEmpty() -> Box(
+                            Modifier.fillMaxWidth().padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Không có kết quả", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp)
+                        }
+                        else -> LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(vertical = 4.dp)
+                        ) {
+                            items(filteredUsers, key = { it.id }) { user ->
+                                UserListRow(
+                                    user = user,
+                                    isSelected = selectedUser?.id == user.id,
+                                    onClick = { selectedUser = user }
+                                )
+                            }
+                        }
+                    }
+                }
 
-            if (uiState.isLoading) {
-                CircularProgressIndicator()
-            } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(filteredUsers, key = { it.id }) { user ->
-                        PersonnelUserCard(
-                            user = user,
-                            processing = uiState.processingUserId == user.id,
-                            onEditProfile = { profileTarget = user },
-                            onToggleLock = { viewModel.toggleLock(user.id) },
-                            onResetPassword = { resetTarget = user },
-                            onDelete = { deleteTarget = user }
+                VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // ─── RIGHT PANEL: detail ─────────────────────────────────────
+                val current = selectedUser
+                if (current == null) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            Icons.Outlined.ManageAccounts, contentDescription = null,
+                            modifier = Modifier.size(60.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "Chọn tài khoản để xem chi tiết",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                         )
                     }
+                } else {
+                    UserDetailPanel(
+                        user = current,
+                        processing = uiState.processingUserId == current.id,
+                        onEditProfile = { profileTarget = current },
+                        onToggleLock = { viewModel.toggleLock(current.id) },
+                        onResetPassword = { resetTarget = current },
+                        onDelete = { deleteTarget = current }
+                    )
                 }
             }
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Compact list row
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
-private fun PersonnelUserCard(
+private fun UserListRow(
+    user: PersonnelUserDto,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val bg = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else Color.Transparent
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(bg)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AvatarCircle(name = user.fullName ?: user.phone, role = user.role, size = 36.dp)
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = user.fullName ?: user.phone,
+                fontSize = 13.sp,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = user.email ?: user.phone,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .clip(CircleShape)
+                .background(if (user.isActive) Color(0xFF4CAF50) else Color(0xFFEF5350))
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Detail panel (right side)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun UserDetailPanel(
     user: PersonnelUserDto,
     processing: Boolean,
     onEditProfile: () -> Unit,
@@ -243,127 +403,275 @@ private fun PersonnelUserCard(
     onResetPassword: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(28.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Header: avatar + name + chips
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AvatarCircleWithImage(
+                name = user.fullName ?: user.phone,
+                role = user.role,
+                size = 72.dp,
+                avatarUrl = user.avatarUrl
+            )
+            Text(user.fullName ?: user.phone, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 RoleChip(user.role)
                 StatusChip(user.isActive)
-                if (!user.isActive && user.failedLoginAttempts >= 5) {
-                    FailedLoginChip()
-                } else if (user.isActive && user.failedLoginAttempts in 1..4) {
-                    FailedAttemptsWarningChip(user.failedLoginAttempts)
-                }
+                if (!user.isActive && user.failedLoginAttempts >= 5) FailedLoginChip()
+                else if (user.isActive && user.failedLoginAttempts in 1..4) FailedAttemptsWarningChip(user.failedLoginAttempts)
                 if (user.role.uppercase() == "EMPLOYEE") {
                     ProfileStatusChip(user.employeeProfile?.qualificationVerified == true)
                 }
             }
+        }
 
-            Text(user.fullName ?: user.phone, fontWeight = FontWeight.SemiBold)
-            Text("SĐT: ${user.phone}")
-            user.email?.let { Text("Email: $it") }
-            Text("Tạo lúc: ${formatVnDateTime(user.createdAt)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-            if (user.role.uppercase() == "EMPLOYEE") {
-                EmployeeProfileSummary(user.employeeProfile)
+        // Info card
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                InfoRow(Icons.Outlined.Phone, "Số điện thoại", user.phone)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                InfoRow(Icons.Outlined.Email, "Email", user.email ?: "—")
+                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                InfoRow(Icons.Outlined.Person, "Giới tính", user.gender ?: "—")
+                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                InfoRow(Icons.Outlined.Cake, "Ngày sinh", formatDobForDisplay(user.dateOfBirth))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                InfoRow(Icons.Outlined.CalendarToday, "Ngày tạo", formatVnDateTime(user.createdAt))
+                if (user.failedLoginAttempts > 0) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    InfoRow(Icons.Outlined.FilterList, "Sai mật khẩu", "${user.failedLoginAttempts} lần")
+                }
             }
+        }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (user.role.uppercase() == "EMPLOYEE") {
-                    Button(onClick = onEditProfile, enabled = !processing) {
-                        Text("Sửa hồ sơ chuyên môn")
+        // Employee qualification section
+        if (user.role.uppercase() == "EMPLOYEE") {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFF1F8E9),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Hồ sơ chuyên môn", fontWeight = FontWeight.SemiBold, color = Color(0xFF2E7D32))
+                        TextButton(onClick = onEditProfile, enabled = !processing) {
+                            Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Chỉnh sửa", fontSize = 13.sp)
+                        }
+                    }
+                    val profile = user.employeeProfile
+                    if (profile != null) {
+                        Text(profile.qualificationTitle, fontWeight = FontWeight.Medium, color = Color(0xFF1B5E20))
+                        profile.qualificationInstitution?.let {
+                            Text("Đơn vị cấp: $it", fontSize = 13.sp, color = Color(0xFF388E3C))
+                        }
+                        if (profile.qualificationDocumentUrl != null) {
+                            TextButton(onClick = { openExternalUrl(profile.qualificationDocumentUrl) }) {
+                                Icon(Icons.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Xem minh chứng", fontSize = 13.sp)
+                            }
+                        }
+                        profile.qualificationNote?.let {
+                            Text("Ghi chú: $it", fontSize = 12.sp, color = Color(0xFF558B2F))
+                        }
+                    } else {
+                        Text("Chưa cập nhật hồ sơ chuyên môn", color = Color(0xFFE65100), fontSize = 13.sp)
                     }
                 }
-                val lockLabel = when {
-                    !user.isActive && user.failedLoginAttempts >= 5 -> "Mở khóa & xóa cảnh báo"
-                    !user.isActive -> "Mở khóa"
-                    else -> "Khóa tài khoản"
-                }
-                val lockColors = if (user.isActive)
-                    ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                else
-                    ButtonDefaults.buttonColors()
-                Button(onClick = onToggleLock, enabled = !processing, colors = lockColors) {
-                    Text(lockLabel)
-                }
-                Button(
-                    onClick = onDelete,
-                    enabled = !processing,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Xóa tài khoản")
-                }
-                Button(onClick = onResetPassword, enabled = !processing) {
-                    Text("Đặt lại mật khẩu")
+            }
+        }
+
+        // Actions card
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Tác vụ quản trị",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (processing) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Đang xử lý...", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val lockLabel = when {
+                            !user.isActive && user.failedLoginAttempts >= 5 -> "Mở khóa & xóa cảnh báo"
+                            !user.isActive -> "Mở khóa"
+                            else -> "Khóa tài khoản"
+                        }
+                        FilledTonalButton(
+                            onClick = onToggleLock,
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = if (user.isActive) MaterialTheme.colorScheme.errorContainer
+                                else MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = if (user.isActive) MaterialTheme.colorScheme.onErrorContainer
+                                else MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        ) {
+                            Icon(
+                                if (user.isActive) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(lockLabel, fontSize = 13.sp)
+                        }
+
+                        FilledTonalButton(onClick = onResetPassword) {
+                            Icon(Icons.Outlined.VpnKey, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(5.dp))
+                            Text("Đặt lại mật khẩu", fontSize = 13.sp)
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = onDelete,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("Xóa tài khoản", fontSize = 13.sp)
+                    }
                 }
             }
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared small components
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
-private fun EmployeeProfileSummary(profile: PersonnelEmployeeProfileDto?) {
-    Surface(
-        color = Color(0xFFF1F8E9),
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier.fillMaxWidth()
+private fun InfoRow(icon: ImageVector, label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(15.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(8.dp))
+        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(110.dp))
+        Text(value, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun AvatarCircle(name: String, role: String, size: Dp) {
+    val initials = name.trim().split(" ")
+        .filter { it.isNotBlank() }
+        .take(2)
+        .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+        .joinToString("")
+        .ifBlank { "?" }
+    val bgColor = when (role.uppercase()) {
+        "ADMIN" -> Color(0xFF1565C0)
+        "EMPLOYEE" -> Color(0xFF2E7D32)
+        else -> Color(0xFFE65100)
+    }
+    Box(
+        modifier = Modifier.size(size).clip(CircleShape).background(bgColor),
+        contentAlignment = Alignment.Center
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Hồ sơ chuyên môn", fontWeight = FontWeight.SemiBold)
-            Text(profile?.qualificationTitle ?: "Chưa cập nhật bằng cấp/chứng chỉ")
-            profile?.qualificationInstitution?.let { Text("Đơn vị cấp: $it") }
-            profile?.qualificationDocumentUrl?.let { url ->
-                Text("Minh chứng: Đã có file", color = MaterialTheme.colorScheme.primary)
-                TextButton(onClick = { openExternalUrl(url) }) {
-                    Text("Mở minh chứng")
-                }
-            }
-            profile?.qualificationNote?.let { Text("Ghi chú: $it") }
-        }
+        Text(
+            text = initials,
+            color = Color.White,
+            fontSize = (size.value * 0.32f).sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun AvatarCircleWithImage(name: String, role: String, size: Dp, avatarUrl: String?) {
+    if (avatarUrl.isNullOrBlank()) {
+        AvatarCircle(name, role, size)
+        return
+    }
+    var loadFailed by remember(avatarUrl) { mutableStateOf(false) }
+    if (loadFailed) {
+        AvatarCircle(name, role, size)
+    } else {
+        AsyncImage(
+            model = avatarUrl,
+            contentDescription = "Avatar",
+            modifier = Modifier.size(size).clip(CircleShape),
+            contentScale = ContentScale.Crop,
+            onError = { loadFailed = true }
+        )
     }
 }
 
 @Composable
 private fun RoleChip(role: String) {
-    val color = when (role.uppercase()) {
+    val (bg, fg) = when (role.uppercase()) {
         "ADMIN" -> Color(0xFFE3F2FD) to Color(0xFF1565C0)
         "EMPLOYEE" -> Color(0xFFE8F5E9) to Color(0xFF2E7D32)
         else -> Color(0xFFFFF8E1) to Color(0xFFEF6C00)
     }
-    Surface(color = color.first, shape = MaterialTheme.shapes.small) {
+    Surface(color = bg, shape = MaterialTheme.shapes.small) {
         Text(
             text = role.uppercase(),
-            color = color.second,
+            color = fg,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
         )
     }
 }
 
 @Composable
 private fun StatusChip(isActive: Boolean) {
-    val color = if (isActive) Color(0xFFE8F5E9) to Color(0xFF2E7D32) else Color(0xFFFFEBEE) to Color(0xFFD32F2F)
-    Surface(color = color.first, shape = MaterialTheme.shapes.small) {
+    val (bg, fg) = if (isActive) Color(0xFFE8F5E9) to Color(0xFF2E7D32) else Color(0xFFFFEBEE) to Color(0xFFD32F2F)
+    Surface(color = bg, shape = MaterialTheme.shapes.small) {
         Text(
             text = if (isActive) "Đang hoạt động" else "Đã khóa",
-            color = color.second,
+            color = fg,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
         )
     }
 }
 
 @Composable
 private fun ProfileStatusChip(isVerified: Boolean) {
-    val color = if (isVerified) Color(0xFFE0F2F1) to Color(0xFF00695C) else Color(0xFFFFF3E0) to Color(0xFFE65100)
-    Surface(color = color.first, shape = MaterialTheme.shapes.small) {
+    val (bg, fg) = if (isVerified) Color(0xFFE0F2F1) to Color(0xFF00695C) else Color(0xFFFFF3E0) to Color(0xFFE65100)
+    Surface(color = bg, shape = MaterialTheme.shapes.small) {
         Text(
-            text = if (isVerified) "Đã xác minh chuyên môn" else "Chờ xác minh chuyên môn",
-            color = color.second,
+            text = if (isVerified) "Đã xác minh" else "Chờ xác minh",
+            color = fg,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
         )
     }
 }
@@ -375,7 +683,8 @@ private fun FailedLoginChip() {
             text = "Khóa do sai MK 5 lần",
             color = Color(0xFFB71C1C),
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
         )
     }
 }
@@ -384,13 +693,26 @@ private fun FailedLoginChip() {
 private fun FailedAttemptsWarningChip(count: Int) {
     Surface(color = Color(0xFFFFF3E0), shape = MaterialTheme.shapes.small) {
         Text(
-            text = "Sai MK: $count/5 lần",
+            text = "Sai MK: $count/5",
             color = Color(0xFFE65100),
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
         )
     }
 }
+
+private fun formatDobForDisplay(dob: String?): String {
+    if (dob.isNullOrBlank()) return "—"
+    return try {
+        val parsed = LocalDate.parse(dob, DateTimeFormatter.ISO_LOCAL_DATE)
+        parsed.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+    } catch (_: Exception) { dob }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dialogs (unchanged logic)
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun CreatePersonnelDialog(
@@ -412,16 +734,10 @@ private fun CreatePersonnelDialog(
     val pickerScope = rememberCoroutineScope()
 
     val normalizedRole = role.trim().uppercase()
-    val roleOptions = if (initialRole.uppercase() == "USER") {
-        listOf("USER")
-    } else {
-        listOf("EMPLOYEE", "ADMIN")
-    }
+    val roleOptions = if (initialRole.uppercase() == "USER") listOf("USER") else listOf("EMPLOYEE", "ADMIN")
 
     AlertDialog(
-        onDismissRequest = {
-            if (!isPickingQualificationFile && !creating) onDismiss()
-        },
+        onDismissRequest = { if (!isPickingQualificationFile && !creating) onDismiss() },
         title = { Text("Tạo tài khoản") },
         text = {
             LazyColumn(
@@ -429,16 +745,20 @@ private fun CreatePersonnelDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item {
-                    OutlinedTextField(value = fullName, onValueChange = { fullName = it }, label = { Text("Họ tên *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = fullName, onValueChange = { fullName = it },
+                        label = { Text("Họ tên *") }, modifier = Modifier.fillMaxWidth())
                 }
                 item {
-                    OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Điện thoại *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = phone, onValueChange = { phone = it },
+                        label = { Text("Điện thoại *") }, modifier = Modifier.fillMaxWidth())
                 }
                 item {
-                    OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email (tùy chọn)") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = email, onValueChange = { email = it },
+                        label = { Text("Email (tùy chọn)") }, modifier = Modifier.fillMaxWidth())
                 }
                 item {
-                    OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Mật khẩu *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = password, onValueChange = { password = it },
+                        label = { Text("Mật khẩu *") }, modifier = Modifier.fillMaxWidth())
                 }
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -449,13 +769,11 @@ private fun CreatePersonnelDialog(
                                     selected = normalizedRole == option,
                                     onClick = { role = option },
                                     label = {
-                                        Text(
-                                            when (option) {
-                                                "ADMIN" -> "Admin"
-                                                "EMPLOYEE" -> "Nhân viên"
-                                                else -> "Khách hàng"
-                                            }
-                                        )
+                                        Text(when (option) {
+                                            "ADMIN" -> "Admin"
+                                            "EMPLOYEE" -> "Nhân viên"
+                                            else -> "Khách hàng"
+                                        })
                                     }
                                 )
                             }
@@ -478,17 +796,13 @@ private fun CreatePersonnelDialog(
                                         delay(120)
                                         pickQualificationDocumentFile()?.let { qualificationDocumentFile = it }
                                     } catch (_: Throwable) {
-                                        // Keep the form open if the native file chooser fails.
                                     } finally {
-                                        // Native file chooser can emit a delayed outside-click dismiss event.
                                         delay(300)
                                         isPickingQualificationFile = false
                                     }
                                 }
                             },
-                            onClearQualificationDocument = {
-                                qualificationDocumentFile = null
-                            },
+                            onClearQualificationDocument = { qualificationDocumentFile = null },
                             qualificationVerified = false,
                             onQualificationVerifiedChange = {},
                             qualificationNote = qualificationNote,
@@ -511,28 +825,17 @@ private fun CreatePersonnelDialog(
                             qualificationVerified = false,
                             qualificationNote = null
                         )
-                    } else {
-                        null
-                    }
+                    } else null
                     onCreate(
-                        fullName,
-                        phone,
-                        email,
-                        password,
-                        normalizedRole,
-                        profile,
+                        fullName, phone, email, password, normalizedRole, profile,
                         if (normalizedRole == "EMPLOYEE") qualificationDocumentFile else null
                     )
                 },
                 enabled = !creating && fullName.isNotBlank() && phone.isNotBlank() && password.length >= 6
-            ) {
-                Text("Tạo")
-            }
+            ) { Text("Tạo") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !creating) {
-                Text("Hủy")
-            }
+            TextButton(onClick = onDismiss, enabled = !creating) { Text("Hủy") }
         }
     )
 }
@@ -556,9 +859,7 @@ private fun EmployeeProfileDialog(
     val pickerScope = rememberCoroutineScope()
 
     AlertDialog(
-        onDismissRequest = {
-            if (!isPickingQualificationFile && !processing) onDismiss()
-        },
+        onDismissRequest = { if (!isPickingQualificationFile && !processing) onDismiss() },
         title = { Text("Hồ sơ chuyên môn") },
         text = {
             LazyColumn(
@@ -570,11 +871,8 @@ private fun EmployeeProfileDialog(
                 }
                 if (processing) {
                     item {
-                        Text(
-                            "Đang upload/cập nhật hồ sơ, vui lòng đợi...",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Text("Đang upload/cập nhật hồ sơ, vui lòng đợi...",
+                            color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     }
                 }
                 item {
@@ -592,17 +890,13 @@ private fun EmployeeProfileDialog(
                                     delay(120)
                                     pickQualificationDocumentFile()?.let { qualificationDocumentFile = it }
                                 } catch (_: Throwable) {
-                                    // Keep the form open if the native file chooser fails.
                                 } finally {
-                                    // Native file chooser can emit a delayed outside-click dismiss event.
                                     delay(300)
                                     isPickingQualificationFile = false
                                 }
                             }
                         },
-                        onClearQualificationDocument = {
-                            qualificationDocumentFile = null
-                        },
+                        onClearQualificationDocument = { qualificationDocumentFile = null },
                         qualificationVerified = qualificationVerified,
                         onQualificationVerifiedChange = { qualificationVerified = it },
                         qualificationNote = qualificationNote,
@@ -627,14 +921,10 @@ private fun EmployeeProfileDialog(
                     )
                 },
                 enabled = !processing
-            ) {
-                Text("Lưu")
-            }
+            ) { Text("Lưu") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !processing) {
-                Text("Hủy")
-            }
+            TextButton(onClick = onDismiss, enabled = !processing) { Text("Hủy") }
         }
     )
 }
@@ -669,15 +959,8 @@ private fun EmployeeProfileFields(
             label = { Text("Đơn vị cấp") },
             modifier = Modifier.fillMaxWidth()
         )
-        Surface(
-            color = Color(0xFFF7FBF4),
-            shape = MaterialTheme.shapes.medium,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+        Surface(color = Color(0xFFF7FBF4), shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("File minh chứng chuyên môn", fontWeight = FontWeight.SemiBold)
                 Text(
                     text = qualificationDocumentFile?.let {
@@ -690,17 +973,13 @@ private fun EmployeeProfileFields(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     currentQualificationDocumentUrl?.let { url ->
-                        TextButton(onClick = { openExternalUrl(url) }) {
-                            Text("Mở file hiện tại")
-                        }
+                        TextButton(onClick = { openExternalUrl(url) }) { Text("Mở file hiện tại") }
                     }
                     Button(onClick = onChooseQualificationDocument) {
                         Text(if (qualificationDocumentFile == null) "Chọn file" else "Đổi file")
                     }
                     if (qualificationDocumentFile != null) {
-                        TextButton(onClick = onClearQualificationDocument) {
-                            Text("Bỏ chọn")
-                        }
+                        TextButton(onClick = onClearQualificationDocument) { Text("Bỏ chọn") }
                     }
                 }
             }
@@ -720,60 +999,6 @@ private fun EmployeeProfileFields(
     }
 }
 
-private fun pickQualificationDocumentFile(): File? {
-    return openFileChooser(
-        title = "Chọn file minh chứng chuyên môn",
-        allowedExtensions = listOf(".jpg", ".jpeg", ".png", ".pdf", ".heic"),
-        allowMultiple = false
-    ).firstOrNull()
-}
-
-private fun openExternalUrl(url: String) {
-    runCatching {
-        if (Desktop.isDesktopSupported()) {
-            Desktop.getDesktop().browse(URI(url))
-        }
-    }
-}
-
-@Composable
-private fun DeletePersonnelDialog(
-    user: PersonnelUserDto,
-    processing: Boolean,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Xóa tài khoản") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Tài khoản: ${user.fullName ?: user.phone}", fontWeight = FontWeight.SemiBold)
-                Text(
-                    "Thao tác này sẽ xóa mềm tài khoản khỏi danh sách quản trị, khóa đăng nhập và giữ lịch sử đơn hàng/chat để không mất dữ liệu đối soát."
-                )
-                if (user.role.uppercase() == "ADMIN") {
-                    Text("Backend sẽ chặn nếu đây là admin cuối cùng hoặc là tài khoản đang đăng nhập.")
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                enabled = !processing,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-            ) {
-                Text("Xóa")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !processing) {
-                Text("Hủy")
-            }
-        }
-    )
-}
-
 @Composable
 private fun ResetPasswordDialog(
     user: PersonnelUserDto,
@@ -782,7 +1007,6 @@ private fun ResetPasswordDialog(
     onConfirm: (String) -> Unit
 ) {
     var newPassword by remember { mutableStateOf("") }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Đặt lại mật khẩu") },
@@ -802,9 +1026,57 @@ private fun ResetPasswordDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !processing) {
-                Text("Hủy")
-            }
+            TextButton(onClick = onDismiss, enabled = !processing) { Text("Hủy") }
         }
     )
+}
+
+@Composable
+private fun DeletePersonnelDialog(
+    user: PersonnelUserDto,
+    processing: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Xóa tài khoản") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Tài khoản: ${user.fullName ?: user.phone}", fontWeight = FontWeight.SemiBold)
+                Text("Thao tác này sẽ xóa mềm tài khoản khỏi danh sách quản trị, khóa đăng nhập và giữ lịch sử đơn hàng/chat để không mất dữ liệu đối soát.")
+                if (user.role.uppercase() == "ADMIN") {
+                    Text("Backend sẽ chặn nếu đây là admin cuối cùng hoặc là tài khoản đang đăng nhập.")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !processing,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) { Text("Xóa") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !processing) { Text("Hủy") }
+        }
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────────────────────────────────────────
+
+private fun pickQualificationDocumentFile(): File? {
+    return openFileChooser(
+        title = "Chọn file minh chứng chuyên môn",
+        allowedExtensions = listOf(".jpg", ".jpeg", ".png", ".pdf", ".heic"),
+        allowMultiple = false
+    ).firstOrNull()
+}
+
+private fun openExternalUrl(url: String) {
+    runCatching {
+        if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI(url))
+    }
 }

@@ -58,8 +58,7 @@ fun FinanceAdminScreen(viewModel: FinanceDashboardViewModel) {
     val selectedPeriod by viewModel.selectedPeriod.collectAsState()
     var retriedAuth by remember { mutableStateOf(false) }
     var exportMessage by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) { viewModel.loadSummary() }
+    var exportMenuExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(state) {
         val current = state
@@ -93,27 +92,62 @@ fun FinanceAdminScreen(viewModel: FinanceDashboardViewModel) {
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    IconButton(
-                        onClick = {
-                            val data = (state as? FinanceUiState.Success)?.data ?: return@IconButton
-                            val csv = buildFinanceCsv(data)
-                            val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Lưu báo cáo CSV", java.awt.FileDialog.SAVE)
-                            dialog.file = "bao_cao_tai_chinh_${selectedPeriod.key.lowercase()}.csv"
-                            dialog.isVisible = true
-                            val dir = dialog.directory
-                            val file = dialog.file
-                            if (dir != null && file != null) {
-                                val fn = if (file.endsWith(".csv")) file else "$file.csv"
-                                runCatching {
-                                    java.io.File(dir, fn).writeText("\uFEFF$csv", Charsets.UTF_8)
+                    Box {
+                        IconButton(
+                            onClick = { exportMenuExpanded = true },
+                            enabled = state is FinanceUiState.Success
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = "Xuất báo cáo")
+                        }
+                        DropdownMenu(
+                            expanded = exportMenuExpanded,
+                            onDismissRequest = { exportMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Mở báo cáo HTML") },
+                                onClick = {
+                                    exportMenuExpanded = false
+                                    val data = (state as? FinanceUiState.Success)?.data
+                                    if (data != null) {
+                                        val html = buildFinanceHtml(data)
+                                        val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Lưu báo cáo HTML", java.awt.FileDialog.SAVE)
+                                        dialog.file = "bao_cao_tai_chinh_${selectedPeriod.key.lowercase()}.html"
+                                        dialog.isVisible = true
+                                        val dir = dialog.directory; val file = dialog.file
+                                        if (dir != null && file != null) {
+                                            val fn = if (file.endsWith(".html")) file else "$file.html"
+                                            runCatching { java.io.File(dir, fn).also { it.writeText(html, Charsets.UTF_8) } }
+                                                .onSuccess { f -> exportMessage = "Đã xuất: $fn"; runCatching { java.awt.Desktop.getDesktop().browse(f.toURI()) } }
+                                                .onFailure { exportMessage = "Xuất báo cáo thất bại" }
+                                        }
+                                    }
                                 }
-                                    .onSuccess { exportMessage = "Đã xuất: $fn" }
-                                    .onFailure { exportMessage = "Xuất báo cáo thất bại" }
-                            }
-                        },
-                        enabled = state is FinanceUiState.Success
-                    ) {
-                        Icon(Icons.Default.Download, contentDescription = "Xuất CSV")
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Xuất Excel (.xlsx)") },
+                                onClick = {
+                                    exportMenuExpanded = false
+                                    val data = (state as? FinanceUiState.Success)?.data
+                                    if (data != null) {
+                                        val bytes = runCatching { buildFinanceXlsx(data) }
+                                            .onFailure { exportMessage = "Lỗi tạo Excel" }
+                                            .getOrNull()
+                                        if (bytes != null) {
+                                            val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Lưu báo cáo Excel", java.awt.FileDialog.SAVE)
+                                            dialog.file = "bao_cao_tai_chinh_${selectedPeriod.key.lowercase()}.xlsx"
+                                            dialog.isVisible = true
+                                            val dir = dialog.directory; val file = dialog.file
+                                            if (dir != null && file != null) {
+                                                val fn = if (file.endsWith(".xlsx")) file else "$file.xlsx"
+                                                runCatching { java.io.File(dir, fn).also { it.writeBytes(bytes) } }
+                                                    .onSuccess { f -> exportMessage = "Đã xuất: $fn"; runCatching { java.awt.Desktop.getDesktop().open(f) } }
+                                                    .onFailure { exportMessage = "Xuất Excel thất bại" }
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        }
                     }
                     IconButton(
                         onClick = viewModel::loadSummary,
@@ -593,13 +627,6 @@ private fun profitColor(value: Double): Color = if (value >= 0) Color(0xFF1B5E20
 
 fun formatVND(value: Double): String = "%,.0f đ".format(value).replace(",", ".")
 
-private fun csvMoney(value: Double): String = value.toLong().toString()
-
-private fun csvCell(value: String): String {
-    val escaped = value.replace("\"", "\"\"")
-    return "\"$escaped\""
-}
-
 private fun <T> nextSort(current: SortState<T>, key: T, defaultDirection: SortDirection): SortState<T> {
     return if (current.key == key) {
         current.copy(direction = current.direction.toggled())
@@ -668,76 +695,182 @@ private fun sortedTopProducts(
     }
     return applyDirection(items, comparator, sort.direction)
 }
-private fun buildFinanceCsv(d: FinanceSummaryDto): String = buildString {
+
+private fun buildFinanceHtml(d: FinanceSummaryDto): String {
     val now = java.time.LocalDateTime.now()
     val dateStr = "%02d/%02d/%04d %02d:%02d".format(now.dayOfMonth, now.monthValue, now.year, now.hour, now.minute)
+    fun h(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    fun money(v: Double) = "%,.0f đ".format(v).replace(",", ".")
+    fun profitCls(v: Double) = if (v >= 0) "pos" else "neg"
 
-    appendLine("BÁO CÁO TÀI CHÍNH VẬT TƯ Y TẾ")
-    appendLine("Ngày xuất,${csvCell(dateStr)}")
-    appendLine("Kỳ báo cáo,${csvCell(d.periodLabel)}")
-    appendLine()
+    return buildString {
+        append("""<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Báo cáo tài chính — ${h(d.periodLabel)}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;color:#1a202c;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.wrap{max-width:1100px;margin:0 auto;padding:32px 24px}
+.header{background:linear-gradient(135deg,#155d30 0%,#1f8c4b 60%,#27ae60 100%);color:#fff;border-radius:16px;padding:28px 36px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.header h1{font-size:22px;font-weight:700;letter-spacing:-.3px;margin-bottom:4px}
+.header p{font-size:12.5px;opacity:.8}
+.badges{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.badge{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.28);border-radius:20px;padding:4px 13px;font-size:11.5px;font-weight:500;white-space:nowrap}
+.sec{font-size:10.5px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.8px;margin:22px 0 9px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+.card{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-top:3px solid}
+.card-label{font-size:11px;color:#718096;margin-bottom:7px;font-weight:500}
+.card-value{font-size:16px;font-weight:700;line-height:1.2}
+.stat-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+.stat-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.07);text-align:center}
+.stat-n{font-size:30px;font-weight:800;line-height:1;margin-bottom:5px}
+.stat-l{font-size:11px;color:#718096;font-weight:500}
+.tcard{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:20px 22px;margin-top:12px;overflow:hidden}
+.tcard h3{font-size:13.5px;font-weight:600;color:#2d3748;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #f0f4f8;display:flex;align-items:center;gap:8px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{padding:8px 10px;text-align:left;font-size:10.5px;font-weight:700;color:#4a5568;background:#f7fafc;border-bottom:2px solid #e2e8f0;white-space:nowrap}
+tbody td{padding:9px 10px;border-bottom:1px solid #f0f4f8;vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#fafbfc}
+.r{text-align:right;font-variant-numeric:tabular-nums}
+.c{text-align:center}
+.b{font-weight:600}
+.pos{color:#276749;font-weight:600}
+.neg{color:#c53030;font-weight:600}
+.pri{color:#2b6cb0;font-weight:600}
+.muted{color:#718096;font-size:11.5px}
+.rank{width:36px;text-align:center;font-weight:700;font-size:14px}
+.g1{color:#d69e2e}.g2{color:#a0aec0}.g3{color:#c05621}
+.footer{text-align:center;font-size:11px;color:#a0aec0;margin-top:28px;padding-top:14px;border-top:1px solid #e2e8f0}
+@media print{body{background:#fff}.wrap{padding:8px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="header">
+  <div>
+    <h1>Báo cáo Tài chính</h1>
+    <p>Nhà thuốc Medstore</p>
+  </div>
+  <div class="badges">
+    <span class="badge">📅 ${h(d.periodLabel)}</span>
+    <span class="badge">⏱ $dateStr</span>
+  </div>
+</div>
+""")
 
-    appendLine("=== DOANH THU ===")
-    appendLine("Chỉ số,Giá trị (VNĐ)")
-    appendLine("Doanh thu gộp,${csvMoney(d.grossRevenue)}")
-    appendLine("Kênh online,${csvMoney(d.onlineRevenue)}")
-    appendLine("Kênh POS,${csvMoney(d.posRevenue)}")
-    appendLine("Giá trị trung bình/đơn,${csvMoney(d.averageOrderValue)}")
-    appendLine()
+        append("""<p class="sec">Doanh thu</p>
+<div class="cards">
+  <div class="card" style="border-top-color:#276749"><div class="card-label">Doanh thu gộp</div><div class="card-value" style="color:#276749">${money(d.grossRevenue)}</div></div>
+  <div class="card" style="border-top-color:#2b6cb0"><div class="card-label">Kênh online</div><div class="card-value" style="color:#2b6cb0">${money(d.onlineRevenue)}</div></div>
+  <div class="card" style="border-top-color:#6b46c1"><div class="card-label">Kênh POS</div><div class="card-value" style="color:#6b46c1">${money(d.posRevenue)}</div></div>
+  <div class="card" style="border-top-color:#285e61"><div class="card-label">Giá trị TB/đơn</div><div class="card-value" style="color:#285e61">${money(d.averageOrderValue)}</div></div>
+</div>
+<p class="sec">Chi phí &amp; Lợi nhuận</p>
+<div class="cards">
+  <div class="card" style="border-top-color:#c05621"><div class="card-label">Chiết khấu</div><div class="card-value" style="color:#c05621">${money(d.totalDiscount)}</div></div>
+  <div class="card" style="border-top-color:#c53030"><div class="card-label">Chi phí vốn</div><div class="card-value" style="color:#c53030">${money(d.totalExpenses)}</div></div>
+  <div class="card" style="border-top-color:#c53030"><div class="card-label">Hoàn tiền</div><div class="card-value" style="color:#c53030">${money(d.totalRefunds)}</div></div>
+  <div class="card" style="border-top-color:${if (d.netProfit >= 0) "#276749" else "#c53030"}"><div class="card-label">Lợi nhuận thuần</div><div class="card-value ${profitCls(d.netProfit)}">${money(d.netProfit)}</div></div>
+</div>
+<p class="sec">Thống kê đơn hàng</p>
+<div class="stat-cards">
+  <div class="stat-card"><div class="stat-n">${d.totalOrderCount}</div><div class="stat-l">Tổng đơn hàng</div></div>
+  <div class="stat-card"><div class="stat-n pos">${d.successfulOrderCount}</div><div class="stat-l">Đơn thành công</div></div>
+  <div class="stat-card"><div class="stat-n neg">${d.cancelledOrderCount}</div><div class="stat-l">Đơn hủy</div></div>
+  <div class="stat-card"><div class="stat-n" style="color:#c05621">${d.refundedOrderCount}</div><div class="stat-l">Hoàn tiền</div></div>
+</div>
+""")
 
-    appendLine("=== CHI PHÍ & CHIẾT KHẤU ===")
-    appendLine("Chỉ số,Giá trị (VNĐ)")
-    appendLine("Tổng chiết khấu,${csvMoney(d.totalDiscount)}")
-    appendLine("Tổng chi phí vốn,${csvMoney(d.totalExpenses)}")
-    appendLine("Tổng hoàn tiền,${csvMoney(d.totalRefunds)}")
-    appendLine()
-
-    appendLine("=== LỢI NHUẬN ===")
-    appendLine("Chỉ số,Giá trị (VNĐ)")
-    appendLine("Lợi nhuận thuần,${csvMoney(d.netProfit)}")
-    appendLine()
-
-    appendLine("=== ĐƠN HÀNG ===")
-    appendLine("Chỉ số,Số lượng")
-    appendLine("Tổng đơn hàng,${d.totalOrderCount}")
-    appendLine("Đơn thành công,${d.successfulOrderCount}")
-    appendLine("Đơn hủy,${d.cancelledOrderCount}")
-    appendLine("Đơn hoàn tiền,${d.refundedOrderCount}")
-    appendLine("Đơn trả hàng,${d.returnedOrderCount}")
-    appendLine()
-
-    if (d.timeBreakdown.isNotEmpty()) {
-        appendLine("=== BÁO CÁO THEO THỜI GIAN ===")
-        appendLine("Thời gian,Tổng đơn,Đơn thành công,Số lượng bán,Doanh thu (VNĐ),Lãi gộp (VNĐ)")
-        d.timeBreakdown.forEach { item ->
-            appendLine("${csvCell(item.label)},${item.orderCount},${item.successfulOrderCount},${item.quantitySold},${csvMoney(item.grossRevenue)},${csvMoney(item.netProfit)}")
+        if (d.timeBreakdown.isNotEmpty()) {
+            append("""<p class="sec">Theo thời gian</p>
+<div class="tcard">
+<h3><span class="dot" style="background:#276749"></span>Báo cáo theo thời gian</h3>
+<table><thead><tr>
+  <th>Thời gian</th><th class="c">Tổng đơn</th><th class="c">Đơn đạt</th><th class="c">SL bán</th><th class="r">Doanh thu</th><th class="r">Lãi gộp</th>
+</tr></thead><tbody>
+""")
+            d.timeBreakdown.sortedBy { it.sortKey }.forEach { item ->
+                append("""<tr>
+  <td class="b">${h(item.label)}</td>
+  <td class="c">${item.orderCount}</td>
+  <td class="c pri">${item.successfulOrderCount}</td>
+  <td class="c b pri">${item.quantitySold}</td>
+  <td class="r">${money(item.grossRevenue)}</td>
+  <td class="r ${profitCls(item.netProfit)}">${money(item.netProfit)}</td>
+</tr>""")
+            }
+            append("</tbody></table></div>\n")
         }
-        appendLine()
-    }
 
-    if (d.categoryReports.isNotEmpty()) {
-        appendLine("=== BÁO CÁO THEO LOẠI SẢN PHẨM ===")
-        appendLine("Loại sản phẩm,Tồn kho,Số lượng bán,Doanh thu (VNĐ),Giá vốn (VNĐ),Lãi gộp (VNĐ)")
-        d.categoryReports.forEach { item ->
-            appendLine("${csvCell(item.categoryName)},${item.stockQuantity},${item.quantitySold},${csvMoney(item.revenue)},${csvMoney(item.cost)},${csvMoney(item.netProfit)}")
+        if (d.categoryReports.isNotEmpty()) {
+            append("""<p class="sec">Theo loại sản phẩm</p>
+<div class="tcard">
+<h3><span class="dot" style="background:#2b6cb0"></span>Báo cáo theo loại sản phẩm</h3>
+<table><thead><tr>
+  <th>Loại sản phẩm</th><th class="c">Tồn kho</th><th class="c">Đã bán</th><th class="r">Doanh thu</th><th class="r">Giá vốn</th><th class="r">Lãi gộp</th>
+</tr></thead><tbody>
+""")
+            d.categoryReports.sortedByDescending { it.revenue }.forEach { item ->
+                append("""<tr>
+  <td class="b">${h(item.categoryName)}</td>
+  <td class="c">${item.stockQuantity}</td>
+  <td class="c b pri">${item.quantitySold}</td>
+  <td class="r">${money(item.revenue)}</td>
+  <td class="r">${money(item.cost)}</td>
+  <td class="r ${profitCls(item.netProfit)}">${money(item.netProfit)}</td>
+</tr>""")
+            }
+            append("</tbody></table></div>\n")
         }
-        appendLine()
-    }
 
-    if (d.productReports.isNotEmpty()) {
-        appendLine("=== BÁO CÁO THEO TỪNG SẢN PHẨM ===")
-        appendLine("Mã sản phẩm,Tên sản phẩm,Loại sản phẩm,Tồn kho,Số lượng bán,Doanh thu (VNĐ),Giá vốn (VNĐ),Lãi gộp (VNĐ)")
-        d.productReports.forEach { item ->
-            appendLine("${csvCell(item.productId)},${csvCell(item.productName)},${csvCell(item.categoryName)},${item.stockQuantity},${item.quantitySold},${csvMoney(item.revenue)},${csvMoney(item.cost)},${csvMoney(item.netProfit)}")
+        if (d.productReports.isNotEmpty()) {
+            append("""<p class="sec">Từng sản phẩm &amp; tồn kho</p>
+<div class="tcard">
+<h3><span class="dot" style="background:#6b46c1"></span>Báo cáo từng sản phẩm</h3>
+<table><thead><tr>
+  <th>Sản phẩm</th><th>Loại</th><th class="c">Tồn</th><th class="c">Bán</th><th class="r">Doanh thu</th><th class="r">Lãi gộp</th>
+</tr></thead><tbody>
+""")
+            d.productReports.sortedByDescending { it.revenue }.forEach { item ->
+                append("""<tr>
+  <td>${h(item.productName)}</td>
+  <td class="muted">${h(item.categoryName)}</td>
+  <td class="c">${item.stockQuantity}</td>
+  <td class="c b pri">${item.quantitySold}</td>
+  <td class="r">${money(item.revenue)}</td>
+  <td class="r ${profitCls(item.netProfit)}">${money(item.netProfit)}</td>
+</tr>""")
+            }
+            append("</tbody></table></div>\n")
         }
-        appendLine()
-    }
 
-    if (d.topSellingProducts.isNotEmpty()) {
-        appendLine("=== TOP MẶT HÀNG BÁN CHẠY ===")
-        appendLine("STT,Tên sản phẩm,Số lượng bán,Doanh thu (VNĐ)")
-        d.topSellingProducts.forEachIndexed { i, p ->
-            appendLine("${i + 1},${csvCell(p.productName)},${p.quantitySold},${csvMoney(p.revenue)}")
+        if (d.topSellingProducts.isNotEmpty()) {
+            append("""<p class="sec">Top mặt hàng bán chạy</p>
+<div class="tcard">
+<h3><span class="dot" style="background:#c05621"></span>Top sản phẩm bán chạy</h3>
+<table><thead><tr>
+  <th class="rank">#</th><th>Tên sản phẩm</th><th class="c">Số lượng</th><th class="r">Doanh thu</th>
+</tr></thead><tbody>
+""")
+            d.topSellingProducts.forEachIndexed { i, p ->
+                val rankCls = when (i) { 0 -> "g1"; 1 -> "g2"; 2 -> "g3"; else -> "" }
+                val boldCls = if (i < 3) " b" else ""
+                append("""<tr>
+  <td class="rank $rankCls">${i + 1}</td>
+  <td class="$boldCls">${h(p.productName)}</td>
+  <td class="c b pri">${p.quantitySold}</td>
+  <td class="r">${money(p.revenue)}</td>
+</tr>""")
+            }
+            append("</tbody></table></div>\n")
         }
+
+        append("""<div class="footer">Báo cáo được tạo tự động lúc $dateStr · Medstore Desktop</div>
+</div></body></html>""")
     }
 }

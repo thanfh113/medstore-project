@@ -69,6 +69,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import org.example.project.data.models.Product
 import org.example.project.data.models.ProductCategory
@@ -135,15 +142,23 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
     }
 
 
+    // Close dialog only after successful submission
+    LaunchedEffect(uiState.successMessage) {
+        if (uiState.successMessage != null && showBulkStockReceiptDialog) {
+            showBulkStockReceiptDialog = false
+        }
+    }
+
     if (showBulkStockReceiptDialog) {
         BulkStockReceiptDialog(
             products = uiState.products,
             isLoading = uiState.isUpdating,
-            onSave = { receipts ->
-                viewModel.addStockReceipts(receipts)
+            serverError = uiState.error,
+            onSave = { receipts -> viewModel.addStockReceipts(receipts) },
+            onCancel = {
+                viewModel.clearError()
                 showBulkStockReceiptDialog = false
-            },
-            onCancel = { showBulkStockReceiptDialog = false }
+            }
         )
     }
     selectedProductForPreview?.let { product ->
@@ -215,7 +230,7 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
                 .padding(paddingValues)
                 .padding(24.dp)
         ) {
-            if (uiState.error != null) {
+            if (uiState.error != null && !showBulkStockReceiptDialog) {
                 MessageBanner(
                     message = uiState.error!!,
                     containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -240,7 +255,11 @@ fun ProductsScreen(viewModel: ProductsViewModel) {
                 canCreateProduct = canCreateProduct,
                 onSearchChange = viewModel::searchProducts,
                 onCreateClick = { viewModel.showCreateDialog() },
-                onBulkStockReceiptClick = { showBulkStockReceiptDialog = true },
+                onBulkStockReceiptClick = {
+                    viewModel.clearSuccessMessage()
+                    viewModel.clearError()
+                    showBulkStockReceiptDialog = true
+                },
                 canReceiveStock = uiState.products.isNotEmpty() && !uiState.isLoading
             )
 
@@ -868,6 +887,8 @@ private fun FilterDropdown(
 }
 
 
+// ── Bulk Stock Receipt (Nhập hàng theo phiếu) ──────────────────────────────
+
 private data class BulkStockReceiptLine(
     val id: Int,
     val productId: String = "",
@@ -877,195 +898,290 @@ private data class BulkStockReceiptLine(
     val expDate: String = ""
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BulkStockReceiptDialog(
     products: List<Product>,
     isLoading: Boolean,
+    serverError: String? = null,
     onSave: (List<StockReceiptDraft>) -> Unit,
     onCancel: () -> Unit
 ) {
     var invoiceCode by remember { mutableStateOf("") }
     var rows by remember { mutableStateOf(listOf(BulkStockReceiptLine(id = 1))) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val displayError = serverError ?: errorMessage
     val productsById = remember(products) { products.associateBy { it.id } }
-    val estimatedTotal = rows.sumOf { line ->
-        val quantity = line.quantity.toIntOrNull() ?: 0
-        val price = line.importPrice.toDoubleOrNull() ?: 0.0
-        quantity * price
+
+    val duplicateProductIds = remember(rows) {
+        rows.filter { it.productId.isNotBlank() }
+            .groupBy { it.productId }
+            .filter { it.value.size > 1 }
+            .keys
+    }
+    val estimatedTotal = remember(rows) {
+        rows.sumOf { l -> (l.quantity.toIntOrNull() ?: 0) * (l.importPrice.toDoubleOrNull() ?: 0.0) }
     }
 
-    AlertDialog(
+    BasicAlertDialog(
         onDismissRequest = { if (!isLoading) onCancel() },
-        title = { Text("Nhập hàng theo phiếu") },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 620.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                errorMessage?.let { message ->
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+        modifier = Modifier.width(860.dp),
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column {
+                // ── Header ───────────────────────────────────────────────────────
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+                        .padding(start = 24.dp, end = 12.dp, top = 16.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
-                            text = message,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.padding(12.dp),
-                            fontSize = 12.sp
+                            "Nhập hàng theo phiếu",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            "Tồn kho được cộng trực tiếp — không tạo bảng dữ liệu riêng",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    IconButton(onClick = onCancel, enabled = !isLoading) {
+                        Icon(Icons.Default.Close, contentDescription = "Đóng", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
 
-                OutlinedTextField(
-                    value = invoiceCode,
-                    onValueChange = { invoiceCode = it },
-                    label = { Text("Mã hóa đơn/phiếu nhập", fontSize = 13.sp) },
-                    placeholder = { Text("Ví dụ: PN-2026-001", fontSize = 12.sp) },
-                    singleLine = true,
-                    enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-                    shape = RoundedCornerShape(12.dp)
+                // ── Body (scrollable) ────────────────────────────────────────────
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 530.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // Invoice code + stats
                     Row(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("${rows.size} dòng nhập", fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "Tồn kho sẽ được cộng trực tiếp vào từng sản phẩm, không tạo bảng dữ liệu mới.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 12.sp
+                        OutlinedTextField(
+                            value = invoiceCode,
+                            onValueChange = { invoiceCode = it },
+                            label = { Text("Mã phiếu nhập (tuỳ chọn)") },
+                            placeholder = { Text("VD: PN-2026-001") },
+                            singleLine = true,
+                            enabled = !isLoading,
+                            modifier = Modifier.weight(1f),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                focusedLabelColor = MaterialTheme.colorScheme.primary
                             )
-                        }
-                        if (estimatedTotal > 0.0) {
-                            Text(
-                                "Tạm tính: ${formatVND(estimatedTotal)}",
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-
-                rows.forEachIndexed { index, line ->
-                    BulkStockReceiptLineEditor(
-                        index = index,
-                        line = line,
-                        products = products,
-                        selectedProduct = productsById[line.productId],
-                        canRemove = rows.size > 1,
-                        isLoading = isLoading,
-                        onProductSelected = { productId ->
-                            rows = rows.map { if (it.id == line.id) it.copy(productId = productId) else it }
-                            errorMessage = null
-                        },
-                        onQuantityChange = { value ->
-                            rows = rows.map { if (it.id == line.id) it.copy(quantity = value.filter { c -> c.isDigit() }) else it }
-                            errorMessage = null
-                        },
-                        onImportPriceChange = { value ->
-                            rows = rows.map { if (it.id == line.id) it.copy(importPrice = sanitizeDecimalInput(value)) else it }
-                            errorMessage = null
-                        },
-                        onMfgDateChange = { value ->
-                            rows = rows.map { if (it.id == line.id) it.copy(mfgDate = value) else it }
-                            errorMessage = null
-                        },
-                        onExpDateChange = { value ->
-                            rows = rows.map { if (it.id == line.id) it.copy(expDate = value) else it }
-                            errorMessage = null
-                        },
-                        onRemove = {
-                            rows = rows.filterNot { it.id == line.id }
-                            errorMessage = null
-                        }
-                    )
-                }
-
-                TextButton(
-                    onClick = {
-                        val nextId = (rows.maxOfOrNull { it.id } ?: 0) + 1
-                        rows = rows + BulkStockReceiptLine(id = nextId)
-                    },
-                    enabled = !isLoading
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Thêm dòng")
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val activeRows = rows.filter { line ->
-                        line.productId.isNotBlank() ||
-                            line.quantity.isNotBlank() ||
-                            line.importPrice.isNotBlank() ||
-                            line.mfgDate.isNotBlank() ||
-                            line.expDate.isNotBlank()
-                    }
-                    when {
-                        products.isEmpty() -> errorMessage = "Chưa có sản phẩm để nhập kho"
-                        activeRows.isEmpty() -> errorMessage = "Thêm ít nhất một dòng nhập kho"
-                        activeRows.any { it.productId.isBlank() } -> errorMessage = "Mỗi dòng cần chọn sản phẩm"
-                        activeRows.any { (it.quantity.toIntOrNull() ?: 0) <= 0 } -> errorMessage = "Số lượng nhập phải lớn hơn 0"
-                        activeRows.any { it.importPrice.isNotBlank() && it.importPrice.toDoubleOrNull() == null } -> errorMessage = "Giá nhập không hợp lệ"
-                        activeRows.any { !isValidStockDateText(it.mfgDate) || !isValidStockDateText(it.expDate) } -> errorMessage = "Ngày sản xuất/hạn dùng cần đúng định dạng yyyy-MM-dd"
-                        else -> {
-                            val note = invoiceCode.trim().takeIf { it.isNotBlank() }?.let { "Phiếu nhập: $it" }
-                            onSave(
-                                activeRows.map { line ->
-                                    StockReceiptDraft(
-                                        productId = line.productId,
-                                        mfgDate = line.mfgDate.ifBlank { null },
-                                        expDate = line.expDate.ifBlank { null },
-                                        quantity = line.quantity.toInt(),
-                                        importPrice = line.importPrice.toDoubleOrNull()?.takeIf { it > 0.0 },
-                                        note = note
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    "${rows.size} dòng",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                if (estimatedTotal > 0.0) {
+                                    Text(
+                                        formatVND(estimatedTotal),
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontSize = 13.sp
                                     )
+                                    Text("tạm tính", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+
+                    // Error banner
+                    displayError?.let { msg ->
+                        Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.errorContainer) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                Text(msg, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 13.sp)
+                            }
+                        }
+                    }
+
+                    // Table
+                    Column {
+                        // Column headers
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Sản phẩm *", Modifier.weight(1f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("SL *", Modifier.width(72.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                            Text("Đơn giá nhập", Modifier.width(118.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                            Text("NSX", Modifier.width(108.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                            Text("HSD", Modifier.width(108.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                            Spacer(Modifier.width(36.dp))
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), thickness = 1.5.dp)
+
+                        rows.forEachIndexed { idx, line ->
+                            BulkStockReceiptRow(
+                                line = line,
+                                products = products,
+                                selectedProduct = productsById[line.productId],
+                                isDuplicate = line.productId.isNotBlank() && line.productId in duplicateProductIds,
+                                canRemove = rows.size > 1,
+                                isLoading = isLoading,
+                                onProductSelected = { pid ->
+                                    rows = rows.map { if (it.id == line.id) it.copy(productId = pid) else it }
+                                    errorMessage = null
+                                },
+                                onQuantityChange = { v ->
+                                    rows = rows.map { if (it.id == line.id) it.copy(quantity = v.filter { c -> c.isDigit() }) else it }
+                                    errorMessage = null
+                                },
+                                onImportPriceChange = { v ->
+                                    rows = rows.map { if (it.id == line.id) it.copy(importPrice = sanitizeDecimalInput(v)) else it }
+                                    errorMessage = null
+                                },
+                                onMfgDateChange = { v ->
+                                    rows = rows.map { if (it.id == line.id) it.copy(mfgDate = v) else it }
+                                    errorMessage = null
+                                },
+                                onExpDateChange = { v ->
+                                    rows = rows.map { if (it.id == line.id) it.copy(expDate = v) else it }
+                                    errorMessage = null
+                                },
+                                onRemove = {
+                                    rows = rows.filterNot { it.id == line.id }
+                                    errorMessage = null
                                 }
                             )
+                            if (idx < rows.lastIndex) {
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                    modifier = Modifier.padding(vertical = 2.dp)
+                                )
+                            }
                         }
                     }
-                },
-                enabled = !isLoading
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                    Spacer(Modifier.width(8.dp))
+
+                    // Add row
+                    Row {
+                        OutlinedButton(
+                            onClick = {
+                                val nextId = (rows.maxOfOrNull { it.id } ?: 0) + 1
+                                rows = rows + BulkStockReceiptLine(id = nextId)
+                            },
+                            enabled = !isLoading,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Thêm dòng")
+                        }
+                    }
                 }
-                Text("Xác nhận nhập")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onCancel, enabled = !isLoading) {
-                Text("Hủy")
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // ── Footer ───────────────────────────────────────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (duplicateProductIds.isNotEmpty()) {
+                        Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(13.dp))
+                                Text("Có ${duplicateProductIds.size} sản phẩm trùng dòng", fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                    }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onCancel, enabled = !isLoading) { Text("Hủy") }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            val activeRows = rows.filter { l ->
+                                l.productId.isNotBlank() || l.quantity.isNotBlank() ||
+                                    l.importPrice.isNotBlank() || l.mfgDate.isNotBlank() || l.expDate.isNotBlank()
+                            }
+                            when {
+                                products.isEmpty() -> errorMessage = "Chưa có sản phẩm để nhập kho"
+                                activeRows.isEmpty() -> errorMessage = "Thêm ít nhất một dòng nhập kho"
+                                activeRows.any { it.productId.isBlank() } -> errorMessage = "Mỗi dòng cần chọn sản phẩm"
+                                activeRows.any { (it.quantity.toIntOrNull() ?: 0) <= 0 } -> errorMessage = "Số lượng nhập phải lớn hơn 0"
+                                activeRows.any { it.importPrice.isNotBlank() && it.importPrice.toDoubleOrNull() == null } -> errorMessage = "Giá nhập không hợp lệ"
+                                activeRows.any { !isValidCalendarDate(it.mfgDate) } -> errorMessage = "Ngày sản xuất không hợp lệ (định dạng: yyyy-MM-dd)"
+                                activeRows.any { !isValidCalendarDate(it.expDate) } -> errorMessage = "Hạn sử dụng không hợp lệ (định dạng: yyyy-MM-dd)"
+                                else -> {
+                                    val note = invoiceCode.trim().takeIf { it.isNotBlank() }?.let { "Phiếu nhập: $it" }
+                                    onSave(activeRows.map { l ->
+                                        StockReceiptDraft(
+                                            productId = l.productId,
+                                            mfgDate = l.mfgDate.ifBlank { null },
+                                            expDate = l.expDate.ifBlank { null },
+                                            quantity = l.quantity.toInt(),
+                                            importPrice = l.importPrice.toDoubleOrNull()?.takeIf { it > 0.0 },
+                                            note = note
+                                        )
+                                    })
+                                }
+                            }
+                        },
+                        enabled = !isLoading
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Đang nhập kho...")
+                        } else {
+                            Text("Xác nhận nhập")
+                        }
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 @Composable
-private fun BulkStockReceiptLineEditor(
-    index: Int,
+private fun BulkStockReceiptRow(
     line: BulkStockReceiptLine,
     products: List<Product>,
     selectedProduct: Product?,
+    isDuplicate: Boolean,
     canRemove: Boolean,
     isLoading: Boolean,
     onProductSelected: (String) -> Unit,
@@ -1075,83 +1191,115 @@ private fun BulkStockReceiptLineEditor(
     onExpDateChange: (String) -> Unit,
     onRemove: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-        shape = RoundedCornerShape(10.dp)
+    val mfgInvalid = line.mfgDate.isNotBlank() && !isValidCalendarDate(line.mfgDate)
+    val expInvalid = line.expDate.isNotBlank() && !isValidCalendarDate(line.expDate)
+    val qtyInvalid = line.quantity.isNotBlank() && (line.quantity.toIntOrNull() ?: 0) <= 0
+    val incoming = line.quantity.toIntOrNull() ?: 0
+
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Dòng ${index + 1}", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                if (canRemove) {
-                    TextButton(onClick = onRemove, enabled = !isLoading) {
-                        Text("Xóa")
-                    }
-                }
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             ProductStockDropdown(
                 products = products,
                 selectedProduct = selectedProduct,
                 onProductSelected = onProductSelected,
                 enabled = !isLoading,
-                modifier = Modifier.fillMaxWidth()
+                isDuplicate = isDuplicate,
+                modifier = Modifier.weight(1f)
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            OutlinedTextField(
+                value = line.quantity,
+                onValueChange = onQuantityChange,
+                label = { Text("SL", fontSize = 11.sp) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                enabled = !isLoading,
+                isError = qtyInvalid,
+                modifier = Modifier.width(72.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary
+                )
+            )
+            OutlinedTextField(
+                value = line.importPrice,
+                onValueChange = onImportPriceChange,
+                label = { Text("Giá nhập", fontSize = 11.sp) },
+                placeholder = { Text("0") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                enabled = !isLoading,
+                modifier = Modifier.width(118.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary
+                )
+            )
+            OutlinedTextField(
+                value = line.mfgDate,
+                onValueChange = onMfgDateChange,
+                label = { Text("NSX", fontSize = 11.sp) },
+                placeholder = { Text("yyyy-MM-dd", fontSize = 10.sp) },
+                singleLine = true,
+                enabled = !isLoading,
+                isError = mfgInvalid,
+                modifier = Modifier.width(108.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary
+                )
+            )
+            OutlinedTextField(
+                value = line.expDate,
+                onValueChange = onExpDateChange,
+                label = { Text("HSD", fontSize = 11.sp) },
+                placeholder = { Text("yyyy-MM-dd", fontSize = 10.sp) },
+                singleLine = true,
+                enabled = !isLoading,
+                isError = expInvalid,
+                modifier = Modifier.width(108.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary
+                )
+            )
+            IconButton(
+                onClick = onRemove,
+                enabled = canRemove && !isLoading,
+                modifier = Modifier.size(36.dp)
             ) {
-                OutlinedTextField(
-                    value = line.quantity,
-                    onValueChange = onQuantityChange,
-                    label = { Text("SL", fontSize = 12.sp) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    enabled = !isLoading,
-                    modifier = Modifier.width(84.dp)
-                )
-                OutlinedTextField(
-                    value = line.importPrice,
-                    onValueChange = onImportPriceChange,
-                    label = { Text("Giá nhập", fontSize = 12.sp) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    enabled = !isLoading,
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedTextField(
-                    value = line.mfgDate,
-                    onValueChange = onMfgDateChange,
-                    label = { Text("NSX", fontSize = 12.sp) },
-                    placeholder = { Text("yyyy-MM-dd", fontSize = 11.sp) },
-                    singleLine = true,
-                    enabled = !isLoading,
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedTextField(
-                    value = line.expDate,
-                    onValueChange = onExpDateChange,
-                    label = { Text("HSD", fontSize = 12.sp) },
-                    placeholder = { Text("yyyy-MM-dd", fontSize = 11.sp) },
-                    singleLine = true,
-                    enabled = !isLoading,
-                    modifier = Modifier.weight(1f)
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Xóa dòng",
+                    tint = if (canRemove) MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                           else MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.size(18.dp)
                 )
             }
-            selectedProduct?.let { product ->
-                val incoming = line.quantity.toIntOrNull() ?: 0
+        }
+        // Inline hints
+        Row(
+            modifier = Modifier.padding(start = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (selectedProduct != null) {
+                val color = if (incoming > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 Text(
-                    "Tồn hiện tại: ${product.stockQuantity} ${product.unit} • Sau nhập: ${product.stockQuantity + incoming} ${product.unit}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    "Tồn: ${selectedProduct.stockQuantity} → ${selectedProduct.stockQuantity + incoming} ${selectedProduct.unit}",
+                    fontSize = 11.sp,
+                    color = color
                 )
             }
+            if (isDuplicate) Text("⚠ Trùng với dòng khác", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+            if (mfgInvalid) Text("NSX không hợp lệ", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+            if (expInvalid) Text("HSD không hợp lệ", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
         }
     }
 }
@@ -1162,52 +1310,84 @@ private fun ProductStockDropdown(
     selectedProduct: Product?,
     onProductSelected: (String) -> Unit,
     enabled: Boolean,
+    isDuplicate: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredProducts = remember(products, searchQuery) {
+        if (searchQuery.isBlank()) products.sortedBy { it.name }
+        else products.filter {
+            it.name.contains(searchQuery, ignoreCase = true) ||
+                (it.sku?.contains(searchQuery, ignoreCase = true) == true)
+        }.sortedBy { it.name }
+    }
 
     Box(modifier = modifier) {
         OutlinedButton(
-            onClick = { expanded = true },
+            onClick = { if (enabled) { expanded = true; searchQuery = "" } },
             enabled = enabled,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(8.dp)
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            shape = RoundedCornerShape(8.dp),
+            border = if (isDuplicate) BorderStroke(1.5.dp, MaterialTheme.colorScheme.error)
+                     else BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
         ) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Sản phẩm", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    selectedProduct?.name ?: "Chọn sản phẩm",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (selectedProduct != null) {
+                    Text(selectedProduct.name, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp)
+                    Text(
+                        "Tồn: ${selectedProduct.stockQuantity} ${selectedProduct.unit}" +
+                            (selectedProduct.sku?.let { " · $it" } ?: ""),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        maxLines = 1
+                    )
+                } else {
+                    Text("Chọn sản phẩm...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                }
             }
-            Text("Chọn", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            Icon(Icons.Default.ArrowDropDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         }
+
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.heightIn(max = 320.dp)
+            onDismissRequest = { expanded = false; searchQuery = "" },
+            modifier = Modifier.width(360.dp).heightIn(max = 400.dp)
         ) {
-            products.sortedBy { it.name }.forEach { product ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(product.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(
-                                "Tồn: ${product.stockQuantity} ${product.unit}",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 12.sp
-                            )
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Tìm tên / mã SKU...", fontSize = 12.sp) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                leadingIcon = { Icon(Icons.Default.Search, null, modifier = Modifier.size(16.dp)) },
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary)
+            )
+            HorizontalDivider()
+            if (filteredProducts.isEmpty()) {
+                Text("Không tìm thấy sản phẩm", modifier = Modifier.padding(16.dp), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                filteredProducts.forEach { product ->
+                    DropdownMenuItem(
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                Text(product.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp)
+                                Text(
+                                    "Tồn: ${product.stockQuantity} ${product.unit}" +
+                                        (product.sku?.let { " · $it" } ?: ""),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        },
+                        onClick = {
+                            onProductSelected(product.id)
+                            expanded = false
+                            searchQuery = ""
                         }
-                    },
-                    onClick = {
-                        onProductSelected(product.id)
-                        expanded = false
-                    }
-                )
+                    )
+                }
             }
         }
     }
@@ -1218,18 +1398,15 @@ private fun sanitizeDecimalInput(value: String): String {
     return value.filter { c ->
         when {
             c.isDigit() -> true
-            c == '.' && !dotUsed -> {
-                dotUsed = true
-                true
-            }
+            c == '.' && !dotUsed -> { dotUsed = true; true }
             else -> false
         }
     }
 }
 
-private fun isValidStockDateText(value: String): Boolean {
+private fun isValidCalendarDate(value: String): Boolean {
     if (value.isBlank()) return true
-    return Regex("\\d{4}-\\d{2}-\\d{2}").matches(value)
+    return try { java.time.LocalDate.parse(value); true } catch (_: Exception) { false }
 }
 @Composable
 private fun StockReceiptDialog(

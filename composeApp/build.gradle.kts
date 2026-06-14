@@ -81,6 +81,8 @@ kotlin {
             // JVM-specific implementations
             implementation("io.ktor:ktor-client-cio:2.3.7")
             implementation("app.cash.sqldelight:sqlite-driver:2.0.1")
+            // Excel export
+            implementation("org.apache.poi:poi-ooxml:5.2.5")
         }
     }
 }
