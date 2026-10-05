@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder: Băng dính y tế 3M Tegaderm – thay thế bằng mock_bandage.webp -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="400dp" android:height="400dp"
+    android:viewportWidth="400" android:viewportHeight="400">
+    <!-- Background -->
+    <path android:fillColor="#E0F2F1" android:pathData="M0,0 L400,0 L400,400 L0,400 Z"/>
+    <!-- Bandage base (transparent film look) -->
+    <path android:fillColor="#B2EBF2"
+        android:pathData="M60,130 L340,130 L340,280 L60,280 Z"/>
+    <!-- Bandage border -->
+    <path android:fillColor="#00000000" android:strokeColor="#00897B" android:strokeWidth="5"
+        android:pathData="M60,130 L340,130 L340,280 L60,280 Z"/>
+    <!-- Center pad -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M150,150 L250,150 L250,260 L150,260 Z"/>
+    <!-- Center pad border -->
+    <path android:fillColor="#00000000" android:strokeColor="#B2DFDB" android:strokeWidth="2"
+        android:pathData="M150,150 L250,150 L250,260 L150,260 Z"/>
+    <!-- 3M logo text area -->
+    <path android:fillColor="#E0F2F1"
+        android:pathData="M75,145 L145,145 L145,170 L75,170 Z"/>
+    <!-- Tegaderm text area -->
+    <path android:fillColor="#E0F2F1"
+        android:pathData="M75,175 L145,175 L145,200 L75,200 Z"/>
+    <!-- Grid pattern on transparent film (left side) -->
+    <path android:fillColor="#00000000" android:strokeColor="#80CBC4" android:strokeWidth="1"
+        android:pathData="M70,140 L70,270 M85,140 L85,270 M100,140 L100,270 M115,140 L115,270 M130,140 L130,270 M145,140 L145,270"/>
+    <!-- Grid pattern (right side) -->
+    <path android:fillColor="#00000000" android:strokeColor="#80CBC4" android:strokeWidth="1"
+        android:pathData="M255,140 L255,270 M270,140 L270,270 M285,140 L285,270 M300,140 L300,270 M315,140 L315,270 M330,140 L330,270"/>
+    <!-- Corner fold indicator -->
+    <path android:fillColor="#26C6DA"
+        android:pathData="M315,260 L340,260 L340,280 Z"/>
+    <path android:fillColor="#26C6DA"
+        android:pathData="M60,260 L85,260 L60,280 Z"/>
+</vector>

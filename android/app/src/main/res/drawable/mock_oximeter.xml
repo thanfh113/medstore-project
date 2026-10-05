@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder: Máy đo SpO2 Jumper JPD-500D – thay thế bằng mock_oximeter.webp -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="400dp" android:height="400dp"
+    android:viewportWidth="400" android:viewportHeight="400">
+    <!-- Background -->
+    <path android:fillColor="#FCE4EC" android:pathData="M0,0 L400,0 L400,400 L0,400 Z"/>
+    <!-- Device body -->
+    <path android:fillColor="#F8BBD0"
+        android:pathData="M80,130 Q80,100 110,100 L290,100 Q320,100 320,130 L320,270 Q320,300 290,300 L110,300 Q80,300 80,270 Z"/>
+    <!-- Device body border -->
+    <path android:fillColor="#00000000" android:strokeColor="#E91E63" android:strokeWidth="5"
+        android:pathData="M80,130 Q80,100 110,100 L290,100 Q320,100 320,130 L320,270 Q320,300 290,300 L110,300 Q80,300 80,270 Z"/>
+    <!-- OLED Display -->
+    <path android:fillColor="#1A1A2E"
+        android:pathData="M100,120 L300,120 L300,220 L100,220 Z"/>
+    <!-- SpO2 reading -->
+    <path android:fillColor="#E91E63"
+        android:pathData="M110,130 L200,130 L200,175 L110,175 Z"/>
+    <!-- Heart rate reading -->
+    <path android:fillColor="#F48FB1"
+        android:pathData="M205,130 L290,130 L290,175 L205,175 Z"/>
+    <!-- Waveform line -->
+    <path android:fillColor="#00000000" android:strokeColor="#00E5FF" android:strokeWidth="3"
+        android:pathData="M105,195 L135,195 L145,180 L155,210 L165,175 L175,200 L185,195 L295,195"/>
+    <!-- Finger slot -->
+    <path android:fillColor="#AD1457"
+        android:pathData="M130,295 Q130,340 200,340 Q270,340 270,295 L130,295 Z"/>
+    <!-- Button -->
+    <path android:fillColor="#880E4F"
+        android:pathData="M180,255 L220,255 L220,275 L180,275 Z"/>
+</vector>

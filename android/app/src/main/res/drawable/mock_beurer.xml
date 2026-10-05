@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder: Nhiệt kế BEURER JFT95 – thay thế bằng mock_beurer.webp -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="400dp" android:height="400dp"
+    android:viewportWidth="400" android:viewportHeight="400">
+    <!-- Background -->
+    <path android:fillColor="#FBE9E7" android:pathData="M0,0 L400,0 L400,400 L0,400 Z"/>
+    <!-- Thermometer body -->
+    <path android:fillColor="#FFCCBC"
+        android:pathData="M180,60 L220,60 L220,300 Q220,340 200,340 Q180,340 180,300 Z"/>
+    <!-- Thermometer tube border -->
+    <path android:fillColor="#00000000" android:strokeColor="#E64A19" android:strokeWidth="4"
+        android:pathData="M180,60 L220,60 L220,300 Q220,340 200,340 Q180,340 180,300 Z"/>
+    <!-- Mercury / sensor fill -->
+    <path android:fillColor="#E64A19"
+        android:pathData="M185,250 L215,250 L215,300 Q215,335 200,335 Q185,335 185,300 Z"/>
+    <!-- Temperature scale marks -->
+    <path android:fillColor="#FF5722" android:strokeColor="#FF5722" android:strokeWidth="3"
+        android:pathData="M220,120 L235,120 M220,150 L230,150 M220,180 L235,180 M220,210 L230,210 M220,240 L235,240"/>
+    <!-- Display screen on top -->
+    <path android:fillColor="#263238"
+        android:pathData="M155,50 L245,50 L245,100 L155,100 Z"/>
+    <path android:fillColor="#B2DFDB"
+        android:pathData="M160,55 L240,55 L240,95 L160,95 Z"/>
+    <!-- Reading text area (simplified) -->
+    <path android:fillColor="#00897B"
+        android:pathData="M165,62 L235,62 L235,88 L165,88 Z"/>
+</vector>
